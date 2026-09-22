@@ -1,0 +1,1146 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import {
+  Bot,
+  Sparkles,
+  Globe,
+  Palette,
+  Key,
+  ShieldCheck,
+  Zap,
+  CheckCircle2,
+  ArrowRight,
+  ExternalLink,
+  Layers,
+  Search,
+  Code2,
+  Cpu,
+  Loader2,
+  Database,
+  Info,
+  Sliders,
+  Trash2,
+  Pencil,
+  Plus,
+  X,
+  Play,
+  RotateCcw,
+  Phone,
+  MessageCircle,
+  Mail,
+  Check,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import { Navbar } from '@/components/Navbar';
+
+const COLOR_PRESETS = [
+  { name: 'Indigo', hex: '#4f46e5' },
+  { name: 'Emerald', hex: '#059669' },
+  { name: 'Rose', hex: '#e11d48' },
+  { name: 'Violet', hex: '#7c3aed' },
+  { name: 'Cyan', hex: '#0891b2' },
+  { name: 'Amber', hex: '#d97706' },
+  { name: 'Dark Slate', hex: '#0f172a' },
+];
+
+export default function CreateBotPage() {
+  const router = useRouter();
+
+  // Wizard Step: 1 = Initial (URL + Name), 2 = Crawling, 3 = Autofilled Form
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Step 1: Initial Inputs
+  const [siteUrl, setSiteUrl] = useState('');
+  const [botName, setBotName] = useState('');
+  const [createdBotId, setCreatedBotId] = useState<string | null>(null);
+
+  // Crawling Progress State
+  const [crawlProgress, setCrawlProgress] = useState(0);
+  const [crawlMessage, setCrawlMessage] = useState('Initializing website scanner...');
+  const [discoveredInfo, setDiscoveredInfo] = useState<{
+    brandName?: string;
+    brandColor?: string;
+    phone?: string;
+    whatsapp?: string;
+    email?: string;
+    pagesCount?: number;
+    chunksCount?: number;
+  }>({});
+
+  // Step 3: Detailed & Autofilled Customization Form State
+  const [primaryColor, setPrimaryColor] = useState('#4f46e5');
+  const [position, setPosition] = useState<'bottom-right' | 'bottom-left'>('bottom-right');
+  const [launcherStyle, setLauncherStyle] = useState<'standard' | 'minimal' | 'pill' | 'chat'>('standard');
+  const [greeting, setGreeting] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [phone, setPhone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [email, setEmail] = useState('');
+  const [auditUrl, setAuditUrl] = useState('');
+  const [pricingUrl, setPricingUrl] = useState('');
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+
+  // Suggested Questions Inline Editing State
+  const [editingQuestionIdx, setEditingQuestionIdx] = useState<number | null>(null);
+  const [editingQuestionText, setEditingQuestionText] = useState('');
+  const [newQuestionInput, setNewQuestionInput] = useState('');
+  const [isAddingQuestion, setIsAddingQuestion] = useState(false);
+
+  const handleStartEditQuestion = (idx: number) => {
+    setEditingQuestionIdx(idx);
+    setEditingQuestionText(suggestedQuestions[idx] || '');
+  };
+
+  const handleSaveEditQuestion = () => {
+    if (editingQuestionIdx !== null) {
+      if (editingQuestionText.trim()) {
+        const updated = [...suggestedQuestions];
+        updated[editingQuestionIdx] = editingQuestionText.trim();
+        setSuggestedQuestions(updated);
+      }
+      setEditingQuestionIdx(null);
+      setEditingQuestionText('');
+    }
+  };
+
+  const handleCancelEditQuestion = () => {
+    setEditingQuestionIdx(null);
+    setEditingQuestionText('');
+  };
+
+  const handleAddQuestion = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (newQuestionInput.trim()) {
+      setSuggestedQuestions([...suggestedQuestions, newQuestionInput.trim()]);
+      setNewQuestionInput('');
+      setIsAddingQuestion(false);
+    }
+  };
+
+  const handleDeleteQuestion = (idxToDelete: number) => {
+    setSuggestedQuestions(suggestedQuestions.filter((_, i) => i !== idxToDelete));
+    if (editingQuestionIdx === idxToDelete) {
+      setEditingQuestionIdx(null);
+      setEditingQuestionText('');
+    }
+  };
+
+  // AI Provider & Model State
+  const [activeProvider, setActiveProvider] = useState<'openai' | 'nvidia' | 'gemini' | 'openrouter'>('openai');
+  const [chatModel, setChatModel] = useState('gpt-4o-mini');
+  const [embedProvider, setEmbedProvider] = useState<'openai' | 'nvidia' | 'gemini'>('nvidia');
+  const [embedModel, setEmbedModel] = useState('nvidia/llama-3.2-nv-embedqa-1b-v1');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // BYOK Keys
+  const [geminiKey, setGeminiKey] = useState('');
+  const [openrouterKey, setOpenrouterKey] = useState('');
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [nvidiaKey, setNvidiaKey] = useState('');
+
+  // UI Status
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [savedBots, setSavedBots] = useState<any[]>([]);
+
+  // Sync defaults from .env via /api/bot on mount
+  useEffect(() => {
+    fetch('/api/bot')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.defaults) {
+          if (data.defaults.chatProvider) setActiveProvider(data.defaults.chatProvider);
+          if (data.defaults.chatModel) setChatModel(data.defaults.chatModel);
+          if (data.defaults.embedProvider) setEmbedProvider(data.defaults.embedProvider);
+          if (data.defaults.embedModel) setEmbedModel(data.defaults.embedModel);
+        }
+        if (data.bots) {
+          setSavedBots(data.bots);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-generate bot name from site URL
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSiteUrl(val);
+
+    if (!botName || botName.endsWith('Assistant')) {
+      try {
+        const cleaned = val.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+        const domainParts = cleaned.split('/')[0].split('.');
+        if (domainParts[0] && domainParts[0].length > 1) {
+          const capitalized = domainParts[0].charAt(0).toUpperCase() + domainParts[0].slice(1);
+          setBotName(`${capitalized} Assistant`);
+        }
+      } catch {}
+    }
+  };
+
+  // STEP 1 -> STEP 2: Create initial bot and trigger crawler with SSE
+  const handleStartCrawl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!siteUrl.trim()) {
+      setError('Please enter a target website URL.');
+      return;
+    }
+
+    setLoading(true);
+    setStep(2);
+    setCrawlProgress(5);
+    setCrawlMessage('Creating project workspace...');
+
+    try {
+      // 1. Create Bot in Database
+      const createRes = await fetch('/api/bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: botName.trim() || 'Site AI Assistant',
+          siteUrl: siteUrl.trim(),
+          primaryColor,
+          position,
+          chatProvider: activeProvider,
+          chatModel,
+          embedProvider,
+          embedModel,
+        }),
+      });
+
+      const createData = await createRes.json();
+      if (!createRes.ok) throw new Error(createData.error || 'Failed to initialize bot');
+
+      const botId = createData.bot.id;
+      setCreatedBotId(botId);
+
+      // Save initial state to localStorage
+      try {
+        const existing = JSON.parse(localStorage.getItem('sitebot_saved_bots') || '[]');
+        const updated = [
+          {
+            id: botId,
+            name: createData.bot.name,
+            siteUrl: createData.bot.siteUrl,
+            createdAt: createData.bot.createdAt,
+          },
+          ...existing.filter((b: any) => b.id !== botId),
+        ].slice(0, 20);
+        localStorage.setItem('sitebot_saved_bots', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('sitebot_created', { detail: { id: botId } }));
+      } catch {}
+
+      // 2. Trigger Recursive Crawler with SSE
+      setCrawlMessage(`Connecting to ${siteUrl}...`);
+      const crawlRes = await fetch('/api/crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body: JSON.stringify({
+          chatbotId: botId,
+          maxPages: 15,
+          resetExisting: true,
+        }),
+      });
+
+      if (!crawlRes.ok) {
+        const errJson = await crawlRes.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Crawl request failed');
+      }
+
+      const reader = crawlRes.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        for (const evt of events) {
+          const lines = evt.split('\n');
+          let eventType = '';
+          let dataStr = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+            if (line.startsWith('data: ')) dataStr = line.slice(6).trim();
+          }
+
+          if (eventType === 'progress') {
+            try {
+              const p = JSON.parse(dataStr);
+              if (typeof p.percent === 'number') setCrawlProgress(p.percent);
+              if (p.message) setCrawlMessage(p.message);
+            } catch {}
+          } else if (eventType === 'done') {
+            try {
+              const resData = JSON.parse(dataStr);
+              const ident = resData.siteIdentity || {};
+
+              // Update discovered info
+              setDiscoveredInfo({
+                brandName: ident.brandName,
+                brandColor: ident.brandColor,
+                phone: ident.phone,
+                whatsapp: ident.whatsapp,
+                email: ident.email,
+                pagesCount: resData.pagesIndexed,
+                chunksCount: resData.chunksIndexed,
+              });
+
+              // Pre-fill Step 3 form values with crawled details!
+              if (ident.botName) setBotName(ident.botName);
+              if (ident.brandColor) setPrimaryColor(ident.brandColor);
+              if (ident.greeting) setGreeting(ident.greeting);
+              if (ident.systemPrompt) setSystemPrompt(ident.systemPrompt);
+              if (ident.phone) setPhone(ident.phone);
+              if (ident.whatsapp) setWhatsapp(ident.whatsapp);
+              if (ident.email) setEmail(ident.email);
+              if (ident.auditUrl) setAuditUrl(ident.auditUrl);
+              if (ident.pricingUrl) setPricingUrl(ident.pricingUrl);
+              if (ident.suggestedQuestions && ident.suggestedQuestions.length > 0) {
+                setSuggestedQuestions(ident.suggestedQuestions);
+              }
+            } catch {}
+          } else if (eventType === 'error') {
+            try {
+              const e = JSON.parse(dataStr);
+              throw new Error(e.error || 'Crawl failed');
+            } catch (err: any) {
+              throw err;
+            }
+          }
+        }
+      }
+
+      // Fetch freshly updated bot details from API to ensure complete autofill
+      try {
+        const freshRes = await fetch(`/api/bot/${botId}`);
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          const b = freshData.bot;
+          if (b) {
+            if (b.name) setBotName(b.name);
+            if (b.primaryColor) setPrimaryColor(b.primaryColor);
+            if (b.greeting) setGreeting(b.greeting);
+            if (b.systemPrompt) setSystemPrompt(b.systemPrompt);
+            if (b.phone) setPhone(b.phone);
+            if (b.whatsapp) setWhatsapp(b.whatsapp);
+            if (b.email) setEmail(b.email);
+            if (b.auditUrl) setAuditUrl(b.auditUrl);
+            if (b.pricingUrl) setPricingUrl(b.pricingUrl);
+            if (b.suggestedQuestions && b.suggestedQuestions.length > 0) {
+              setSuggestedQuestions(b.suggestedQuestions);
+            }
+          }
+        }
+      } catch {}
+
+      // Guarantee fallback greeting, prompt & questions so they are NEVER blank
+      const fallbackBrand = botName.trim() || 'our company';
+      setGreeting((prev) => prev?.trim() || `Hi! 👋 Welcome to ${fallbackBrand}. How can I assist you with our services and solutions today?`);
+      setSystemPrompt((prev) => prev?.trim() || `You are the official, helpful, and reliable AI assistant for ${fallbackBrand} (${siteUrl.trim()}).
+PRIMARY INSTRUCTIONS:
+1. Greet visitors warmly and introduce yourself as the official AI representative for ${fallbackBrand}.
+2. Always answer questions accurately, professionally, and concisely using the verified knowledge base context.
+3. If a visitor asks about services, pricing, or getting started, highlight what ${fallbackBrand} provides and offer clear next steps.
+4. If a specific private or technical detail is not found in the verified context, politely state what you do know and invite them to contact the team.`);
+      setSuggestedQuestions((prev) => (prev && prev.length > 0) ? prev : [
+        `What services does ${fallbackBrand} offer?`,
+        `How does your pricing work?`,
+        `Can I get a free audit or consultation?`,
+        `How can I get in touch with the team?`,
+      ]);
+
+      setCrawlProgress(100);
+      setCrawlMessage('Website crawled and details autofilled successfully!');
+      setTimeout(() => {
+        setStep(3); // Smoothly unlock the detailed customization form!
+      }, 700);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during crawling.');
+      const fallbackBrand = botName.trim() || 'our company';
+      setGreeting((prev) => prev?.trim() || `Hi! 👋 Welcome to ${fallbackBrand}. How can I assist you with our services and solutions today?`);
+      setSystemPrompt((prev) => prev?.trim() || `You are the official, helpful, and reliable AI assistant for ${fallbackBrand} (${siteUrl.trim()}).
+PRIMARY INSTRUCTIONS:
+1. Greet visitors warmly and introduce yourself as the official AI representative for ${fallbackBrand}.
+2. Always answer questions accurately, professionally, and concisely using the verified knowledge base context.
+3. If a visitor asks about services, pricing, or getting started, highlight what ${fallbackBrand} provides and offer clear next steps.`);
+      setSuggestedQuestions((prev) => (prev && prev.length > 0) ? prev : [
+        `What services does ${fallbackBrand} offer?`,
+        `How does your pricing work?`,
+        `Can I get a free audit or consultation?`,
+        `How can I get in touch with the team?`,
+      ]);
+      // Allow proceeding to customization even if crawl has warnings
+      setStep(3);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 3: Final Save & Open Studio
+  const handleFinalSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createdBotId) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const payload: any = {
+        name: botName.trim() || 'Site AI Assistant',
+        siteUrl: siteUrl.trim(),
+        primaryColor,
+        position,
+        launcherStyle,
+        greeting,
+        systemPrompt,
+        suggestedQuestions,
+        phone,
+        whatsapp,
+        email,
+        auditUrl,
+        pricingUrl,
+        chatProvider: activeProvider,
+        chatModel: chatModel.trim() || 'gpt-4o-mini',
+        embedProvider,
+        embedModel: embedModel.trim() || 'text-embedding-3-small',
+      };
+
+      if (geminiKey || openrouterKey || openaiKey || nvidiaKey) {
+        payload.apiKeys = {
+          gemini: geminiKey,
+          openrouter: openrouterKey,
+          openai: openaiKey,
+          nvidia: nvidiaKey,
+        };
+      }
+
+      const res = await fetch(`/api/bot/${createdBotId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save final customization');
+      }
+
+      // Update localStorage name
+      try {
+        const existing = JSON.parse(localStorage.getItem('sitebot_saved_bots') || '[]');
+        const updated = existing.map((item: any) =>
+          item.id === createdBotId ? { ...item, name: botName, siteUrl } : item
+        );
+        localStorage.setItem('sitebot_saved_bots', JSON.stringify(updated));
+      } catch {}
+
+      router.push(`/bot/${createdBotId}`);
+    } catch (err: any) {
+      setError(err.message || 'Error saving settings.');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
+      <Navbar />
+
+      <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
+        {/* Step Progress Tracker */}
+        <div className="mb-10 max-w-xl mx-auto">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+            <span className={step >= 1 ? 'text-indigo-600' : ''}>1. Project Name &amp; URL</span>
+            <span className={step >= 2 ? 'text-indigo-600' : ''}>2. Auto-Crawl &amp; Extract</span>
+            <span className={step >= 3 ? 'text-indigo-600' : ''}>3. Autofilled Customization</span>
+          </div>
+          <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 h-full transition-all duration-500"
+              style={{ width: step === 1 ? '33%' : step === 2 ? '66%' : '100%' }}
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-8 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+            <span>⚠️ {error}</span>
+          </div>
+        )}
+
+        {/* ========================================================
+            STEP 1: INITIAL SIMPLE SETUP (Name & Website URL)
+            ======================================================== */}
+        {step === 1 && (
+          <div className="bg-white rounded-3xl p-8 sm:p-10 border border-slate-200/80 shadow-xl space-y-6 relative overflow-hidden animate-in fade-in duration-300">
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 absolute top-0 left-0" />
+
+            <div className="space-y-2 text-center max-w-md mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+                <Bot className="w-6 h-6" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Create Your AI Chatbot
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500">
+                Enter your website URL and project name. We will automatically crawl your site, extract brand colors, and autofill your entire chatbot settings.
+              </p>
+            </div>
+
+            <form onSubmit={handleStartCrawl} className="space-y-5 max-w-lg mx-auto pt-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Target Website URL <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="url"
+                    required
+                    value={siteUrl}
+                    onChange={handleUrlChange}
+                    placeholder="https://example.com"
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono shadow-inner"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Our crawler will discover subpages, documentation, contact info, and FAQs automatically.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Project / Chatbot Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={botName}
+                  onChange={(e) => setBotName(e.target.value)}
+                  placeholder="e.g. Nexus Digital Assistant"
+                  className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-sm text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !siteUrl.trim()}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-sm shadow-xl shadow-indigo-600/25 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <span>Start Crawl &amp; Auto-Discover Details</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ========================================================
+            STEP 2: LIVE CRAWLING & IDENTITY EXTRACTION IN-PROGRESS
+            ======================================================== */}
+        {step === 2 && (
+          <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-2xl text-center space-y-6 relative overflow-hidden animate-in fade-in duration-300">
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 absolute top-0 left-0" />
+
+            <div className="relative w-16 h-16 mx-auto">
+              <div className="w-16 h-16 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 animate-pulse">
+                <Globe className="w-8 h-8 animate-spin [animation-duration:8s]" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5 max-w-md mx-auto">
+              <h2 className="text-xl font-bold text-slate-900">
+                Crawling &amp; Vectorizing {siteUrl}
+              </h2>
+              <p className="text-xs text-slate-500 leading-relaxed font-mono">
+                {crawlMessage}
+              </p>
+            </div>
+
+            {/* Live Progress Bar */}
+            <div className="max-w-md mx-auto space-y-2">
+              <div className="flex justify-between text-xs font-bold text-slate-600">
+                <span>Indexing Knowledge</span>
+                <span className="text-indigo-600">{crawlProgress}%</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200">
+                <div
+                  className="bg-gradient-to-r from-indigo-600 via-purple-600 to-emerald-500 h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${Math.max(crawlProgress, 5)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Extracted Details Pill Grid (Pops in dynamically) */}
+            <div className="pt-4 flex flex-wrap items-center justify-center gap-3 text-xs">
+              <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Recursive Link Traversal</span>
+              </span>
+              <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Qdrant 768d Vector Memory</span>
+              </span>
+              <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Identity &amp; Contact Detection</span>
+              </span>
+            </div>
+
+            <div className="text-[11px] text-slate-400">
+              Please wait a few seconds. The customization form will unlock automatically once indexing completes.
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            STEP 3: AUTOFILLED CUSTOMIZATION FORM (Unlocked after crawl!)
+            ======================================================== */}
+        {step === 3 && (
+          <form onSubmit={handleFinalSave} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Success Banner */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Check className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                    Website Crawled &amp; Details Autofilled!
+                  </h3>
+                  <p className="text-xs text-emerald-700 mt-0.5">
+                    We extracted your brand identity, contact information, and knowledge chunks. You can review or modify any details below.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="hidden sm:inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 shrink-0 transition-all hover:scale-105"
+              >
+                <span>Save &amp; Open Studio</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* 1. Brand & Appearance Card */}
+            <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-6">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <Palette className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                  Brand &amp; Appearance
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Chatbot Display Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={botName}
+                    onChange={(e) => setBotName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Target Website URL
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    value={siteUrl}
+                    onChange={(e) => setSiteUrl(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Color Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Primary Brand Color <span className="text-slate-400 font-normal">(Autofilled from Website)</span>
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  {COLOR_PRESETS.map((c) => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      onClick={() => setPrimaryColor(c.hex)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                        primaryColor.toLowerCase() === c.hex.toLowerCase()
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: c.hex }} />
+                      <span>{c.name}</span>
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl border border-slate-200 bg-white">
+                    <input
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
+                    />
+                    <span className="text-xs font-mono font-bold text-slate-700 uppercase">
+                      {primaryColor}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Launcher Style & Position */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Launcher Button Style
+                  </label>
+                  <select
+                    value={launcherStyle}
+                    onChange={(e: any) => setLauncherStyle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                  >
+                    <option value="standard">Standard Circular Bubble (with ping badge)</option>
+                    <option value="minimal">Minimal Compact Icon</option>
+                    <option value="pill">Pill with Text ("Chat with us")</option>
+                    <option value="chat">Expanded Chat Tab</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Widget Screen Position
+                  </label>
+                  <select
+                    value={position}
+                    onChange={(e: any) => setPosition(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                  >
+                    <option value="bottom-right">Bottom Right Corner</option>
+                    <option value="bottom-left">Bottom Left Corner</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Fast Actions & Contact Links Card (Autofilled!) */}
+            <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-6">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <Zap className="w-5 h-5 text-amber-500" />
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                    Contact &amp; Fast Action Buttons
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Autofilled from your website. Leave any field empty to hide that button in the widget fast bar.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    📞 Phone Number &mdash; controls &ldquo;Call Now&rdquo; button
+                  </label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+91 96962 62007"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    💬 WhatsApp Number &mdash; controls &ldquo;WhatsApp&rdquo; button
+                  </label>
+                  <input
+                    type="text"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    placeholder="919696262007 (digits only)"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ✉️ Support Email &mdash; used by AI when asked for email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="support@yoursite.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ⚡ Free Audit URL &mdash; controls &ldquo;Free Audit&rdquo; button
+                  </label>
+                  <input
+                    type="text"
+                    value={auditUrl}
+                    onChange={(e) => setAuditUrl(e.target.value)}
+                    placeholder="https://yoursite.com/audit (leave empty to hide)"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    🏷️ Pricing / Plans URL &mdash; controls &ldquo;Plans &rarr;&rdquo; button
+                  </label>
+                  <input
+                    type="text"
+                    value={pricingUrl}
+                    onChange={(e) => setPricingUrl(e.target.value)}
+                    placeholder="https://yoursite.com/pricing (leave empty to hide)"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. AI Behavior & Persona Card (Autofilled!) */}
+            <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <Sparkles className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                  AI Persona &amp; Greeting (Crafted from Knowledge)
+                </h3>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Welcome Greeting Message
+                </label>
+                <textarea
+                  rows={2}
+                  value={greeting}
+                  onChange={(e) => setGreeting(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 resize-none leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  System Prompt &amp; Behavioral Guardrails
+                </label>
+                <textarea
+                  rows={4}
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 resize-none font-mono text-[11px] leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Auto-Generated Suggested Questions{' '}
+                    <span className="text-slate-400 font-normal">(Click question text to edit)</span>
+                  </label>
+                  {!isAddingQuestion && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingQuestion(true)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Question</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Question Chips list */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  {suggestedQuestions.map((q, qIdx) => {
+                    const isEditing = editingQuestionIdx === qIdx;
+                    if (isEditing) {
+                      return (
+                        <div
+                          key={qIdx}
+                          className="flex items-center gap-1.5 p-1 px-2.5 rounded-xl bg-white dark:bg-slate-800 border-2 border-indigo-500 shadow-md shadow-indigo-500/10"
+                        >
+                          <input
+                            type="text"
+                            value={editingQuestionText}
+                            onChange={(e) => setEditingQuestionText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveEditQuestion();
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditQuestion();
+                              }
+                            }}
+                            autoFocus
+                            className="text-xs bg-transparent text-slate-900 dark:text-white outline-none min-w-[200px]"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveEditQuestion}
+                            className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer"
+                            title="Save"
+                          >
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelEditQuestion}
+                            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                            title="Cancel"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={qIdx}
+                        className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 transition-all cursor-pointer select-none"
+                      >
+                        <span
+                          onClick={() => handleStartEditQuestion(qIdx)}
+                          className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 cursor-pointer"
+                          title="Click to edit"
+                        >
+                          <span>{q}</span>
+                          <Pencil className="w-3 h-3 text-slate-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteQuestion(qIdx);
+                          }}
+                          className="text-slate-400 hover:text-rose-500 font-bold ml-1 p-0.5 rounded cursor-pointer transition-colors"
+                          title="Remove question"
+                        >
+                          <X className="w-3 h-3 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Inline Add Question Input */}
+                  {isAddingQuestion && (
+                    <div className="flex items-center gap-1.5 p-1 px-2.5 rounded-xl bg-white dark:bg-slate-800 border-2 border-indigo-500 shadow-md shadow-indigo-500/10">
+                      <input
+                        type="text"
+                        value={newQuestionInput}
+                        onChange={(e) => setNewQuestionInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddQuestion();
+                          } else if (e.key === 'Escape') {
+                            setIsAddingQuestion(false);
+                            setNewQuestionInput('');
+                          }
+                        }}
+                        placeholder="Type suggested question..."
+                        autoFocus
+                        className="text-xs bg-transparent text-slate-900 dark:text-white outline-none min-w-[200px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddQuestion()}
+                        disabled={!newQuestionInput.trim()}
+                        className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-40 cursor-pointer"
+                        title="Add"
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingQuestion(false);
+                          setNewQuestionInput('');
+                        }}
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. AI Models & BYOK Keys Accordion */}
+            <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-sm space-y-4">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-indigo-600" />
+                  <span className="text-sm font-bold text-slate-900">
+                    AI Models &amp; BYOK Keys Configuration
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    {activeProvider.toUpperCase()} &bull; {chatModel}
+                  </span>
+                </div>
+                {showAdvanced ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {showAdvanced && (
+                <div className="pt-4 border-t border-slate-100 space-y-5 animate-in fade-in">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-2">
+                      Choose AI LLM Provider
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {(['openai', 'nvidia', 'gemini', 'openrouter'] as const).map((prov) => (
+                        <button
+                          key={prov}
+                          type="button"
+                          onClick={() => {
+                            setActiveProvider(prov);
+                            if (prov === 'openai') setChatModel('gpt-4o-mini');
+                            if (prov === 'nvidia') setChatModel('meta/muse-glimmer-30b');
+                            if (prov === 'gemini') setChatModel('gemini-1.5-flash');
+                            if (prov === 'openrouter') setChatModel('meta-llama/llama-3-8b-instruct:free');
+                          }}
+                          className={`p-3 rounded-xl border text-xs font-bold uppercase transition-all ${
+                            activeProvider === prov
+                              ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                              : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                          }`}
+                        >
+                          {prov}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Chat Model</label>
+                      <input
+                        type="text"
+                        value={chatModel}
+                        onChange={(e) => setChatModel(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Optional {activeProvider.toUpperCase()} API Key (BYOK)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Leave empty to use server default credentials"
+                        value={
+                          activeProvider === 'openai'
+                            ? openaiKey
+                            : activeProvider === 'nvidia'
+                            ? nvidiaKey
+                            : activeProvider === 'gemini'
+                            ? geminiKey
+                            : openrouterKey
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (activeProvider === 'openai') setOpenaiKey(v);
+                          if (activeProvider === 'nvidia') setNvidiaKey(v);
+                          if (activeProvider === 'gemini') setGeminiKey(v);
+                          if (activeProvider === 'openrouter') setOpenrouterKey(v);
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Final Submit Bar */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                &larr; Start Over with Different URL
+              </button>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-sm shadow-xl shadow-indigo-600/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving Customization...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Save &amp; Open Chatbot Studio</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 py-8 text-xs text-slate-500 bg-white mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0">
+              <img src="/favicon.png" alt="SiteBot" className="w-full h-full object-cover" />
+            </div>
+            <span className="text-slate-800 font-bold">SiteBot Studio</span>
+            <span>&mdash; Multi-Tenant AI Chatbot Platform</span>
+          </div>
+
+          <div className="flex items-center gap-6 font-semibold">
+            <Link href="/" className="hover:text-indigo-600 transition-colors">
+              Home
+            </Link>
+            <Link href="/create" className="hover:text-indigo-600 transition-colors">
+              Create Bot
+            </Link>
+            <Link href="/about" className="hover:text-indigo-600 transition-colors">
+              About
+            </Link>
+            <Link href="/contact" className="hover:text-indigo-600 transition-colors">
+              Contact
+            </Link>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
