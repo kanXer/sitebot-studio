@@ -8,3 +8,4 @@ export * from './Conversation';
 export * from './UserProfile';
 export * from './CtaSubmission';
 export * from './UsageRecord';
+export * from './SystemSettings';

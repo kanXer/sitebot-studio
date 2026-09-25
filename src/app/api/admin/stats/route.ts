@@ -4,6 +4,7 @@ import { Chatbot, CrawledPage, DocumentChunk, BotForm, FormSubmission, AdminUser
 import { MemoryDb } from '@/lib/memoryDb';
 import { isAdminEmail, getSuperAdminEmails } from '@/lib/auth/adminAuth';
 import { isQdrantConfigured } from '@/lib/vector/qdrant';
+import { getSystemSettings } from '@/lib/systemSettings';
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,13 +67,14 @@ export async function GET(req: NextRequest) {
     const superAdminEmails = getSuperAdminEmails();
     const totalAdmins = superAdminEmails.length + totalDbAdmins;
 
+    const settings = await getSystemSettings();
     const systemHealth = {
       database: isUsingMemoryDb() ? 'In-Memory Fallback' : 'MongoDB Atlas Connected',
       isMemoryDb: isUsingMemoryDb(),
       vectorDatabase: isQdrantConfigured() ? 'Qdrant Cloud / Online' : 'Local / Not Configured',
-      chatProvider: process.env.DEFAULT_CHAT_PROVIDER || 'nvidia',
-      chatModel: process.env.DEFAULT_CHAT_MODEL || 'meta/muse-glimmer-30b',
-      embedProvider: process.env.DEFAULT_EMBED_PROVIDER || 'nvidia',
+      chatProvider: settings.defaultChatProvider,
+      chatModel: settings.defaultChatModel,
+      embedProvider: settings.defaultEmbedProvider,
       superAdminConfigured: superAdminEmails.length > 0,
       superAdminEmail: superAdminEmails[0] || 'admin@sitebotstudio.com',
     };

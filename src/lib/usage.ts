@@ -4,6 +4,7 @@ import { UsageRecord } from '@/lib/models/UsageRecord';
 import { Chatbot } from '@/lib/models/Chatbot';
 import { MemoryDb } from '@/lib/memoryDb';
 import { getPlanInfo } from '@/lib/plans';
+import { getSystemSettings } from '@/lib/systemSettings';
 
 export interface ProfileUser {
   userId?: string;
@@ -64,15 +65,29 @@ export async function updateProfile(email: string, data: any): Promise<any> {
   }).lean();
 }
 
-export async function countUserBots(email?: string | null): Promise<number> {
+export async function countUserBots(email?: string | null, userId?: string | null): Promise<number> {
   const clean = email?.toLowerCase().trim();
-  if (!clean) return 0;
+  const cleanId = userId?.trim();
+  if (!clean && !cleanId) return 0;
   await connectToDatabase();
 
   if (isUsingMemoryDb()) {
-    return MemoryDb.findChatbots().filter((b) => b.ownerEmail?.toLowerCase() === clean).length;
+    return MemoryDb.findChatbots().filter((b) => {
+      if (clean && b.ownerEmail?.toLowerCase() === clean) return true;
+      if (cleanId && b.ownerId === cleanId) return true;
+      return false;
+    }).length;
   }
-  return Chatbot.countDocuments({ ownerEmail: clean });
+
+  const query: any[] = [];
+  if (clean) {
+    query.push({ ownerEmail: { $regex: new RegExp(`^${clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+  }
+  if (cleanId) {
+    query.push({ ownerId: cleanId });
+  }
+
+  return Chatbot.countDocuments(query.length > 1 ? { $or: query } : query[0]);
 }
 
 /**
@@ -81,8 +96,10 @@ export async function countUserBots(email?: string | null): Promise<number> {
 export async function getRemainingBotSlots(user: ProfileUser | null | undefined): Promise<number> {
   const profile = await getOrCreateProfile(user);
   if (!profile) return 0;
-  const used = await countUserBots(profile.email);
-  const limit = Number(profile.botLimit) || getPlanInfo(profile.plan).botLimit;
+  const used = await countUserBots(profile.email, user?.userId);
+  const sysSettings = await getSystemSettings().catch(() => null);
+  const planSettings = profile.plan === 'pro' ? sysSettings?.proPlan : sysSettings?.freePlan;
+  const limit = planSettings?.botLimit ?? (Number(profile.botLimit) || getPlanInfo(profile.plan).botLimit);
   return Math.max(0, limit - used);
 }
 
@@ -191,13 +208,14 @@ export async function trackChatTurn(
 /**
  * True when the profile has consumed its token or chat quota.
  */
-export function isOverQuota(profile: any): boolean {
+export function isOverQuota(profile: any, sysSettings?: any): boolean {
   if (!profile) return false;
   const usedTokens = (profile.usage?.inputTokens || 0) + (profile.usage?.outputTokens || 0);
-  const tokenQuota = Number(profile.tokenQuota) || getPlanInfo(profile.plan).tokenQuota;
+  const planSettings = profile.plan === 'pro' ? sysSettings?.proPlan : sysSettings?.freePlan;
+  const tokenQuota = planSettings?.tokenQuota ?? (Number(profile.tokenQuota) || getPlanInfo(profile.plan).tokenQuota);
   if (usedTokens >= tokenQuota) return true;
   const chats = profile.usage?.chats || 0;
-  const chatQuota = Number(profile.chatQuota) || getPlanInfo(profile.plan).chatQuota;
+  const chatQuota = planSettings?.chatQuota ?? (Number(profile.chatQuota) || getPlanInfo(profile.plan).chatQuota);
   return chats >= chatQuota;
 }
 

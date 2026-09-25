@@ -44,6 +44,7 @@ import {
   Lock,
   LogIn,
   User,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -51,6 +52,7 @@ import { QdrantSetupGuide } from '@/components/QdrantSetupGuide';
 import { BotGuardrailsTab } from '@/components/BotGuardrailsTab';
 import { BotHandoffTab } from '@/components/BotHandoffTab';
 import { BotLeadsTab } from '@/components/BotLeadsTab';
+import { DeleteBotModal } from '@/components/DeleteBotModal';
 import { useAuth } from '@/lib/firebase/AuthContext';
 
 interface BotDetail {
@@ -147,6 +149,7 @@ export default function BotDashboardPage() {
   >('playground');
   const [copiedCode, setCopiedCode] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [deleteSuccessModalOpen, setDeleteSuccessModalOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<{
     id: number;
     message: string;
@@ -159,6 +162,11 @@ export default function BotDashboardPage() {
     setToastMsg({ id: Date.now(), message, type });
     toastTimer.current = setTimeout(() => setToastMsg(null), 3000);
   };
+
+  // Smoothly scroll to top whenever studio tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   const getAuthHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {};
@@ -666,7 +674,8 @@ export default function BotDashboardPage() {
           const updated = stored.filter((b: any) => b.id !== botId);
           localStorage.setItem('sitebot_saved_bots', JSON.stringify(updated));
         } catch {}
-        router.push('/');
+        window.dispatchEvent(new CustomEvent('sitebot_deleted', { detail: { id: botId } }));
+        setDeleteSuccessModalOpen(true);
       }
     } catch (err) {
       console.error(err);
@@ -872,12 +881,26 @@ export default function BotDashboardPage() {
               {errorState?.message || 'The chatbot ID or custom slug does not exist or may have been deleted.'}
             </p>
           </div>
-          <div className="pt-2">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+            <Link
+              href="/create"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-md shadow-indigo-600/25 transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Create New Chatbot</span>
+            </Link>
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Dashboard</span>
+            </Link>
             <Link
               href="/"
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all inline-block"
+              className="w-full sm:w-auto px-3 py-2 text-slate-400 hover:text-slate-600 text-xs font-medium transition-colors inline-flex items-center justify-center"
             >
-              Back to Home
+              Home
             </Link>
           </div>
         </div>
@@ -917,7 +940,7 @@ export default function BotDashboardPage() {
 
       {/* Studio Header (Light Theme) */}
       <div className="border-b border-slate-200 bg-white shadow-sm">
-         <div className="mx-auto min-w-0 max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+         <div className="mx-auto min-w-0 max-w-7xl px-4 pt-5 pb-4 sm:px-6 lg:px-8">
            <div className="flex min-w-0 flex-col justify-between gap-4 md:flex-row md:items-center">
              <div className="flex min-w-0 items-center gap-3.5">
                <div
@@ -992,114 +1015,35 @@ export default function BotDashboardPage() {
            </div>
 
           {/* Tab Navigation */}
-           <div className="flex w-full min-w-0 max-w-full items-center gap-1 -mb-5 mt-6 overflow-x-auto border-b border-slate-200 pb-1 scrollbar-thin">
-            <button
-              onClick={() => setActiveTab('playground')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'playground'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Code2 className="w-4 h-4" />
-              <span>Live Test &amp; Embed Code</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('crawler')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'crawler'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Database className="w-4 h-4" />
-              <span>Knowledge Base &amp; Crawler ({stats.indexedPages})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('leads')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'leads'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Inbox className="w-4 h-4" />
-              <span>Captured Leads</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('guardrails')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'guardrails'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4" />
-              <span>Guardrails Engine</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('handoff')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'handoff'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Headphones className="w-4 h-4" />
-              <span>Live Handoff</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('appearance')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'appearance'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Palette className="w-4 h-4" />
-              <span>Widget Customization</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('ai')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'ai'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Sliders className="w-4 h-4" />
-              <span>AI Models &amp; BYOK Keys</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'security'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Security &amp; Access</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('qdrant')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'qdrant'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Database className="w-4 h-4 text-indigo-600" />
-              <span>Qdrant Vector Database</span>
-            </button>
+          <div className="mt-5 flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-x-auto pb-1 text-xs font-semibold scrollbar-thin">
+            {[
+              { id: 'playground', label: 'Live Test & Embed Code', icon: Code2 },
+              { id: 'crawler', label: `Knowledge Base & Crawler (${stats.indexedPages})`, icon: Database },
+              { id: 'leads', label: 'Captured Leads', icon: Inbox },
+              { id: 'guardrails', label: 'Guardrails Engine', icon: ShieldAlert },
+              { id: 'handoff', label: 'Live Handoff', icon: Headphones },
+              { id: 'appearance', label: 'Widget Customization', icon: Palette },
+              { id: 'ai', label: 'AI Models & BYOK Keys', icon: Sliders },
+              { id: 'security', label: 'Security & Access', icon: ShieldCheck },
+              { id: 'qdrant', label: 'Qdrant Vector Database', icon: Database },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex shrink-0 items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    active
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200/60'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -2770,6 +2714,15 @@ export default function BotDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Chatbot Deleted Confirmation & Redirect Modal */}
+      <DeleteBotModal
+        isOpen={deleteSuccessModalOpen}
+        onClose={() => setDeleteSuccessModalOpen(false)}
+        botName={bot?.name || 'Chatbot'}
+        type="deleted"
+      />
+
       <Footer />
     </div>
   );

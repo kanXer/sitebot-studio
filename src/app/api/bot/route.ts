@@ -6,6 +6,7 @@ import { isAdminEmail } from '@/lib/auth/adminAuth';
 import { getOrCreateProfile, getRemainingBotSlots } from '@/lib/usage';
 import { getPlanInfo } from '@/lib/plans';
 import { ingestAndBuildBot } from '@/lib/bot-builder';
+import { getSystemSettings } from '@/lib/systemSettings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,29 +28,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Enforce per-plan bot limit (free plan = 1 bot)
-    const isAdmin = userEmail ? await isAdminEmail(userEmail) : false;
-    if (!isAdmin) {
-      const remaining = await getRemainingBotSlots({
-        email: userEmail,
-        userId,
-        name: userName,
-      });
-      if (remaining <= 0) {
-        const profile = await getOrCreateProfile({ email: userEmail, userId, name: userName });
-        const plan = getPlanInfo(profile?.plan);
-        const limit = Number(profile?.botLimit) || plan.botLimit;
-        return NextResponse.json(
-          {
-            error: `You have reached the ${plan.label} plan limit of ${limit} chatbot(s).`,
-            code: 'BOT_LIMIT_REACHED',
-            plan: plan.label,
-            limit,
-          },
-          { status: 402 }
-        );
-      }
+    // Enforce per-plan bot limit (free plan = 1 bot, pro = 10 bots)
+    const remaining = await getRemainingBotSlots({
+      email: userEmail,
+      userId,
+      name: userName,
+    });
+    if (remaining <= 0) {
+      const profile = await getOrCreateProfile({ email: userEmail, userId, name: userName });
+      const plan = getPlanInfo(profile?.plan);
+      const limit = Number(profile?.botLimit) || plan.botLimit;
+      return NextResponse.json(
+        {
+          error: `Bot creation limit reached! Your ${plan.label} plan allows a maximum of ${limit} chatbot(s). Please upgrade to Pro in the Dashboard to create more chatbots.`,
+          code: 'BOT_LIMIT_REACHED',
+          plan: plan.label,
+          limit,
+        },
+        { status: 403 }
+      );
     }
+
+    const systemSettings = await getSystemSettings();
 
     const {
       name,
@@ -60,10 +60,10 @@ export async function POST(req: NextRequest) {
       openrouterKey = '',
       openaiKey = '',
       nvidiaKey = '',
-      chatProvider = process.env.DEFAULT_CHAT_PROVIDER || 'openai',
-      chatModel = process.env.DEFAULT_CHAT_MODEL || 'gpt-4o-mini',
-      embedProvider = process.env.DEFAULT_EMBED_PROVIDER || 'openai',
-      embedModel = process.env.DEFAULT_EMBED_MODEL || 'text-embedding-3-small',
+      chatProvider = systemSettings.defaultChatProvider || 'openai',
+      chatModel = systemSettings.defaultChatModel || 'gpt-4o-mini',
+      embedProvider = systemSettings.defaultEmbedProvider || 'openai',
+      embedModel = systemSettings.defaultEmbedModel || 'text-embedding-3-small',
       systemPrompt,
       greeting,
       suggestedQuestions,
@@ -216,11 +216,12 @@ export async function GET(req: NextRequest) {
     const userEmail = (req.headers.get('x-user-email') || searchParams.get('email') || '').toLowerCase().trim();
     const userId = (req.headers.get('x-user-id') || searchParams.get('userId') || '').trim();
 
+    const systemSettings = await getSystemSettings();
     const defaults = {
-      chatProvider: process.env.DEFAULT_CHAT_PROVIDER || 'openai',
-      chatModel: process.env.DEFAULT_CHAT_MODEL || 'gpt-4o-mini',
-      embedProvider: process.env.DEFAULT_EMBED_PROVIDER || 'openai',
-      embedModel: process.env.DEFAULT_EMBED_MODEL || 'text-embedding-3-small',
+      chatProvider: systemSettings.defaultChatProvider || 'openai',
+      chatModel: systemSettings.defaultChatModel || 'gpt-4o-mini',
+      embedProvider: systemSettings.defaultEmbedProvider || 'openai',
+      embedModel: systemSettings.defaultEmbedModel || 'text-embedding-3-small',
     };
 
     // Private: without a logged-in owner, no bots are ever listed or

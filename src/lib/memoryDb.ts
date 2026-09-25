@@ -197,6 +197,10 @@ export interface MemoryUserProfile {
     paypalEmail: string;
     payerId: string;
   };
+  occupation?: string;
+  useCase?: string;
+  projectName?: string;
+  profileCompleted?: boolean;
   plan: 'free' | 'pro';
   planExpiresAt?: Date;
   botLimit: number;
@@ -297,6 +301,7 @@ export function persistMemoryDb(): void {
         userProfiles: profiles,
         ctaSubmissions: Array.from(memoryStore.ctaSubmissions.values()),
         usageRecords: Array.from(memoryStore.usageRecords.values()),
+        systemSettings: (global as any).__memorySystemSettings || null,
       };
       fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
@@ -311,6 +316,9 @@ function loadFromDisk(): void {
     const content = fs.readFileSync(DB_FILE, 'utf-8');
     if (!content.trim()) return;
     const data = JSON.parse(content);
+    if (data.systemSettings) {
+      (global as any).__memorySystemSettings = data.systemSettings;
+    }
     if (Array.isArray(data.chatbots)) {
       for (const b of data.chatbots) {
         b.createdAt = new Date(b.createdAt);
@@ -1027,6 +1035,10 @@ export const MemoryDb = {
         paypalEmail: data.payment?.paypalEmail || '',
         payerId: data.payment?.payerId || '',
       },
+      occupation: data.occupation || '',
+      useCase: data.useCase || '',
+      projectName: data.projectName || '',
+      profileCompleted: Boolean(data.profileCompleted),
       plan: data.plan || 'free',
       planExpiresAt: data.planExpiresAt ? new Date(data.planExpiresAt) : undefined,
       botLimit:
@@ -1040,13 +1052,13 @@ export const MemoryDb = {
           ? Number(data.tokenQuota)
           : data.plan === 'pro'
           ? 2500000
-          : 250000,
+          : 25000,
       chatQuota:
         data.chatQuota !== undefined && data.chatQuota !== null
           ? Number(data.chatQuota)
           : data.plan === 'pro'
           ? 50000
-          : 5000,
+          : 50,
       usage: {
         inputTokens: data.usage?.inputTokens || 0,
         outputTokens: data.usage?.outputTokens || 0,
@@ -1207,5 +1219,31 @@ export const MemoryDb = {
     const clean = email ? String(email).toLowerCase().trim() : '';
     const list = clean ? all.filter((r) => r.email === clean) : all;
     return list.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.getTime() - a.createdAt.getTime());
+  },
+
+  getSystemSettings(): any {
+    return (global as any).__memorySystemSettings || null;
+  },
+
+  updateSystemSettings(data: any): any {
+    const existing = (global as any).__memorySystemSettings || {
+      defaultChatProvider: 'openai',
+      defaultChatModel: 'gpt-4o-mini',
+      defaultEmbedProvider: 'openai',
+      defaultEmbedModel: 'text-embedding-3-small',
+      freePlan: { botLimit: 1, tokenQuota: 25000, chatQuota: 50, monthlyPrice: 0 },
+      proPlan: { botLimit: 10, tokenQuota: 2500000, chatQuota: 50000, monthlyPrice: 9 },
+      byokBypassQuota: true,
+    };
+    const merged = {
+      ...existing,
+      ...data,
+      freePlan: { ...existing.freePlan, ...(data.freePlan || {}) },
+      proPlan: { ...existing.proPlan, ...(data.proPlan || {}) },
+      byokBypassQuota: data.byokBypassQuota !== undefined ? Boolean(data.byokBypassQuota) : existing.byokBypassQuota,
+    };
+    (global as any).__memorySystemSettings = merged;
+    persistMemoryDb();
+    return merged;
   },
 };

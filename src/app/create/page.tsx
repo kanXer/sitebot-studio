@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bot,
@@ -35,11 +35,13 @@ import {
   ChevronUp,
   Lock,
   CreditCard,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuth } from '@/lib/firebase/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
+import { OnboardingModal } from '@/components/OnboardingModal';
 import { LAUNCHER_PRESETS, QUICK_LINK_PRESETS } from '@/lib/presets';
 
 const COLOR_PRESETS = [
@@ -52,10 +54,12 @@ const COLOR_PRESETS = [
   { name: 'Dark Slate', hex: '#0f172a' },
 ];
 
-export default function CreateBotPage() {
+function CreateBotContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   // Wizard Step: 1 = Initial (URL + Name), 2 = Crawling, 3 = Autofilled Form
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -190,6 +194,42 @@ export default function CreateBotPage() {
       .catch(() => {});
   }, []);
 
+  // Sync search params (url, name) into form state
+  useEffect(() => {
+    const urlParam = searchParams.get('url');
+    const nameParam = searchParams.get('name');
+    if (urlParam) {
+      setSiteUrl(urlParam);
+    }
+    if (nameParam) {
+      setBotName(nameParam);
+    }
+  }, [searchParams]);
+
+  // Check if logged in user has completed onboarding profile setup
+  useEffect(() => {
+    if (!user?.email) return;
+    fetch(`/api/profile?email=${encodeURIComponent(user.email)}`, {
+      headers: {
+        'x-user-email': user.email,
+        ...(user.uid ? { 'x-user-id': user.uid } : {}),
+      },
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.profile && data.profile.profileCompleted === false) {
+          setOnboardingOpen(true);
+        }
+      })
+      .catch(() => {});
+  }, [user?.email, user?.uid]);
+
+  // Smooth scroll to top whenever wizard step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
+
   // Auto-generate bot name from site URL
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -211,16 +251,18 @@ export default function CreateBotPage() {
   const handleStartCrawl = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setBotLimitError(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (!siteUrl.trim()) {
       setError('Please enter a target website URL.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     setLoading(true);
-    setStep(2);
     setCrawlProgress(5);
-    setCrawlMessage('Creating project workspace...');
+    setCrawlMessage('Checking plan limits and creating project workspace...');
 
     try {
       const botHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -250,17 +292,31 @@ export default function CreateBotPage() {
 
       const createData = await createRes.json();
       if (!createRes.ok) {
-        if (createRes.status === 402 && createData.code === 'BOT_LIMIT_REACHED') {
+        if (
+          (createRes.status === 402 || createRes.status === 403) ||
+          createData.code === 'BOT_LIMIT_REACHED' ||
+          (createData.error && createData.error.toLowerCase().includes('limit'))
+        ) {
           setBotLimitError({
-            message: createData.error || 'You have reached your chatbot limit.',
+            message: createData.error || 'You have reached your chatbot limit. Please upgrade to Pro.',
             plan: createData.plan || 'Free',
             limit: createData.limit || 1,
           });
+          setStep(1);
           setLoading(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
-        throw new Error(createData.error || 'Failed to initialize bot');
+        setStep(1);
+        setError(createData.error || 'Failed to initialize bot');
+        setLoading(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       }
+
+      // Successful creation, proceed to crawling step
+      setStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
       const botId = createData.bot.id;
       setCreatedBotId(botId);
@@ -483,9 +539,16 @@ PRIMARY INSTRUCTIONS:
         };
       }
 
+      payload.userEmail = user?.email || '';
+      payload.userId = user?.uid || '';
+
+      const patchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (user?.email) patchHeaders['x-user-email'] = user.email;
+      if (user?.uid) patchHeaders['x-user-id'] = user.uid;
+
       const res = await fetch(`/api/bot/${createdBotId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: patchHeaders,
         body: JSON.stringify(payload),
       });
 
@@ -582,14 +645,13 @@ PRIMARY INSTRUCTIONS:
           <div className="mb-8 rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-600 p-6 sm:p-8 text-white shadow-xl shadow-indigo-600/20">
             <div className="flex items-start justify-between gap-3 min-w-0">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center">
+                <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base font-extrabold font-heading">Bot limit reached</h3>
                   <p className="text-xs text-white/80 mt-0.5">
-                    You have reached the {botLimitError.plan} plan limit of {botLimitError.limit}{' '}
-                    chatbot(s).
+                    Your {botLimitError.plan} account is limited to {botLimitError.limit} active chatbot.
                   </p>
                 </div>
               </div>
@@ -601,23 +663,24 @@ PRIMARY INSTRUCTIONS:
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-white/80 mt-4">
-              Upgrade to Pro to unlock up to <strong>10 chatbots</strong>, 2.5M tokens/month, and
-              WhatsApp &amp; Telegram lead alerts.
+            <p className="text-xs text-white/90 mt-4 leading-relaxed">
+              Aapke free plan par maximum <strong>{botLimitError.limit} active chatbot</strong> allowed hai. Naya bot banane ke liye ya to Dashboard me jakar purana bot <strong>Delete</strong> karein (taaki slot free ho sake), ya fir <strong>Pro Plan ($9/mo)</strong> me upgrade karein jisme aap <strong>10 chatbots</strong> chala sakte hain!
             </p>
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap items-center gap-3">
               <Link
                 href="/dashboard"
-                className="px-5 py-2.5 rounded-xl bg-white text-indigo-700 font-extrabold text-xs shadow-lg hover:scale-[1.02] transition-all"
+                className="px-5 py-2.5 rounded-xl bg-white text-indigo-700 font-extrabold text-xs shadow-lg hover:scale-[1.02] transition-all inline-flex items-center gap-2"
               >
-                Upgrade to Pro — $9/mo
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Go to Dashboard (Manage / Delete Bot)</span>
               </Link>
-              <button
-                onClick={() => setBotLimitError(null)}
-                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-colors"
+              <Link
+                href="/dashboard"
+                className="px-5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs border border-white/20 transition-all inline-flex items-center gap-1.5"
               >
-                Manage existing bots
-              </button>
+                <span>Upgrade to Pro — $9/mo</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
         )}
@@ -1518,7 +1581,10 @@ PRIMARY INSTRUCTIONS:
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => {
+                  setStep(1);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
               >
                 &larr; Start Over with Different URL
@@ -1548,6 +1614,12 @@ PRIMARY INSTRUCTIONS:
         )}
       </main>
 
+      <OnboardingModal
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        onComplete={() => setOnboardingOpen(false)}
+      />
+
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
@@ -1557,5 +1629,19 @@ PRIMARY INSTRUCTIONS:
 
       <Footer />
     </div>
+  );
+}
+
+export default function CreateBotPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        </div>
+      }
+    >
+      <CreateBotContent />
+    </Suspense>
   );
 }

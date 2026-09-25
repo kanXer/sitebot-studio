@@ -43,6 +43,10 @@ export interface IUserProfile extends Document {
     paypalEmail: string;
     payerId: string;
   };
+  occupation?: string;
+  useCase?: string;
+  projectName?: string;
+  profileCompleted?: boolean;
   plan: PlanType;
   planExpiresAt?: Date;
   botLimit: number;
@@ -55,8 +59,8 @@ export interface IUserProfile extends Document {
 }
 
 export const DEFAULT_BOT_LIMIT = 1;
-export const DEFAULT_TOKEN_QUOTA = 250000;
-export const DEFAULT_CHAT_QUOTA = 5000;
+export const DEFAULT_TOKEN_QUOTA = 25000;
+export const DEFAULT_CHAT_QUOTA = 50;
 
 const UserProfileSchema: Schema = new Schema(
   {
@@ -103,6 +107,25 @@ const UserProfileSchema: Schema = new Schema(
     payment: {
       paypalEmail: { type: String, default: '' },
       payerId: { type: String, default: '' },
+    },
+    occupation: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    useCase: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    projectName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    profileCompleted: {
+      type: Boolean,
+      default: false,
     },
     plan: {
       type: String,

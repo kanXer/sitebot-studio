@@ -34,6 +34,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/firebase/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
+import { DeleteBotModal } from '@/components/DeleteBotModal';
+import { OnboardingModal } from '@/components/OnboardingModal';
 
 interface SavedBot {
   id: string;
@@ -55,7 +57,31 @@ export function Navbar() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [deleteSuccessModalOpen, setDeleteSuccessModalOpen] = useState(false);
+  const [deletedBotName, setDeletedBotName] = useState('');
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Check if logged in user has completed onboarding profile setup
+  useEffect(() => {
+    if (!user?.email) return;
+    if (pathname?.startsWith('/dashboard') || pathname?.startsWith('/create')) return;
+
+    fetch(`/api/profile?email=${encodeURIComponent(user.email)}`, {
+      headers: {
+        'x-user-email': user.email,
+        ...(user.uid ? { 'x-user-id': user.uid } : {}),
+      },
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.profile && data.profile.profileCompleted === false) {
+          setOnboardingOpen(true);
+        }
+      })
+      .catch(() => {});
+  }, [user?.email, user?.uid, pathname]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -198,6 +224,8 @@ export function Navbar() {
       } catch {}
 
       window.dispatchEvent(new CustomEvent('sitebot_deleted', { detail: { id: bot.id } }));
+      setDeletedBotName(bot.name);
+      setDeleteSuccessModalOpen(true);
     } catch (err: any) {
       alert(err.message || 'Error deleting chatbot. Please try again.');
     } finally {
@@ -1014,6 +1042,21 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      {/* Delete Bot Confirmation & Redirect Modal */}
+      <DeleteBotModal
+        isOpen={deleteSuccessModalOpen}
+        onClose={() => setDeleteSuccessModalOpen(false)}
+        botName={deletedBotName}
+        type="deleted"
+      />
+
+      {/* New Account Onboarding Profile Setup */}
+      <OnboardingModal
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        onComplete={() => setOnboardingOpen(false)}
+      />
     </>
   );
 }

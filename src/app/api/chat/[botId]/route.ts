@@ -31,7 +31,7 @@ import {
   getOrCreateConversation,
 } from '@/lib/ai/handoff';
 import { autoCaptureLead } from '@/lib/leadCapture';
-import { trackChatTurn } from '@/lib/usage';
+import { trackChatTurn, getOrCreateProfile, isOverQuota } from '@/lib/usage';
 import { deriveBusinessRoleSubtitle } from '@/lib/niche-detector';
 
 interface RouteParams {
@@ -299,6 +299,35 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     const resolvedBotId = bot._id.toString();
+
+    // Check custom API keys (BYOK - Bring Your Own Key)
+    const hasCustomApiKey = Boolean(
+      bot.apiKeys?.gemini?.trim() ||
+      bot.apiKeys?.openai?.trim() ||
+      bot.apiKeys?.openrouter?.trim() ||
+      bot.apiKeys?.nvidia?.trim()
+    );
+
+    // Free plan quota enforcement: If the bot uses platform keys and owner is over quota, stop chat
+    if (!hasCustomApiKey && bot.ownerEmail) {
+      const ownerProfile = await getOrCreateProfile({ email: bot.ownerEmail, userId: bot.ownerId });
+      if (ownerProfile && isOverQuota(ownerProfile)) {
+        const tokenLimit = Number(ownerProfile.tokenQuota) || 25000;
+        const chatLimit = Number(ownerProfile.chatQuota) || 50;
+        const msg = `⚠️ Free quota limit reached (${chatLimit} chats / ${tokenLimit.toLocaleString()} tokens). Please upgrade to Pro in the Dashboard or add your own custom AI provider API key in Chatbot Settings to chat with zero limits!`;
+        return streamImmediateText(msg, [
+          {
+            event: 'quota_exceeded',
+            data: {
+              error: 'Monthly quota limit reached for free plan.',
+              tokenQuota: tokenLimit,
+              chatQuota: chatLimit,
+              plan: ownerProfile.plan || 'free',
+            },
+          },
+        ]);
+      }
+    }
 
     // Approx token estimator (chars / 4) + single-call usage recorder for bot owner
     const countTokens = (text: unknown): number =>

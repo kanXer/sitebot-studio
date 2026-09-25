@@ -42,6 +42,10 @@ export async function GET(req: NextRequest) {
         avatar: profile.avatar,
         companyName: profile.companyName,
         phone: profile.phone,
+        occupation: profile.occupation || '',
+        useCase: profile.useCase || '',
+        projectName: profile.projectName || '',
+        profileCompleted: Boolean(profile.profileCompleted),
         address: profile.address || {},
         payment: profile.payment || {},
         plan: profile.plan || 'free',
@@ -95,6 +99,10 @@ export async function PATCH(req: NextRequest) {
     if (body.avatar !== undefined) clean.avatar = String(body.avatar).trim();
     if (body.companyName !== undefined) clean.companyName = String(body.companyName).trim();
     if (body.phone !== undefined) clean.phone = String(body.phone).trim();
+    if (body.occupation !== undefined) clean.occupation = String(body.occupation).trim();
+    if (body.useCase !== undefined) clean.useCase = String(body.useCase).trim();
+    if (body.projectName !== undefined) clean.projectName = String(body.projectName).trim();
+    if (body.profileCompleted !== undefined) clean.profileCompleted = Boolean(body.profileCompleted);
     if (body.address !== undefined && typeof body.address === 'object') {
       clean.address = {
         street: String(body.address.street || '').trim(),

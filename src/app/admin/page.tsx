@@ -34,6 +34,8 @@ import {
   Loader2,
   Inbox,
   Filter,
+  CreditCard,
+  Sparkles,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -45,8 +47,22 @@ export default function AdminPanelPage() {
   const { user, role, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'bots' | 'submissions' | 'forms' | 'admins' | 'users' | 'ctas'
+    'overview' | 'bots' | 'submissions' | 'forms' | 'admins' | 'users' | 'ctas' | 'settings'
   >('overview');
+
+  // Settings State (Plans, Models, Quotas)
+  const [settings, setSettings] = useState<any>({
+    defaultChatProvider: 'openai',
+    defaultChatModel: 'gpt-4o-mini',
+    defaultEmbedProvider: 'openai',
+    defaultEmbedModel: 'text-embedding-3-small',
+    freePlan: { botLimit: 1, tokenQuota: 25000, chatQuota: 50, monthlyPrice: 0 },
+    proPlan: { botLimit: 10, tokenQuota: 2500000, chatQuota: 50000, monthlyPrice: 9 },
+    byokBypassQuota: true,
+  });
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Stats State
   const [stats, setStats] = useState<any>(null);
@@ -210,6 +226,54 @@ export default function AdminPanelPage() {
     }
   };
 
+  const fetchSettings = async () => {
+    if (!user?.email) return;
+    setLoadingSettings(true);
+    try {
+      const res = await fetch(`/api/admin/settings?email=${encodeURIComponent(user.email)}`, {
+        headers: { 'x-user-email': user.email },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setSettings(data.settings);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.email) return;
+    setSavingSettings(true);
+    setSettingsMsg(null);
+    try {
+      const res = await fetch(`/api/admin/settings?email=${encodeURIComponent(user.email)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': user.email,
+        },
+        body: JSON.stringify(settings),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save settings');
+      }
+      setSettingsMsg({ type: 'success', text: 'Platform AI models and plan quotas saved successfully!' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      setSettingsMsg({ type: 'error', text: err.message || 'Error saving settings' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   useEffect(() => {
     if (isAdmin && user?.email) {
       fetchStats();
@@ -219,8 +283,14 @@ export default function AdminPanelPage() {
       fetchAdmins();
       fetchUsers();
       fetchCtas();
+      fetchSettings();
     }
   }, [isAdmin, user?.email]);
+
+  // Smooth scroll to top whenever admin tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   // Toggle Bot Active / Disabled status
   const handleToggleBotStatus = async (botId: string, currentStatus: string) => {
@@ -551,6 +621,9 @@ export default function AdminPanelPage() {
                 fetchSubmissions();
                 fetchForms();
                 fetchAdmins();
+                fetchUsers();
+                fetchCtas();
+                fetchSettings();
               }}
               title="Refresh Telemetry"
               className="shrink-0 p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 transition-all shadow-sm cursor-pointer"
@@ -577,6 +650,7 @@ export default function AdminPanelPage() {
             { id: 'users', label: `Users & Quotas (${users.length})`, icon: Users },
             { id: 'forms', label: `Detected Forms (${forms.length})`, icon: FileText },
             { id: 'admins', label: `Admins & RBAC (${adminsList.length})`, icon: UserCheck },
+            { id: 'settings', label: 'Plans & Models Settings', icon: Sliders },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -1571,6 +1645,406 @@ export default function AdminPanelPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ================= TAB 8: PLANS & MODELS SETTINGS ================= */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            {settingsMsg && (
+              <div
+                className={`p-4 rounded-2xl text-xs font-semibold flex items-center justify-between gap-3 ${
+                  settingsMsg.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                }`}
+              >
+                <span>{settingsMsg.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setSettingsMsg(null)}
+                  className="font-bold underline text-[11px] cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              {/* Section 1: Default AI Models & Providers */}
+              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
+                <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-600" />
+                      <span>Default AI Models &amp; Providers</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      These settings define the default models used for new chatbots. Models are stored in the database and can be modified here anytime without editing .env files.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                    Database Backed
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {/* Default Chat Provider */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                      Default Chat Provider
+                    </label>
+                    <select
+                      value={settings.defaultChatProvider}
+                      onChange={(e) => {
+                        const prov = e.target.value;
+                        let defModel = 'gpt-4o-mini';
+                        if (prov === 'nvidia') defModel = 'nvidia/llama-3.1-nemotron-70b-instruct';
+                        else if (prov === 'gemini') defModel = 'gemini-2.5-flash';
+                        else if (prov === 'openrouter') defModel = 'meta-llama/llama-3-8b-instruct:free';
+                        setSettings({
+                          ...settings,
+                          defaultChatProvider: prov,
+                          defaultChatModel: defModel,
+                        });
+                      }}
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-semibold outline-none focus:border-indigo-500"
+                    >
+                      <option value="openai">OpenAI</option>
+                      <option value="nvidia">NVIDIA NIM</option>
+                      <option value="gemini">Google Gemini</option>
+                      <option value="openrouter">OpenRouter</option>
+                    </select>
+                  </div>
+
+                  {/* Default Chat Model */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                      Default Chat Model ID
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.defaultChatModel}
+                      onChange={(e) => setSettings({ ...settings, defaultChatModel: e.target.value })}
+                      placeholder="e.g. gpt-4o-mini, gemini-2.5-flash"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono outline-none focus:border-indigo-500"
+                    />
+                    {/* Quick Model Presets */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {settings.defaultChatProvider === 'openai' &&
+                        ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'].map((m: string) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
+                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
+                              settings.defaultChatModel === m
+                                ? 'bg-indigo-600 text-white font-bold'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      {settings.defaultChatProvider === 'nvidia' &&
+                        [
+                          'nvidia/llama-3.1-nemotron-70b-instruct',
+                          'meta/llama-3.1-8b-instruct',
+                          'meta/muse-glimmer-30b',
+                        ].map((m: string) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
+                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
+                              settings.defaultChatModel === m
+                                ? 'bg-emerald-600 text-white font-bold'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                            }`}
+                          >
+                            {m.split('/')[1] || m}
+                          </button>
+                        ))}
+                      {settings.defaultChatProvider === 'gemini' &&
+                        ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'].map((m: string) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
+                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
+                              settings.defaultChatModel === m
+                                ? 'bg-indigo-600 text-white font-bold'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      {settings.defaultChatProvider === 'openrouter' &&
+                        ['meta-llama/llama-3-8b-instruct:free', 'deepseek/deepseek-chat'].map((m: string) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
+                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
+                              settings.defaultChatModel === m
+                                ? 'bg-purple-600 text-white font-bold'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                            }`}
+                          >
+                            {m.split('/')[1] || m}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Default Embeddings Provider */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                      Default Embeddings Provider
+                    </label>
+                    <select
+                      value={settings.defaultEmbedProvider}
+                      onChange={(e) => {
+                        const prov = e.target.value;
+                        let defEmbed = 'text-embedding-3-small';
+                        if (prov === 'nvidia') defEmbed = 'nvidia/llama-3.2-nv-embedqa-1b-v1';
+                        else if (prov === 'gemini') defEmbed = 'gemini-embedding-001';
+                        setSettings({
+                          ...settings,
+                          defaultEmbedProvider: prov,
+                          defaultEmbedModel: defEmbed,
+                        });
+                      }}
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-semibold outline-none focus:border-indigo-500"
+                    >
+                      <option value="openai">OpenAI (text-embedding-3-small)</option>
+                      <option value="nvidia">NVIDIA NIM (nv-embedqa)</option>
+                      <option value="gemini">Google Gemini (gemini-embedding-001)</option>
+                    </select>
+                  </div>
+
+                  {/* Default Embeddings Model */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                      Default Embeddings Model ID
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.defaultEmbedModel}
+                      onChange={(e) => setSettings({ ...settings, defaultEmbedModel: e.target.value })}
+                      placeholder="e.g. text-embedding-3-small"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* API Key Security Notice */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
+                  <span className="font-bold text-slate-900 dark:text-white">🔒 Default Provider API Keys:</span>{' '}
+                  Server-side LLM credentials (OPENAI_API_KEY, GEMINI_API_KEY, NVIDIA_API_KEY, OPENROUTER_API_KEY) are securely read from your private <code className="font-mono text-indigo-600 dark:text-indigo-400">.env</code> file. Chatbot users can optionally supply their own custom API keys in their Chatbot Studio.
+                </div>
+              </div>
+
+              {/* Section 2: Per-Plan Quotas & Token Restrictions */}
+              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
+                <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-emerald-600" />
+                      <span>Plan Quotas &amp; Bot Restrictions</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Configure strict chatbot limits, monthly token quotas, and message allowances for Free and Pro tiers.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Free Plan Configuration */}
+                  <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                        <span>Free Plan Limits</span>
+                      </h4>
+                      <span className="text-xs font-bold text-slate-500">Free / $0</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Chatbot Project Limit
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={settings.freePlan?.botLimit || 1}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            freePlan: { ...settings.freePlan, botLimit: Number(e.target.value) || 1 },
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-0.5">Strictly blocks creation of additional bots beyond this number.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Monthly Token Quota
+                      </label>
+                      <input
+                        type="number"
+                        step="1000"
+                        min="5000"
+                        value={settings.freePlan?.tokenQuota || 25000}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            freePlan: { ...settings.freePlan, tokenQuota: Number(e.target.value) || 25000 },
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-0.5">e.g. 25,000 tokens for free users.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Monthly Chat / Message Limit
+                      </label>
+                      <input
+                        type="number"
+                        step="10"
+                        min="10"
+                        value={settings.freePlan?.chatQuota || 50}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            freePlan: { ...settings.freePlan, chatQuota: Number(e.target.value) || 50 },
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-0.5">Maximum free messages before chat prompt blocks.</p>
+                    </div>
+                  </div>
+
+                  {/* Pro Plan Configuration */}
+                  <div className="p-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-black text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+                        <span>Pro Plan Limits</span>
+                      </h4>
+                      <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                        ${settings.proPlan?.monthlyPrice || 9}/mo
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Chatbot Project Limit
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={settings.proPlan?.botLimit || 10}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            proPlan: { ...settings.proPlan, botLimit: Number(e.target.value) || 10 },
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Monthly Token Quota
+                      </label>
+                      <input
+                        type="number"
+                        step="100000"
+                        min="50000"
+                        value={settings.proPlan?.tokenQuota || 2500000}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            proPlan: { ...settings.proPlan, tokenQuota: Number(e.target.value) || 2500000 },
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Monthly Chat / Message Limit
+                      </label>
+                      <input
+                        type="number"
+                        step="1000"
+                        min="100"
+                        value={settings.proPlan?.chatQuota || 50000}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            proPlan: { ...settings.proPlan, chatQuota: Number(e.target.value) || 50000 },
+                          })
+                        }
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: BYOK (Custom API Key) Exemption Policy */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.byokBypassQuota !== false}
+                      onChange={(e) => setSettings({ ...settings, byokBypassQuota: e.target.checked })}
+                      className="w-4 h-4 rounded text-indigo-600 mt-0.5"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">
+                        Exempt Custom API Key (BYOK) Chatbots from Token &amp; Message Quotas
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                        When enabled, free users who configure their own custom provider API key (Google Gemini, OpenAI, NVIDIA NIM, or OpenRouter) will not be blocked by monthly chat or token limits since their chats are powered directly by their own API keys.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={savingSettings || loadingSettings}
+                  className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingSettings ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving System Settings...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Save System Settings</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </main>

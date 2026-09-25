@@ -37,11 +37,14 @@ import {
   Calendar,
   Layers,
   HelpCircle,
+  Trash2,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { useAuth } from '@/lib/firebase/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
+import { DeleteBotModal } from '@/components/DeleteBotModal';
+import { OnboardingModal } from '@/components/OnboardingModal';
 
 export interface UserBot {
   id: string;
@@ -133,6 +136,11 @@ function DashboardContent() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [draft, setDraft] = useState<any>(null);
 
+  // Bot Delete & Onboarding Modal States
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletedBotName, setDeletedBotName] = useState('');
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+
   // Embed Modal State
   const [embedBotModal, setEmbedBotModal] = useState<UserBot | null>(null);
   const [copiedScript, setCopiedScript] = useState(false);
@@ -147,6 +155,9 @@ function DashboardContent() {
       if (res.ok) {
         const data = await res.json();
         setProfile(data.profile);
+        if (data.profile && data.profile.profileCompleted === false) {
+          setOnboardingOpen(true);
+        }
         setDraft({
           name: data.profile.name || '',
           companyName: data.profile.companyName || '',
@@ -162,6 +173,36 @@ function DashboardContent() {
       }
     } catch {}
   }, [user?.email, user?.uid]);
+
+  // Smoothly scroll to top whenever active tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [tab]);
+
+  const handleDeleteDashboardBot = async (b: UserBot) => {
+    if (!confirm(`Are you sure you want to delete chatbot "${b.name}"? This permanently removes the bot, its vector points, and all crawled knowledge.`)) {
+      return;
+    }
+    try {
+      const headers: Record<string, string> = {};
+      if (user?.email) headers['x-user-email'] = user.email;
+      if (user?.uid) headers['x-user-id'] = user.uid;
+
+      const res = await fetch(`/api/bot/${b.id}`, { method: 'DELETE', headers });
+      if (res.ok) {
+        setBots((prev) => prev.filter((item) => item.id !== b.id));
+        setDeletedBotName(b.name);
+        setDeleteModalOpen(true);
+        window.dispatchEvent(new CustomEvent('sitebot_deleted', { detail: { id: b.id } }));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to delete chatbot.');
+      }
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      alert(err.message || 'Error deleting chatbot.');
+    }
+  };
 
   const fetchLeads = useCallback(async () => {
     if (!user?.email) return;
@@ -524,6 +565,7 @@ function DashboardContent() {
             bots={bots}
             loading={loadingBots}
             onGetEmbedCode={(bot) => setEmbedBotModal(bot)}
+            onDeleteBot={handleDeleteDashboardBot}
           />
         ) : tab === 'leads' ? (
           <LeadsTab leads={leads} loading={loadingData} />
@@ -600,6 +642,21 @@ function DashboardContent() {
           </div>
         </div>
       )}
+
+      {/* Delete Chatbot Redirect/Action Modal */}
+      <DeleteBotModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        botName={deletedBotName}
+        type="deleted"
+      />
+
+      {/* New User Role & Onboarding Setup Modal */}
+      <OnboardingModal
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        onComplete={() => fetchProfile()}
+      />
 
       <Footer />
     </div>
@@ -1049,10 +1106,12 @@ function BotsTab({
   bots,
   loading,
   onGetEmbedCode,
+  onDeleteBot,
 }: {
   bots: UserBot[];
   loading: boolean;
   onGetEmbedCode: (bot: UserBot) => void;
+  onDeleteBot: (bot: UserBot) => void;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'individual' | 'enterprise'>('all');
@@ -1192,7 +1251,7 @@ function BotsTab({
                 </div>
               </div>
 
-              <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2">
+              <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-2">
                 <button
                   type="button"
                   onClick={() => onGetEmbedCode(b)}
@@ -1214,11 +1273,20 @@ function BotsTab({
 
                 <Link
                   href={`/bot/${b.id}`}
-                  className="min-w-0 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] sm:text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap"
+                  className="min-w-0 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] sm:text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap flex-1"
                 >
                   <span>Studio</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
+
+                <button
+                  type="button"
+                  onClick={() => onDeleteBot(b)}
+                  className="min-w-0 p-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                  title="Delete chatbot"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ))}
