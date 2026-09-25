@@ -1,19 +1,19 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
- * Generates 768-dimensional embeddings using Google Gemini text-embedding-004.
+ * Generates 768-dimensional embeddings using Google Gemini gemini-embedding-001.
  */
 export async function getGeminiEmbedding(
   text: string,
   apiKey: string,
-  modelName = 'text-embedding-004'
+  modelName = 'gemini-embedding-001'
 ): Promise<number[]> {
   if (!apiKey) {
     throw new Error('Gemini API key is required to generate embeddings.');
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: modelName });
+  const model = genAI.getGenerativeModel({ model: modelName.trim().toLowerCase() });
 
   const response = await model.embedContent(text);
   const values = response.embedding.values;
@@ -28,6 +28,43 @@ export async function getGeminiEmbedding(
 /**
  * Generates 768-dimensional embeddings using OpenAI text-embedding-3-small.
  */
+async function getOpenAICompatibleEmbedding(
+  endpointUrl: string,
+  apiKey: string,
+  modelName: string,
+  label: string,
+  text: string
+): Promise<number[]> {
+  const options = (body: Record<string, unknown>) => ({
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  // Prefer 768-dim output so embeddings match the app's Qdrant collection. If the
+  // model rejects `dimensions` (some 3rd-party models), retry without it — but only
+  // accept the result if it is actually 768-dimensional.
+  for (const body of [
+    { input: text, model: modelName, dimensions: 768 },
+    { input: text, model: modelName },
+  ]) {
+    const res = await fetch(endpointUrl, options(body));
+    if (!res.ok) continue;
+    const data = await res.json();
+    const values: number[] | undefined = data?.data?.[0]?.embedding;
+    if (Array.isArray(values) && values.length === 768) return values;
+  }
+
+  const last = await fetch(endpointUrl, options({ input: text, model: modelName }));
+  const raw = last.ok ? await last.text() : '';
+  throw new Error(
+    `${label} embedding failed (${last.status}): ${raw || 'no 768-dim embedding returned'}`
+  );
+}
+
 export async function getOpenAIEmbedding(
   text: string,
   apiKey: string,
@@ -36,27 +73,30 @@ export async function getOpenAIEmbedding(
   if (!apiKey) {
     throw new Error('OpenAI API key is required to generate embeddings.');
   }
+  return getOpenAICompatibleEmbedding(
+    'https://api.openai.com/v1/embeddings',
+    apiKey,
+    modelName,
+    'OpenAI',
+    text
+  );
+}
 
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      input: text,
-      model: modelName,
-      dimensions: 768,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenAI embedding failed (${res.status}): ${errText}`);
+export async function getOpenRouterEmbedding(
+  text: string,
+  apiKey: string,
+  modelName = 'openai/text-embedding-3-small'
+): Promise<number[]> {
+  if (!apiKey) {
+    throw new Error('OpenRouter API key is required to generate embeddings.');
   }
-
-  const data = await res.json();
-  return data.data[0].embedding;
+  return getOpenAICompatibleEmbedding(
+    'https://openrouter.ai/api/v1/embeddings',
+    apiKey,
+    modelName,
+    'OpenRouter',
+    text
+  );
 }
 
 const VERIFIED_NVIDIA_EMBED_MODEL = 'nvidia/llama-nemotron-embed-vl-1b-v2';
@@ -227,7 +267,7 @@ export async function getBatchEmbeddings(
 
   // Default: Gemini
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: modelName || 'text-embedding-004' });
+  const model = genAI.getGenerativeModel({ model: (modelName || 'gemini-embedding-001').trim().toLowerCase() });
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
@@ -270,5 +310,9 @@ export async function generateEmbedding(
     return getOpenAIEmbedding(text, apiKey, modelName || 'text-embedding-3-small');
   }
 
-  return getGeminiEmbedding(text, apiKey, modelName || 'text-embedding-004');
+  if (provider === 'openrouter') {
+    return getOpenRouterEmbedding(text, apiKey, modelName || 'openai/text-embedding-3-small');
+  }
+
+  return getGeminiEmbedding(text, apiKey, modelName || 'gemini-embedding-001');
 }

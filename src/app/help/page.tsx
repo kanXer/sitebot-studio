@@ -25,6 +25,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 
 export default function HelpPage() {
   const [activePlatform, setActivePlatform] = useState<
@@ -170,7 +171,7 @@ export default function RootLayout({ children }) {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       <Navbar />
 
-      <main className="flex-1 pb-20">
+      <main className="flex-1 pb-28 sm:pb-20">
         {/* Hero Section */}
         <section className="relative pt-12 pb-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center overflow-hidden">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 text-indigo-700 dark:text-indigo-300 text-xs font-bold mb-5 animate-in fade-in slide-in-from-top-2">
@@ -471,6 +472,8 @@ export default function RootLayout({ children }) {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -59,15 +59,16 @@
 
   let botData = {
     id: botId,
-    name: 'Friday',
-    primaryColor: '#BE123C',
+    name: 'Assistant',
+    roleTitle: '',
+    primaryColor: '#4f46e5',
     position: 'bottom-right',
     launcherStyle: 'standard', // 'standard' | 'minimal' | 'pill' | 'chat'
-    greeting: "Namaste! 👋 I'm Friday, your AI growth strategist. How can I help you grow your business today?",
+    greeting: "Hi there! 👋 How can I assist you with our services and solutions today?",
     suggestedQuestions: [
       'What services do you offer?',
-      'View Pricing Plans',
-      'Audit my website',
+      'How can you help my business?',
+      'How can I contact your team?',
     ],
     phone: '',
     phoneRaw: '',
@@ -75,8 +76,26 @@
     email: '',
     pricingUrl: '',
     auditUrl: '',
-    customLinks: [], // [{ label: string, url: string }]
+    customLinks: [],
   };
+
+  let widgetSessionId = '';
+  try {
+    widgetSessionId = sessionStorage.getItem('sitebot_session_' + botId) || '';
+    if (!widgetSessionId) {
+      widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem('sitebot_session_' + botId, widgetSessionId);
+    }
+  } catch (e) {
+    widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+
+  let handoffState = {
+    active: false,
+    status: 'bot',
+    agentName: '',
+  };
+  let handoffPollInterval = null;
 
   const messageHistory = [];
 
@@ -780,6 +799,17 @@
         box-shadow: 0 4px 14px rgba(244, 63, 94, 0.45) !important;
       }
       .sitebot-fast-btn-plans svg { stroke: #ffffff !important; }
+
+      .sitebot-fast-btn-email {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.28) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      }
+      .sitebot-fast-btn-email:hover {
+        box-shadow: 0 4px 14px rgba(2, 132, 199, 0.45) !important;
+      }
+      .sitebot-fast-btn-email svg { stroke: #ffffff !important; }
 
       .sitebot-fast-btn-custom {
         background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
@@ -1662,6 +1692,67 @@
   shadow.appendChild(styleEl);
   updateStyles(); // Inject default CSS immediately so widget looks correct before API loads
 
+  function getDynamicRoleSubtitle(data) {
+    if (data && data.roleTitle && typeof data.roleTitle === 'string' && data.roleTitle.trim()) {
+      return data.roleTitle.trim();
+    }
+    const combined = [
+      (data && data.name) || '',
+      (data && data.greeting) || '',
+      (typeof window !== 'undefined' ? window.location.hostname : ''),
+      (typeof window !== 'undefined' ? window.location.pathname : ''),
+    ].join(' ').toLowerCase();
+
+    if (/\b(dental|dentist|teeth|clinic|patient|doctor|medical|hospital|therapy|healthcare|wellness|physician|dermatolog|pharmacy)\b/i.test(combined)) {
+      return 'Patient Care Assistant • Inquiries & Appointments';
+    }
+    if (/\b(shop|store|cart|checkout|ecommerce|e-commerce|clothing|apparel|fashion|shoes|jewelry|perfume|delivery|shipping|products)\b/i.test(combined)) {
+      return 'Store Concierge • Orders & Instant Support';
+    }
+    if (/\b(real estate|realtor|realty|property|properties|apartments|condo|housing|rentals|mortgage|listings|broker)\b/i.test(combined)) {
+      return 'Real Estate Specialist • Property Guide';
+    }
+    if (/\b(attorney|lawyer|law firm|legal|litigation|counsel|personal injury|notary|justice)\b/i.test(combined)) {
+      return 'Legal Inquiries Assistant • Consultation Guide';
+    }
+    if (/\b(insurance|wealth|accounting|tax|cpa|audit|investment|banking|financial|loans)\b/i.test(combined)) {
+      return 'Financial & Advisory Specialist • Client Solutions';
+    }
+    if (/\b(restaurant|menu|food|cafe|dining|bakery|dishes|cuisine|order food|reservations|table booking|catering)\b/i.test(combined)) {
+      return 'Dining & Reservations Host • Menu Guide';
+    }
+    if (/\b(academy|school|university|college|course|curriculum|training|learning|student|admissions|campus)\b/i.test(combined)) {
+      return 'Admissions & Course Advisor • Student Support';
+    }
+    if (/\b(hotel|resort|travel|vacation|booking|stay|tour|tourism|flight|trip|adventure|destination)\b/i.test(combined)) {
+      return 'Travel & Guest Concierge • Booking Support';
+    }
+    if (/\b(saas|software|api|cloud|devops|database|platform|automation|cybersecurity|developer|analytics)\b/i.test(combined)) {
+      return 'Technical Product Specialist • Solutions Assistant';
+    }
+    if (/\b(agency|marketing|seo|branding|social media|advertising|web design|growth|copywriting)\b/i.test(combined)) {
+      return 'Digital Strategy Consultant • Client Growth';
+    }
+    if (/\b(construction|architect|interior design|renovation|plumbing|roofing|electrician|contractor|builder)\b/i.test(combined)) {
+      return 'Project & Estimation Guide • Services Assistant';
+    }
+    if (/\b(automotive|cars|vehicles|dealership|auto repair|mechanic|test drive)\b/i.test(combined)) {
+      return 'Automotive Specialist • Vehicle & Service Guide';
+    }
+    if (/\b(fitness|gym|workout|trainer|crossfit|yoga|pilates|personal training)\b/i.test(combined)) {
+      return 'Fitness & Wellness Advisor • Member Support';
+    }
+    if (/\b(salon|spa|haircut|massage|skincare|facials|makeup|cosmetics|barbershop)\b/i.test(combined)) {
+      return 'Beauty & Wellness Concierge • Appointments';
+    }
+
+    const cleanName = ((data && data.name) || '').replace(/Assistant|Bot|AI|Website/gi, '').trim();
+    if (cleanName && cleanName.length > 2) {
+      return `${cleanName} Specialist • Verified Assistant`;
+    }
+    return 'Official AI Assistant • Verified Support';
+  }
+
   // Build Container HTML
   const container = document.createElement('div');
   container.className = 'sitebot-container';
@@ -1742,7 +1833,7 @@
               <svg style="width: 12px; height: 12px; color: #fb7185; flex-shrink: 0;" viewBox="0 0 24 24" fill="currentColor">
                 <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L12 3z"></path>
               </svg>
-              <span>AI Growth Strategist</span>
+              <span id="botHeaderSubtitle">${escapeHtml(getDynamicRoleSubtitle(botData))}</span>
             </div>
           </div>
         </div>
@@ -1777,6 +1868,11 @@
           <span>WhatsApp</span>
         </a>
 
+        <a class="sitebot-fast-btn sitebot-fast-btn-email" id="fastEmailBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span>Email</span>
+        </a>
+
         <button class="sitebot-fast-btn sitebot-fast-btn-audit" id="fastAuditBtn" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           <span>Free Audit</span>
@@ -1787,8 +1883,43 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
         </a>
 
+        <!-- Live Agent Handoff Button -->
+        <button class="sitebot-fast-btn" id="fastHandoffBtn" type="button" style="background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.28) !important;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 12px; height: 12px;"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+          <span>Live Agent</span>
+        </button>
+
+        <!-- Contact Us / Lead Capture Button -->
+        <button class="sitebot-fast-btn" id="fastLeadBtn" type="button" style="background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important; color: #ffffff !important; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.28) !important;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 12px; height: 12px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span>Contact Us</span>
+        </button>
+
         <!-- Custom Links (rendered dynamically) -->
         <div id="customLinksBar" style="display: contents;"></div>
+      </div>
+
+      <!-- Live Handoff Status Banner -->
+      <div id="handoffBanner" style="display: none; padding: 7px 14px; background: #ecfdf5; border-bottom: 1px solid #a7f3d0; font-size: 11px; font-weight: 600; color: #065f46; align-items: center; justify-content: space-between; flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 7px;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
+          <span id="handoffBannerText">Connected with Live Agent</span>
+        </div>
+        <button id="returnToBotBtn" type="button" style="background: none; border: none; font-size: 10px; font-weight: 700; color: #059669; text-decoration: underline; cursor: pointer;">Back to AI</button>
+      </div>
+
+      <!-- Quick Lead Form Drawer -->
+      <div id="leadDrawer" style="display: none; padding: 12px 14px; background: #0f172a; border-bottom: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 12px; flex-shrink: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-weight: 700; color: #a5b4fc; font-size: 11.5px;">Leave Contact Details</span>
+          <button id="closeLeadDrawer" type="button" style="background: none; border: none; color: #94a3b8; font-size: 13px; cursor: pointer;">✕</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <input type="text" id="leadNameInput" placeholder="Your Name" style="width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: #fff; font-size: 11.5px;" />
+          <input type="email" id="leadEmailInput" placeholder="Email Address *" style="width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: #fff; font-size: 11.5px;" />
+          <input type="tel" id="leadPhoneInput" placeholder="Phone Number" style="width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: #fff; font-size: 11.5px;" />
+          <button id="submitLeadBtn" type="button" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer;">Submit Request</button>
+        </div>
       </div>
 
       <!-- Messages Body -->
@@ -1852,9 +1983,21 @@
   const fastBar = shadow.getElementById('fastBar');
   const fastCallBtn = shadow.getElementById('fastCallBtn');
   const fastWaBtn = shadow.getElementById('fastWaBtn');
+  const fastEmailBtn = shadow.getElementById('fastEmailBtn');
   const fastAuditBtn = shadow.getElementById('fastAuditBtn');
   const fastPlansBtn = shadow.getElementById('fastPlansBtn');
   const customLinksBar = shadow.getElementById('customLinksBar');
+  const fastHandoffBtn = shadow.getElementById('fastHandoffBtn');
+  const fastLeadBtn = shadow.getElementById('fastLeadBtn');
+  const handoffBanner = shadow.getElementById('handoffBanner');
+  const handoffBannerText = shadow.getElementById('handoffBannerText');
+  const returnToBotBtn = shadow.getElementById('returnToBotBtn');
+  const leadDrawer = shadow.getElementById('leadDrawer');
+  const closeLeadDrawer = shadow.getElementById('closeLeadDrawer');
+  const leadNameInput = shadow.getElementById('leadNameInput');
+  const leadEmailInput = shadow.getElementById('leadEmailInput');
+  const leadPhoneInput = shadow.getElementById('leadPhoneInput');
+  const submitLeadBtn = shadow.getElementById('submitLeadBtn');
   const messagesContainer = shadow.getElementById('messagesContainer');
   const scrollDownBtn = shadow.getElementById('scrollDownBtn');
   const chipsWrap = shadow.getElementById('chipsWrap');
@@ -1863,6 +2006,123 @@
   const sendIconPlane = shadow.getElementById('sendIconPlane');
   const sendIconSpinner = shadow.getElementById('sendIconSpinner');
   const brandFooterLink = shadow.getElementById('brandFooterLink');
+
+  // Unique session identifier for live agent handoff & lead persistence
+  function getSessionId() {
+    const key = 'sitebot_session_' + botId;
+    try {
+      let id = window.sessionStorage.getItem(key);
+      if (!id) {
+        id = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        window.sessionStorage.setItem(key, id);
+      }
+      return id;
+    } catch (e) {
+      return 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+  }
+
+  // Live Agent & Handoff State
+  let handoffPollingInterval = null;
+  let currentHandoffStatus = 'bot';
+
+  function showHandoffBanner(status, assignedAgent) {
+    if (!handoffBanner || !handoffBannerText) return;
+    if (status === 'waiting_agent') {
+      handoffBanner.style.display = 'flex';
+      handoffBannerText.textContent = 'Waiting for available live agent...';
+    } else if (status === 'agent_active') {
+      handoffBanner.style.display = 'flex';
+      handoffBannerText.textContent = `Connected with ${assignedAgent?.name || 'Live Agent'}`;
+    } else if (status === 'resolved') {
+      handoffBanner.style.display = 'flex';
+      handoffBannerText.textContent = 'Session resolved. Handed back to AI.';
+      setTimeout(() => {
+        if (handoffBanner) handoffBanner.style.display = 'none';
+      }, 3500);
+      stopHandoffPolling();
+    } else {
+      handoffBanner.style.display = 'none';
+    }
+  }
+
+  function appendLiveMessage(role, content, senderName) {
+    if (role === 'system') {
+      const sysRow = document.createElement('div');
+      sysRow.style.cssText = 'width: 100%; text-align: center; margin: 8px 0; font-size: 11px; color: #64748b; font-style: italic;';
+      sysRow.textContent = content;
+      messagesContainer.appendChild(sysRow);
+      updateScrollDownBtn();
+      return;
+    }
+
+    const msgRow = document.createElement('div');
+    msgRow.className = `sitebot-msg-row ${role === 'user' ? 'user' : 'bot'}`;
+
+    const avatarCol = document.createElement('div');
+    avatarCol.className = 'sitebot-msg-avatar-col';
+
+    if (role === 'agent') {
+      avatarCol.innerHTML = `
+        <div class="sitebot-msg-avatar-circle" style="background: linear-gradient(135deg, #059669 0%, #047857 100%) !important; color: #fff;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </div>
+        <span class="sitebot-msg-avatar-label" style="color: #059669; font-weight: 700;">${escapeHtml(senderName || 'Agent')}</span>
+      `;
+    } else {
+      avatarCol.innerHTML = `
+        <div class="sitebot-msg-avatar-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4m0 0H8m4 0h4m-7 4h6a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4v-5a4 4 0 0 1 4-4Z"></path><circle cx="9" cy="13" r="1.2" fill="currentColor"></circle><circle cx="15" cy="13" r="1.2" fill="currentColor"></circle></svg>
+        </div>
+        <span class="sitebot-msg-avatar-label">${escapeHtml(botData.name || 'Assistant')}</span>
+      `;
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'sitebot-bubble';
+    bubble.innerHTML = renderMarkdown(content);
+
+    msgRow.appendChild(avatarCol);
+    msgRow.appendChild(bubble);
+    messagesContainer.appendChild(msgRow);
+    updateScrollDownBtn();
+    playBeep('receive');
+  }
+
+  function startHandoffPolling() {
+    if (handoffPollingInterval) return;
+    handoffPollingInterval = setInterval(async () => {
+      try {
+        const sId = getSessionId();
+        const res = await fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${encodeURIComponent(sId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status && data.status !== currentHandoffStatus) {
+          currentHandoffStatus = data.status;
+          showHandoffBanner(data.status, data.assignedAgent);
+        }
+        if (Array.isArray(data.messages)) {
+          const incoming = data.messages.filter((m) => m.role === 'agent' || m.role === 'system');
+          const knownContents = new Set(messageHistory.map((m) => m.content));
+          for (const m of incoming) {
+            if (!knownContents.has(m.content)) {
+              appendLiveMessage(m.role, m.content, m.senderName);
+              messageHistory.push({ role: m.role, content: m.content });
+            }
+          }
+        }
+      } catch (err) {
+        // non-fatal
+      }
+    }, 3500);
+  }
+
+  function stopHandoffPolling() {
+    if (handoffPollingInterval) {
+      clearInterval(handoffPollingInterval);
+      handoffPollingInterval = null;
+    }
+  }
 
   // Show fullscreen button only on non-mobile screens
   if (window.innerWidth >= 640) {
@@ -1942,6 +2202,14 @@
       visibleFastCount++;
     } else {
       fastWaBtn.style.display = 'none';
+    }
+
+    if (botData.email) {
+      fastEmailBtn.href = `mailto:${botData.email}`;
+      fastEmailBtn.style.display = 'inline-flex';
+      visibleFastCount++;
+    } else {
+      fastEmailBtn.style.display = 'none';
     }
 
     if (botData.auditUrl) {
@@ -2048,6 +2316,12 @@
       radarRing.style.display = 'none';
       hintBubble.classList.remove('visible');
 
+      // Hide floating launcher on mobile when chat is open
+      if (window.innerWidth < 640) {
+        launcherWrap.style.opacity = '0';
+        launcherWrap.style.pointerEvents = 'none';
+      }
+
       // Lock mobile body scroll
       if (window.innerWidth < 640) {
         document.body.style.overflow = 'hidden';
@@ -2064,6 +2338,9 @@
       launcherIconClose.style.display = 'none';
       haloRing.style.display = 'block';
       radarRing.style.display = 'block';
+      launcherWrap.style.opacity = '';
+      launcherWrap.style.pointerEvents = '';
+      hintBubble.style.display = '';
 
       document.body.style.overflow = '';
     }
@@ -2071,6 +2348,16 @@
 
   launcherBtn.addEventListener('click', () => toggleChat());
   closeBtn.addEventListener('click', () => toggleChat(false));
+
+  window.addEventListener('resize', () => {
+    if (isOpen && window.innerWidth >= 640) {
+      launcherWrap.style.opacity = '';
+      launcherWrap.style.pointerEvents = '';
+    } else if (isOpen && window.innerWidth < 640) {
+      launcherWrap.style.opacity = '0';
+      launcherWrap.style.pointerEvents = 'none';
+    }
+  });
 
   // Fullscreen toggle on desktop
   fullscreenBtn.addEventListener('click', () => {
@@ -2096,6 +2383,111 @@
     }
   });
 
+  if (fastHandoffBtn) {
+    fastHandoffBtn.addEventListener('click', async () => {
+      currentHandoffStatus = 'waiting_agent';
+      showHandoffBanner('waiting_agent');
+      appendLiveMessage('system', 'Transfer requested. Connecting you to a live human representative...', '');
+      messageHistory.push({ role: 'system', content: 'Transfer requested. Connecting you to a live human representative...' });
+      startHandoffPolling();
+      try {
+        await fetch(`${apiHost}/api/chat/${botId}/handoff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: getSessionId(),
+            reason: 'visitor_request',
+            visitorName: 'Visitor',
+          }),
+        });
+      } catch (e) {
+        console.warn('[SiteBot] Failed to initiate handoff:', e);
+      }
+    });
+  }
+
+  if (returnToBotBtn) {
+    returnToBotBtn.addEventListener('click', async () => {
+      try {
+        await fetch(`${apiHost}/api/chat/${botId}/handoff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: getSessionId(),
+            action: 'resolve',
+          }),
+        });
+      } catch (e) {}
+      currentHandoffStatus = 'resolved';
+      showHandoffBanner('resolved');
+      appendLiveMessage('system', 'Switched back to AI Assistant.', '');
+      messageHistory.push({ role: 'system', content: 'Switched back to AI Assistant.' });
+    });
+  }
+
+  if (fastLeadBtn && leadDrawer) {
+    fastLeadBtn.addEventListener('click', () => {
+      const isVisible = leadDrawer.style.display !== 'none';
+      leadDrawer.style.display = isVisible ? 'none' : 'block';
+      if (!isVisible && leadNameInput) leadNameInput.focus();
+    });
+  }
+
+  if (closeLeadDrawer && leadDrawer) {
+    closeLeadDrawer.addEventListener('click', () => {
+      leadDrawer.style.display = 'none';
+    });
+  }
+
+  if (submitLeadBtn && leadDrawer) {
+    submitLeadBtn.addEventListener('click', async () => {
+      const name = (leadNameInput?.value || '').trim();
+      const email = (leadEmailInput?.value || '').trim();
+      const phone = (leadPhoneInput?.value || '').trim();
+
+      if (!email && !phone) {
+        alert('Please enter at least an email address or phone number.');
+        return;
+      }
+
+      submitLeadBtn.disabled = true;
+      const originalText = submitLeadBtn.textContent;
+      submitLeadBtn.textContent = 'Submitting...';
+
+      try {
+        const res = await fetch(`${apiHost}/api/chat/${botId}/lead`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            botId,
+            sessionId: getSessionId(),
+            name,
+            email,
+            phone,
+          }),
+        });
+
+        if (res.ok) {
+          leadDrawer.style.display = 'none';
+          if (leadNameInput) leadNameInput.value = '';
+          if (leadEmailInput) leadEmailInput.value = '';
+          if (leadPhoneInput) leadPhoneInput.value = '';
+
+          const confText = `Thank you${name ? ', ' + name : ''}! We have captured your contact info. A member of our team will get in touch with you shortly.`;
+          appendLiveMessage('assistant', confText, botData.name);
+          messageHistory.push({ role: 'assistant', content: confText });
+        } else {
+          alert('Could not submit contact details. Please try again.');
+        }
+      } catch (err) {
+        alert('Network error while submitting details.');
+      } finally {
+        submitLeadBtn.disabled = false;
+        submitLeadBtn.textContent = originalText;
+      }
+    });
+  }
+
   // Scroll to bottom button
   messagesContainer.addEventListener('scroll', () => {
     const distFromBottom =
@@ -2112,6 +2504,20 @@
   scrollDownBtn.addEventListener('click', () => {
     messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'smooth' });
   });
+
+  // Refresh the "go to latest" button state when content changes.
+  // Never auto-scrolls: the viewport stays exactly where the visitor has it.
+  function updateScrollDownBtn() {
+    const distFromBottom =
+      messagesContainer.scrollHeight -
+      messagesContainer.scrollTop -
+      messagesContainer.clientHeight;
+    if (distFromBottom > 40) {
+      scrollDownBtn.classList.add('visible');
+    } else {
+      scrollDownBtn.classList.remove('visible');
+    }
+  }
 
   // Input & Send button state
   messageInput.addEventListener('input', () => {
@@ -2169,7 +2575,7 @@
       // Render plain text while typing (avoid broken markdown/emoji glitches),
       // then apply full markdown once complete.
       bubble.innerHTML = escapeHtml(typed);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      updateScrollDownBtn();
 
       if (idx >= chars.length) {
         bubble.innerHTML = renderMarkdown(fullText);
@@ -2255,7 +2661,7 @@
     sendIconSpinner.style.display = 'block';
     isStreaming = true;
     chipsWrap.innerHTML = '';
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    updateScrollDownBtn();
 
     // Append Animated Loading Shimmer Card
     const loadingRow = document.createElement('div');
@@ -2293,7 +2699,7 @@
     loadingRow.appendChild(botAvatarCol);
     loadingRow.appendChild(loadingCardWrap);
     messagesContainer.appendChild(loadingRow);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    updateScrollDownBtn();
 
     loadingIndex = 0;
     const loadingMessageEl = loadingCardWrap.querySelector('#loadingMessageEl');
@@ -2331,6 +2737,7 @@
         body: JSON.stringify({
           message: text,
           history: messageHistory.slice(-6),
+          sessionId: getSessionId(),
         }),
       });
 
@@ -2360,7 +2767,7 @@
             typeDisplay += typeQueue.slice(0, n);
             typeQueue = typeQueue.slice(n);
             assistantBubble.innerHTML = escapeHtml(typeDisplay);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            updateScrollDownBtn();
           } else if (streamDone) {
             clearInterval(typeTimer);
             typeTimer = null;
@@ -2370,8 +2777,36 @@
       }
 
       function finishStream() {
-        assistantBubble.innerHTML = renderMarkdown(accumulatedText);
+        const handoffMatch = accumulatedText.match(/\[\[HANDOFF:\s*([^\]]+)\]\]/i);
+        const activeMatch = accumulatedText.match(/\[\[HANDOFF_ACTIVE:\s*([^\]]+)\]\]/i);
+        const leadMatch = accumulatedText.match(/\[\[LEAD_CAPTURED:\s*([^\]]+)\]\]/i);
+
+        if (handoffMatch) {
+          currentHandoffStatus = 'waiting_agent';
+          showHandoffBanner('waiting_agent');
+          startHandoffPolling();
+        } else if (activeMatch) {
+          currentHandoffStatus = activeMatch[1].trim();
+          showHandoffBanner(currentHandoffStatus);
+          startHandoffPolling();
+        }
+
+        const cleanText = accumulatedText
+          .replace(/\[\[(HANDOFF|HANDOFF_ACTIVE|LEAD_CAPTURED|GUARDRAIL_BLOCKED)[^\]]*\]\]/gi, '')
+          .replace(/\[\[UNGROUNDED_FALLBACK\]\]/gi, '')
+          .trim();
+
+        assistantBubble.innerHTML = renderMarkdown(cleanText);
         playBeep('receive');
+
+        if (leadMatch) {
+          const leadBadge = document.createElement('div');
+          leadBadge.className = 'sitebot-source-chip';
+          leadBadge.style.color = '#10b981';
+          leadBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+          leadBadge.textContent = '✓ Contact details registered';
+          assistantBubble.appendChild(leadBadge);
+        }
 
         if (sourcesList && sourcesList.length > 0) {
           const sourcesContainer = document.createElement('div');
@@ -2388,7 +2823,7 @@
           assistantBubble.appendChild(sourcesContainer);
         }
 
-        messageHistory.push({ role: 'assistant', content: accumulatedText });
+        messageHistory.push({ role: 'assistant', content: cleanText });
       }
 
       while (true) {
@@ -2427,6 +2862,15 @@
             } catch {
               /* noop */
             }
+          } else if (eventType === 'handoff') {
+            try {
+              const hData = JSON.parse(dataStr);
+              currentHandoffStatus = hData.status;
+              showHandoffBanner(hData.status, hData.assignedAgent);
+              startHandoffPolling();
+            } catch (e) {
+              /* noop */
+            }
           } else if (eventType === 'error') {
             try {
               const { error } = JSON.parse(dataStr);
@@ -2457,7 +2901,7 @@
       sendBtn.disabled = !messageInput.value.trim();
       sendIconPlane.style.display = 'block';
       sendIconSpinner.style.display = 'none';
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      updateScrollDownBtn();
     }
   }
 
@@ -2470,6 +2914,16 @@
         botData = { ...botData, ...data };
         updateStyles();
         updateContactLinks();
+
+        const nameEl = shadow.getElementById('botHeaderName');
+        if (nameEl && botData.name) {
+          nameEl.textContent = botData.name;
+          nameEl.title = botData.name;
+        }
+        const subtitleEl = shadow.getElementById('botHeaderSubtitle');
+        if (subtitleEl) {
+          subtitleEl.textContent = getDynamicRoleSubtitle(botData);
+        }
 
         // If welcome message was already rendered with default values before metadata arrived, update it
         if (messageHistory.length <= 1) {

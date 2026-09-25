@@ -34,8 +34,14 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Lock,
+  CreditCard,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
+import { useAuth } from '@/lib/firebase/AuthContext';
+import { AuthModal } from '@/components/AuthModal';
+import { LAUNCHER_PRESETS, QUICK_LINK_PRESETS } from '@/lib/presets';
 
 const COLOR_PRESETS = [
   { name: 'Indigo', hex: '#4f46e5' },
@@ -49,11 +55,14 @@ const COLOR_PRESETS = [
 
 export default function CreateBotPage() {
   const router = useRouter();
+  const { user, loading: authLoading, signInWithGoogle, signInAsDemoUser } = useAuth();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   // Wizard Step: 1 = Initial (URL + Name), 2 = Crawling, 3 = Autofilled Form
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Step 1: Initial Inputs
+  // Step 1: Initial Inputs & Tier Selection
+  const [selectedPlanTier, setSelectedPlanTier] = useState<'free' | 'individual' | 'enterprise'>('individual');
   const [siteUrl, setSiteUrl] = useState('');
   const [botName, setBotName] = useState('');
   const [createdBotId, setCreatedBotId] = useState<string | null>(null);
@@ -71,17 +80,29 @@ export default function CreateBotPage() {
     chunksCount?: number;
   }>({});
 
+  const [derivedBotConfig, setDerivedBotConfig] = useState<{
+    bot_name?: string;
+    company_name?: string;
+    tone?: string;
+    core_value_prop?: string;
+    lead_triggers?: string[];
+    qualification_questions?: {
+      ask_for_email?: string;
+      ask_for_phone?: string;
+    };
+    guardrails?: string[];
+  } | null>(null);
+
   // Step 3: Detailed & Autofilled Customization Form State
   const [primaryColor, setPrimaryColor] = useState('#4f46e5');
   const [position, setPosition] = useState<'bottom-right' | 'bottom-left'>('bottom-right');
-  const [launcherStyle, setLauncherStyle] = useState<'standard' | 'minimal' | 'pill' | 'chat'>('standard');
+  const [launcherStyle, setLauncherStyle] = useState<string>('standard');
   const [greeting, setGreeting] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [phone, setPhone] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
-  const [auditUrl, setAuditUrl] = useState('');
-  const [pricingUrl, setPricingUrl] = useState('');
+  const [customLinks, setCustomLinks] = useState<Array<{ label: string; url: string }>>([]);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
 
   // Suggested Questions Inline Editing State
@@ -146,6 +167,11 @@ export default function CreateBotPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [savedBots, setSavedBots] = useState<any[]>([]);
+  const [botLimitError, setBotLimitError] = useState<{
+    message: string;
+    plan: string;
+    limit: number;
+  } | null>(null);
 
   // Sync defaults from .env via /api/bot on mount
   useEffect(() => {
@@ -198,24 +224,44 @@ export default function CreateBotPage() {
     setCrawlMessage('Creating project workspace...');
 
     try {
+      const botHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (user?.email) botHeaders['x-user-email'] = user.email;
+      if (user?.uid) botHeaders['x-user-id'] = user.uid;
+      if (user?.displayName) botHeaders['x-user-name'] = user.displayName;
+
       // 1. Create Bot in Database
       const createRes = await fetch('/api/bot', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: botHeaders,
         body: JSON.stringify({
           name: botName.trim() || 'Site AI Assistant',
           siteUrl: siteUrl.trim(),
           primaryColor,
           position,
+          planTier: selectedPlanTier,
           chatProvider: activeProvider,
           chatModel,
           embedProvider,
           embedModel,
+          ownerId: user?.uid || '',
+          ownerEmail: user?.email || '',
+          ownerName: user?.displayName || '',
         }),
       });
 
       const createData = await createRes.json();
-      if (!createRes.ok) throw new Error(createData.error || 'Failed to initialize bot');
+      if (!createRes.ok) {
+        if (createRes.status === 402 && createData.code === 'BOT_LIMIT_REACHED') {
+          setBotLimitError({
+            message: createData.error || 'You have reached your chatbot limit.',
+            plan: createData.plan || 'Free',
+            limit: createData.limit || 1,
+          });
+          setLoading(false);
+          return;
+        }
+        throw new Error(createData.error || 'Failed to initialize bot');
+      }
 
       const botId = createData.bot.id;
       setCreatedBotId(botId);
@@ -304,10 +350,20 @@ export default function CreateBotPage() {
               if (ident.phone) setPhone(ident.phone);
               if (ident.whatsapp) setWhatsapp(ident.whatsapp);
               if (ident.email) setEmail(ident.email);
-              if (ident.auditUrl) setAuditUrl(ident.auditUrl);
-              if (ident.pricingUrl) setPricingUrl(ident.pricingUrl);
+              if (ident.quickLinks && ident.quickLinks.length > 0) {
+                setCustomLinks((prev) => {
+                  const merged = [...(prev || [])];
+                  for (const link of ident.quickLinks) {
+                    if (!merged.some((l) => l.url === link.url)) merged.push(link);
+                  }
+                  return merged.slice(0, 10);
+                });
+              }
               if (ident.suggestedQuestions && ident.suggestedQuestions.length > 0) {
                 setSuggestedQuestions(ident.suggestedQuestions);
+              }
+              if (resData.botConfig) {
+                setDerivedBotConfig(resData.botConfig);
               }
             } catch {}
           } else if (eventType === 'error') {
@@ -323,7 +379,10 @@ export default function CreateBotPage() {
 
       // Fetch freshly updated bot details from API to ensure complete autofill
       try {
-        const freshRes = await fetch(`/api/bot/${botId}`);
+        const freshHeaders: Record<string, string> = {};
+        if (user?.email) freshHeaders['x-user-email'] = user.email;
+        if (user?.uid) freshHeaders['x-user-id'] = user.uid;
+        const freshRes = await fetch(`/api/bot/${botId}`, { headers: freshHeaders });
         if (freshRes.ok) {
           const freshData = await freshRes.json();
           const b = freshData.bot;
@@ -335,8 +394,9 @@ export default function CreateBotPage() {
             if (b.phone) setPhone(b.phone);
             if (b.whatsapp) setWhatsapp(b.whatsapp);
             if (b.email) setEmail(b.email);
-            if (b.auditUrl) setAuditUrl(b.auditUrl);
-            if (b.pricingUrl) setPricingUrl(b.pricingUrl);
+            if (b.customLinks && b.customLinks.length > 0) {
+              setCustomLinks(b.customLinks);
+            }
             if (b.suggestedQuestions && b.suggestedQuestions.length > 0) {
               setSuggestedQuestions(b.suggestedQuestions);
             }
@@ -356,7 +416,7 @@ PRIMARY INSTRUCTIONS:
       setSuggestedQuestions((prev) => (prev && prev.length > 0) ? prev : [
         `What services does ${fallbackBrand} offer?`,
         `How does your pricing work?`,
-        `Can I get a free audit or consultation?`,
+        `How can you help grow my business?`,
         `How can I get in touch with the team?`,
       ]);
 
@@ -377,7 +437,7 @@ PRIMARY INSTRUCTIONS:
       setSuggestedQuestions((prev) => (prev && prev.length > 0) ? prev : [
         `What services does ${fallbackBrand} offer?`,
         `How does your pricing work?`,
-        `Can I get a free audit or consultation?`,
+        `How can you help grow my business?`,
         `How can I get in touch with the team?`,
       ]);
       // Allow proceeding to customization even if crawl has warnings
@@ -408,8 +468,7 @@ PRIMARY INSTRUCTIONS:
         phone,
         whatsapp,
         email,
-        auditUrl,
-        pricingUrl,
+        customLinks,
         chatProvider: activeProvider,
         chatModel: chatModel.trim() || 'gpt-4o-mini',
         embedProvider,
@@ -456,21 +515,71 @@ PRIMARY INSTRUCTIONS:
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
       <Navbar />
 
-      <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
-        {/* Step Progress Tracker */}
-        <div className="mb-10 max-w-xl mx-auto">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-            <span className={step >= 1 ? 'text-indigo-600' : ''}>1. Project Name &amp; URL</span>
-            <span className={step >= 2 ? 'text-indigo-600' : ''}>2. Auto-Crawl &amp; Extract</span>
-            <span className={step >= 3 ? 'text-indigo-600' : ''}>3. Autofilled Customization</span>
+      <main className="flex-1 py-6 sm:py-12 px-3.5 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full pb-28 sm:pb-16">
+        {authLoading ? (
+          <div className="py-24 text-center space-y-3">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
+            <p className="text-xs font-semibold text-slate-500">Checking authentication...</p>
           </div>
-          <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 h-full transition-all duration-500"
-              style={{ width: step === 1 ? '33%' : step === 2 ? '66%' : '100%' }}
-            />
+        ) : !user ? (
+          <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-2xl text-center space-y-6 max-w-lg mx-auto relative overflow-hidden animate-in fade-in duration-300 my-8">
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 absolute top-0 left-0" />
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-slate-900 font-heading tracking-tight">
+                Sign In to Create Your Chatbot
+              </h2>
+              <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
+                First user authentication is required. Please sign in with Google to create your bot project, crawl your domain, and deploy your live widget.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setAuthModalOpen(true)}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <span>Continue with Google</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => signInAsDemoUser('creator@example.com', 'Creator')}
+                  className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200/80 transition-colors cursor-pointer"
+                >
+                  Demo Creator
+                </button>
+                <button
+                  type="button"
+                  onClick={() => signInAsDemoUser('admin@sitebotstudio.com', 'Super Admin')}
+                  className="py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/80 transition-colors cursor-pointer"
+                >
+                  Demo Super Admin
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Step Progress Tracker */}
+            <div className="mb-10 max-w-xl mx-auto">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                <span className={step >= 1 ? 'text-indigo-600' : ''}>1. Project Name &amp; URL</span>
+                <span className={step >= 2 ? 'text-indigo-600' : ''}>2. Auto-Crawl &amp; Extract</span>
+                <span className={step >= 3 ? 'text-indigo-600' : ''}>3. Autofilled Customization</span>
+              </div>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 h-full transition-all duration-500"
+                  style={{ width: step === 1 ? '33%' : step === 2 ? '66%' : '100%' }}
+                />
+              </div>
+            </div>
 
         {error && (
           <div className="mb-8 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
@@ -478,11 +587,55 @@ PRIMARY INSTRUCTIONS:
           </div>
         )}
 
+        {botLimitError && (
+          <div className="mb-8 rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-600 p-6 sm:p-8 text-white shadow-xl shadow-indigo-600/20">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold font-heading">Bot limit reached</h3>
+                  <p className="text-xs text-white/80 mt-0.5">
+                    You have reached the {botLimitError.plan} plan limit of {botLimitError.limit}{' '}
+                    chatbot(s).
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBotLimitError(null)}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                aria-label="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-white/80 mt-4">
+              Upgrade to Pro to unlock up to <strong>10 chatbots</strong>, 2.5M tokens/month, and
+              WhatsApp &amp; Telegram lead alerts.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href="/dashboard"
+                className="px-5 py-2.5 rounded-xl bg-white text-indigo-700 font-extrabold text-xs shadow-lg hover:scale-[1.02] transition-all"
+              >
+                Upgrade to Pro — $9/mo
+              </Link>
+              <button
+                onClick={() => setBotLimitError(null)}
+                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-colors"
+              >
+                Manage existing bots
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ========================================================
             STEP 1: INITIAL SIMPLE SETUP (Name & Website URL)
             ======================================================== */}
         {step === 1 && (
-          <div className="bg-white rounded-3xl p-8 sm:p-10 border border-slate-200/80 shadow-xl space-y-6 relative overflow-hidden animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl p-5 sm:p-10 border border-slate-200/80 shadow-xl space-y-6 relative overflow-hidden animate-in fade-in duration-300">
             <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 absolute top-0 left-0" />
 
             <div className="space-y-2 text-center max-w-md mx-auto">
@@ -497,7 +650,161 @@ PRIMARY INSTRUCTIONS:
               </p>
             </div>
 
-            <form onSubmit={handleStartCrawl} className="space-y-5 max-w-lg mx-auto pt-2">
+            <form onSubmit={handleStartCrawl} className="space-y-6 max-w-3xl mx-auto pt-2">
+              {/* Plan Tier Selection: Free, Individual, Enterprise */}
+              <div className="space-y-3">
+                <div className="text-center sm:text-left">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 justify-center sm:justify-start">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Choose Your Chatbot Plan Tier</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Select a tier for this chatbot. You can adjust settings or upgrade any time.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+                  {/* Free Tier */}
+                  <div
+                    onClick={() => setSelectedPlanTier('free')}
+                    className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                      selectedPlanTier === 'free'
+                        ? 'border-indigo-600 bg-indigo-50/40 shadow-md ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-white'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="font-extrabold text-sm text-slate-900 font-heading">
+                          Free Starter
+                        </span>
+                        {selectedPlanTier === 'free' && (
+                          <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-lg font-black text-slate-900 mb-1">
+                        $0 <span className="text-xs font-normal text-slate-500">/ forever</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-tight mb-3">
+                        Ideal for testing, hobby projects &amp; personal sites.
+                      </p>
+                      <ul className="space-y-1.5 text-[11px] text-slate-600">
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>1 Chatbot project</span>
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Up to 15 crawled pages</span>
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Standard AI responses</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Individual Tier (Popular) */}
+                  <div
+                    onClick={() => setSelectedPlanTier('individual')}
+                    className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                      selectedPlanTier === 'individual'
+                        ? 'border-indigo-600 bg-indigo-50/50 shadow-lg ring-2 ring-indigo-500/30'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-white'
+                    }`}
+                  >
+                    <div className="absolute -top-3 right-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                      Recommended
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="font-extrabold text-sm text-slate-900 font-heading">
+                          Individual Pro
+                        </span>
+                        {selectedPlanTier === 'individual' && (
+                          <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-lg font-black text-indigo-600 mb-1">
+                        $19 <span className="text-xs font-normal text-slate-500">/ month</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-tight mb-3">
+                        For solopreneurs, creators &amp; small business sites.
+                      </p>
+                      <ul className="space-y-1.5 text-[11px] text-slate-600">
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Up to 5 Chatbots</span>
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Unlimited crawled pages</span>
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Lead capture &amp; alerts</span>
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Custom brand styling</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Enterprise Tier */}
+                  <div
+                    onClick={() => setSelectedPlanTier('enterprise')}
+                    className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                      selectedPlanTier === 'enterprise'
+                        ? 'border-indigo-600 bg-indigo-50/40 shadow-md ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-white'
+                    }`}
+                  >
+                    <div className="absolute -top-3 right-4 bg-slate-900 text-amber-300 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                      Max Scale
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="font-extrabold text-sm text-slate-900 font-heading">
+                          Enterprise
+                        </span>
+                        {selectedPlanTier === 'enterprise' && (
+                          <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-lg font-black text-slate-900 mb-1">
+                        $99 <span className="text-xs font-normal text-slate-500">/ month</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-tight mb-3">
+                        For agencies, high-traffic SaaS &amp; multi-brands.
+                      </p>
+                      <ul className="space-y-1.5 text-[11px] text-slate-600">
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Unlimited chatbots</span>
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Custom AI models &amp; keys</span>
+                        </li>
+                        <li className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Dedicated SLA &amp; webhooks</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Target Website URL <span className="text-rose-500">*</span>
@@ -634,6 +941,79 @@ PRIMARY INSTRUCTIONS:
               </button>
             </div>
 
+            {/* AI Meta-Analysis & Guardrails Derived Config Card */}
+            {derivedBotConfig && (
+              <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 rounded-3xl p-7 sm:p-8 text-white border border-indigo-500/20 shadow-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>AI Meta-Analysis Derived Identity &amp; Guardrails</span>
+                  </div>
+                  <span className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
+                    Strict RAG Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+                      Detected Business Tone
+                    </span>
+                    <p className="text-sm font-semibold text-slate-100 mt-1 capitalize">
+                      {derivedBotConfig.tone || 'Professional & Consultative'}
+                    </p>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+                      Core Value Proposition
+                    </span>
+                    <p className="text-xs text-slate-200 mt-1 line-clamp-2">
+                      {derivedBotConfig.core_value_prop || 'Empowering visitors through tailored AI assistance.'}
+                    </p>
+                  </div>
+                </div>
+
+                {derivedBotConfig.lead_triggers && derivedBotConfig.lead_triggers.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300 block mb-2">
+                      Dynamic Contextual Lead Triggers
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {derivedBotConfig.lead_triggers.map((trigger, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-600/30 border border-indigo-500/30 text-xs font-semibold text-indigo-200"
+                        >
+                          ⚡ {trigger}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {derivedBotConfig.qualification_questions && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                        Email Lead Question
+                      </span>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        &ldquo;{derivedBotConfig.qualification_questions.ask_for_email}&rdquo;
+                      </p>
+                    </div>
+                    <div className="bg-black/20 border border-white/5 rounded-xl p-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                        Phone Lead Question
+                      </span>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        &ldquo;{derivedBotConfig.qualification_questions.ask_for_phone}&rdquo;
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 1. Brand & Appearance Card */}
             <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-6">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
@@ -717,10 +1097,11 @@ PRIMARY INSTRUCTIONS:
                     onChange={(e: any) => setLauncherStyle(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
                   >
-                    <option value="standard">Standard Circular Bubble (with ping badge)</option>
-                    <option value="minimal">Minimal Compact Icon</option>
-                    <option value="pill">Pill with Text ("Chat with us")</option>
-                    <option value="chat">Expanded Chat Tab</option>
+                    {LAUNCHER_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.emoji ? `${p.emoji} ` : ''}{p.label} — {p.desc}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -794,30 +1175,92 @@ PRIMARY INSTRUCTIONS:
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    ⚡ Free Audit URL &mdash; controls &ldquo;Free Audit&rdquo; button
-                  </label>
-                  <input
-                    type="text"
-                    value={auditUrl}
-                    onChange={(e) => setAuditUrl(e.target.value)}
-                    placeholder="https://yoursite.com/audit (leave empty to hide)"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
-                  />
-                </div>
-
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    🏷️ Pricing / Plans URL &mdash; controls &ldquo;Plans &rarr;&rdquo; button
+                    🔗 Quick Links <span className="text-slate-400 font-normal">(auto-added from crawling or you can add/remove)</span>
                   </label>
-                  <input
-                    type="text"
-                    value={pricingUrl}
-                    onChange={(e) => setPricingUrl(e.target.value)}
-                    placeholder="https://yoursite.com/pricing (leave empty to hide)"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
-                  />
+                  <div className="space-y-2">
+                    {customLinks.map((link, linkIdx) => (
+                      <div key={linkIdx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={link.label}
+                          onChange={(e) => {
+                            const updated = [...customLinks];
+                            updated[linkIdx] = { ...updated[linkIdx], label: e.target.value };
+                            setCustomLinks(updated);
+                          }}
+                          placeholder="Button label, e.g. Book a Demo"
+                          className="w-1/3 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                        />
+                        <input
+                          type="text"
+                          value={link.url}
+                          onChange={(e) => {
+                            const updated = [...customLinks];
+                            updated[linkIdx] = { ...updated[linkIdx], url: e.target.value };
+                            setCustomLinks(updated);
+                          }}
+                          placeholder="https://yoursite.com/demo"
+                          className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                        />
+                        <button
+                          type="button"
+                          aria-label="Remove quick link"
+                          title="Remove this quick link"
+                          onClick={() => setCustomLinks(customLinks.filter((_, i) => i !== linkIdx))}
+                          className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {customLinks.length === 0 && (
+                      <p className="text-[11px] text-slate-400">
+                        No quick links yet. Pick trending presets below or crawl your site to auto-detect them.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setCustomLinks([...customLinks, { label: '', url: '' }])}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold text-indigo-600 border border-dashed border-indigo-300 hover:bg-indigo-50 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Quick Link
+                    </button>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-3 mb-1.5">
+                        Trending presets — tap to add
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {QUICK_LINK_PRESETS.map((preset) => {
+                          const exists = customLinks.some(
+                            (l) =>
+                              l.label.toLowerCase() === preset.label.toLowerCase() ||
+                              l.url === preset.url
+                          );
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              disabled={exists}
+                              onClick={() =>
+                                setCustomLinks([...customLinks, { label: preset.label, url: preset.url }])
+                              }
+                              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
+                                exists
+                                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                  : 'bg-slate-50 border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50'
+                              }`}
+                            >
+                              <span>{preset.emoji}</span>
+                              {preset.label}
+                              {!exists && <Plus className="w-3 h-3 opacity-60" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1026,7 +1469,7 @@ PRIMARY INSTRUCTIONS:
                             setActiveProvider(prov);
                             if (prov === 'openai') setChatModel('gpt-4o-mini');
                             if (prov === 'nvidia') setChatModel('meta/muse-glimmer-30b');
-                            if (prov === 'gemini') setChatModel('gemini-1.5-flash');
+                            if (prov === 'gemini') setChatModel('gemini-2.5-flash');
                             if (prov === 'openrouter') setChatModel('meta-llama/llama-3-8b-instruct:free');
                           }}
                           className={`p-3 rounded-xl border text-xs font-bold uppercase transition-all ${
@@ -1047,7 +1490,7 @@ PRIMARY INSTRUCTIONS:
                       <input
                         type="text"
                         value={chatModel}
-                        onChange={(e) => setChatModel(e.target.value)}
+                        onChange={(e) => setChatModel(e.target.value.trim().toLowerCase())}
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-mono"
                       />
                     </div>
@@ -1112,35 +1555,18 @@ PRIMARY INSTRUCTIONS:
             </div>
           </form>
         )}
+          </>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 py-8 text-xs text-slate-500 bg-white mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0">
-              <img src="/favicon.png" alt="SiteBot" className="w-full h-full object-cover" />
-            </div>
-            <span className="text-slate-800 font-bold">SiteBot Studio</span>
-            <span>&mdash; Multi-Tenant AI Chatbot Platform</span>
-          </div>
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        title="Sign In to Create Bot"
+        subtitle="Sign in with your Google account to create and manage your website chatbots."
+      />
 
-          <div className="flex items-center gap-6 font-semibold">
-            <Link href="/" className="hover:text-indigo-600 transition-colors">
-              Home
-            </Link>
-            <Link href="/create" className="hover:text-indigo-600 transition-colors">
-              Create Bot
-            </Link>
-            <Link href="/about" className="hover:text-indigo-600 transition-colors">
-              About
-            </Link>
-            <Link href="/contact" className="hover:text-indigo-600 transition-colors">
-              Contact
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

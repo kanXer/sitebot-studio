@@ -4,19 +4,36 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Sparkles, Shield, Zap, Star, Bot } from 'lucide-react';
+import { useAuth } from '@/lib/firebase/AuthContext';
 
 export default function DemoSandboxPage() {
   const params = useParams();
   const botId = params?.id as string;
+  const { user } = useAuth();
   const [bot, setBot] = useState<any>(null);
 
   useEffect(() => {
     if (!botId) return;
 
-    fetch(`/api/bot/${botId}`)
-      .then((res) => res.json())
+    const headers: Record<string, string> = {};
+    if (user?.email) headers['x-user-email'] = user.email;
+    if (user?.uid) headers['x-user-id'] = user.uid;
+
+    fetch(`/api/bot/${botId}`, { headers })
+      .then(async (res) => {
+        if (res.ok) return res.json();
+        // Fallback to public widget configuration endpoint
+        const pubRes = await fetch(`/api/chat/${botId}`, {
+          headers: { 'x-sitebot-preview': 'true' },
+        });
+        if (pubRes.ok) {
+          const pubData = await pubRes.json();
+          return { bot: pubData };
+        }
+        return null;
+      })
       .then((data) => {
-        if (data.bot) setBot(data.bot);
+        if (data?.bot) setBot(data.bot);
       })
       .catch(console.error);
 
@@ -32,7 +49,7 @@ export default function DemoSandboxPage() {
       if (existingRoot) existingRoot.remove();
       if (script.parentNode) script.parentNode.removeChild(script);
     };
-  }, [botId]);
+  }, [botId, user?.email, user?.uid]);
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-500 selection:text-white relative">

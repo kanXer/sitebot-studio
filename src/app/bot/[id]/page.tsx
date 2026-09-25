@@ -36,12 +36,23 @@ import {
   MessageCircle,
   Zap,
   ArrowRight,
+  ArrowLeft,
   Link2,
   ShieldCheck,
+  ShieldAlert,
+  Headphones,
+  Inbox,
+  Lock,
+  LogIn,
   User,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { QdrantSetupGuide } from '@/components/QdrantSetupGuide';
+import { BotGuardrailsTab } from '@/components/BotGuardrailsTab';
+import { BotHandoffTab } from '@/components/BotHandoffTab';
+import { BotLeadsTab } from '@/components/BotLeadsTab';
+import { useAuth } from '@/lib/firebase/AuthContext';
 
 interface BotDetail {
   id: string;
@@ -62,6 +73,22 @@ interface BotDetail {
   auditUrl?: string;
   pricingUrl?: string;
   customLinks?: Array<{ label: string; url: string }>;
+  guardrails?: {
+    enabled?: boolean;
+    strictRAG?: boolean;
+    promptInjectionDefense?: boolean;
+    domainScopeEnforcement?: boolean;
+    piiMasking?: boolean;
+    similarityThreshold?: number;
+    fallbackMessage?: string;
+  };
+  handoff?: {
+    enabled?: boolean;
+    autoDetect?: boolean;
+    agentName?: string;
+    notifyEmail?: string;
+    offlineMessage?: string;
+  };
   maskedKeys?: {
     gemini?: string;
     openrouter?: string;
@@ -106,11 +133,18 @@ export default function BotDashboardPage() {
   const params = useParams();
   const router = useRouter();
   const botId = params?.id as string;
+  const { user, loading: authLoading, signInWithGoogle, signInAsDemoUser } = useAuth();
 
   const [bot, setBot] = useState<BotDetail | null>(null);
   const [stats, setStats] = useState({ totalPages: 0, indexedPages: 0, totalChunks: 0 });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'playground' | 'crawler' | 'appearance' | 'ai' | 'security' | 'qdrant'>('playground');
+  const [errorState, setErrorState] = useState<{
+    type: 'unauthorized' | 'forbidden' | 'not_found' | 'error';
+    message: string;
+  } | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    'playground' | 'crawler' | 'leads' | 'guardrails' | 'handoff' | 'appearance' | 'ai' | 'security' | 'qdrant'
+  >('playground');
   const [copiedCode, setCopiedCode] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [toastMsg, setToastMsg] = useState<{
@@ -124,6 +158,13 @@ export default function BotDashboardPage() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToastMsg({ id: Date.now(), message, type });
     toastTimer.current = setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (user?.email) headers['x-user-email'] = user.email;
+    if (user?.uid) headers['x-user-id'] = user.uid;
+    return headers;
   };
 
   // Crawler State
@@ -171,6 +212,24 @@ export default function BotDashboardPage() {
     rateLimitEnabled: false,
     rateLimitMax: 20,
     rateLimitWindow: 60,
+
+    // Guardrails Settings
+    guardrailsEnabled: true,
+    strictRAG: true,
+    promptInjectionDefense: true,
+    domainScopeEnforcement: true,
+    piiMasking: true,
+    similarityThreshold: 0.40,
+    fallbackMessage:
+      "I'm sorry, but I do not have verified information about that from this website. For assistance on this specific request, please feel free to contact our team or request to speak with a human representative.",
+
+    // Live Escalation / Handoff Settings
+    handoffEnabled: true,
+    handoffAutoDetect: true,
+    handoffAgentName: 'Support Agent',
+    handoffNotifyEmail: '',
+    handoffOfflineMessage:
+      'Our human support agents are currently offline or busy. Please leave your contact details and message, and our team will get back to you shortly!',
   });
 
   // Custom DB test state
@@ -183,14 +242,57 @@ export default function BotDashboardPage() {
   >([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatStreaming, setIsChatStreaming] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatFollowRef = useRef(true);
 
   // Fetch bot details
   const fetchBot = async () => {
     try {
-      const res = await fetch(`/api/bot/${botId}`);
-      if (!res.ok) throw new Error('Bot not found');
+      const headers = getAuthHeaders();
+      const queryParams = new URLSearchParams();
+      if (user?.email) queryParams.set('email', user.email);
+      if (user?.uid) queryParams.set('userId', user.uid);
+      const qStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+      const res = await fetch(`/api/bot/${botId}${qStr}`, { headers });
+
+      if (res.status === 401) {
+        const d = await res.json().catch(() => ({}));
+        setErrorState({
+          type: 'unauthorized',
+          message: d.error || 'Authentication required to manage this chatbot.',
+        });
+        setBot(null);
+        return;
+      }
+
+      if (res.status === 403) {
+        const d = await res.json().catch(() => ({}));
+        setErrorState({
+          type: 'forbidden',
+          message: d.error || 'Access denied: You do not have permission to view or manage this chatbot.',
+        });
+        setBot(null);
+        return;
+      }
+
+      if (res.status === 404) {
+        const d = await res.json().catch(() => ({}));
+        setErrorState({
+          type: 'not_found',
+          message: d.error || 'Chatbot not found. It may have been deleted or the custom bot ID does not exist.',
+        });
+        setBot(null);
+        return;
+      }
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || `HTTP ${res.status}`);
+      }
+
       const data = await res.json();
+      setErrorState(null);
       setBot(data.bot);
       setStats(data.stats);
 
@@ -222,10 +324,28 @@ export default function BotDashboardPage() {
         customDbCollection: data.bot.customVectorDb?.collectionName || '',
         customLinks: data.bot.customLinks || [],
         slug: data.bot.slug || '',
-        allowedOrigins: (data.bot.allowedOrigins || []).join(''),
+        allowedOrigins: (data.bot.allowedOrigins || []).join('\n'),
         rateLimitEnabled: data.bot.rateLimit?.enabled || false,
         rateLimitMax: data.bot.rateLimit?.maxRequests || 20,
         rateLimitWindow: Math.round((data.bot.rateLimit?.windowMs || 60000) / 1000),
+
+        guardrailsEnabled: data.bot.guardrails?.enabled !== false,
+        strictRAG: data.bot.guardrails?.strictRAG !== false,
+        promptInjectionDefense: data.bot.guardrails?.promptInjectionDefense !== false,
+        domainScopeEnforcement: data.bot.guardrails?.domainScopeEnforcement !== false,
+        piiMasking: data.bot.guardrails?.piiMasking !== false,
+        similarityThreshold: typeof data.bot.guardrails?.similarityThreshold === 'number' ? data.bot.guardrails.similarityThreshold : 0.40,
+        fallbackMessage:
+          data.bot.guardrails?.fallbackMessage ||
+          "I'm sorry, but I do not have verified information about that from this website. For assistance on this specific request, please feel free to contact our team or request to speak with a human representative.",
+
+        handoffEnabled: data.bot.handoff?.enabled !== false,
+        handoffAutoDetect: data.bot.handoff?.autoDetect !== false,
+        handoffAgentName: data.bot.handoff?.agentName || 'Support Agent',
+        handoffNotifyEmail: data.bot.handoff?.notifyEmail || '',
+        handoffOfflineMessage:
+          data.bot.handoff?.offlineMessage ||
+          'Our human support agents are currently offline or busy. Please leave your contact details and message, and our team will get back to you shortly!',
       });
 
       if (chatMessages.length === 0) {
@@ -236,8 +356,12 @@ export default function BotDashboardPage() {
           },
         ]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setErrorState({
+        type: 'error',
+        message: err.message || 'Failed to load chatbot data',
+      });
     } finally {
       setLoading(false);
     }
@@ -245,7 +369,8 @@ export default function BotDashboardPage() {
 
   const fetchKnowledge = async () => {
     try {
-      const res = await fetch(`/api/knowledge/${botId}`);
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/knowledge/${botId}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setPages(data.pages || []);
@@ -257,14 +382,18 @@ export default function BotDashboardPage() {
   };
 
   useEffect(() => {
-    if (botId) {
-      fetchBot();
-      fetchKnowledge();
-    }
-  }, [botId]);
+    if (!botId) return;
+    if (authLoading) return;
+    fetchBot();
+    fetchKnowledge();
+  }, [botId, authLoading, user?.email, user?.uid]);
 
+  // Scroll the chat INSIDE its own card only when the user is already at the
+  // bottom. Never scroll the outer page, so the user keeps their position.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = chatScrollRef.current;
+    if (!el || !chatFollowRef.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [chatMessages, isChatStreaming]);
 
   const handleStartCrawl = async () => {
@@ -274,7 +403,11 @@ export default function BotDashboardPage() {
     try {
       const res = await fetch('/api/crawl', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({
           chatbotId: botId,
           maxPages: maxCrawlPages,
@@ -353,7 +486,10 @@ export default function BotDashboardPage() {
     try {
       const res = await fetch(`/api/knowledge/${botId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({
           title: manualTitle,
           content: manualContent,
@@ -366,7 +502,7 @@ export default function BotDashboardPage() {
       setManualTitle('');
       setManualContent('');
       setShowManualModal(false);
-      showToast('Manual Q&amp;A added to knowledge base');
+      showToast('Manual Q&A added to knowledge base');
       await fetchBot();
       await fetchKnowledge();
     } catch (err: any) {
@@ -380,7 +516,10 @@ export default function BotDashboardPage() {
     if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
     try {
       const param = type === 'page' ? `pageId=${id}` : `chunkId=${id}`;
-      await fetch(`/api/knowledge/${botId}?${param}`, { method: 'DELETE' });
+      await fetch(`/api/knowledge/${botId}?${param}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       showToast(`${type === 'page' ? 'Page' : 'Chunk'} removed from knowledge base`);
       await fetchBot();
       await fetchKnowledge();
@@ -420,6 +559,22 @@ export default function BotDashboardPage() {
           apiKey: formData.customDbApiKey,
           collectionName: formData.customDbCollection,
         },
+        guardrails: {
+          enabled: formData.guardrailsEnabled,
+          strictRAG: formData.strictRAG,
+          promptInjectionDefense: formData.promptInjectionDefense,
+          domainScopeEnforcement: formData.domainScopeEnforcement,
+          piiMasking: formData.piiMasking,
+          similarityThreshold: formData.similarityThreshold,
+          fallbackMessage: formData.fallbackMessage,
+        },
+        handoff: {
+          enabled: formData.handoffEnabled,
+          autoDetect: formData.handoffAutoDetect,
+          agentName: formData.handoffAgentName,
+          notifyEmail: formData.handoffNotifyEmail,
+          offlineMessage: formData.handoffOfflineMessage,
+        },
         slug: formData.slug.trim() || null,
         allowedOrigins: formData.allowedOrigins,
         rateLimit: {
@@ -445,7 +600,10 @@ export default function BotDashboardPage() {
 
       const res = await fetch(`/api/bot/${botId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify(payload),
       });
 
@@ -498,7 +656,10 @@ export default function BotDashboardPage() {
       return;
     }
     try {
-      const res = await fetch(`/api/bot/${botId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/bot/${botId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         try {
           const stored = JSON.parse(localStorage.getItem('sitebot_saved_bots') || '[]');
@@ -622,7 +783,7 @@ export default function BotDashboardPage() {
     showToast('Widget code copied to clipboard');
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-3" />
@@ -631,15 +792,101 @@ export default function BotDashboardPage() {
     );
   }
 
+  if (errorState?.type === 'unauthorized') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl text-center space-y-5">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-inner">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 mb-1.5">Sign In Required</h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              This chatbot is owned by a registered account. Please sign in to access and manage its settings, crawler, and leads.
+            </p>
+          </div>
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={() => signInWithGoogle().then(() => fetchBot()).catch(console.error)}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In with Google</span>
+            </button>
+            <button
+              onClick={() => signInAsDemoUser().then(() => fetchBot()).catch(console.error)}
+              className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all border border-slate-200 cursor-pointer"
+            >
+              <span>Continue as Demo User</span>
+            </button>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold inline-flex items-center gap-1"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Return to Home</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorState?.type === 'forbidden') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl text-center space-y-5">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-inner">
+            <ShieldAlert className="w-7 h-7" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 mb-1.5">Access Denied</h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {errorState.message || 'You do not have permission to view or manage this chatbot.'}
+            </p>
+            {user?.email && (
+              <p className="text-[11px] text-slate-400 mt-2 font-mono">
+                Currently signed in as: {user.email}
+              </p>
+            )}
+          </div>
+          <div className="pt-2 flex flex-col gap-2">
+            <Link
+              href="/"
+              className="w-full px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-md transition-all text-center inline-block"
+            >
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!bot) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500">
-        <AlertCircle className="w-10 h-10 text-red-500 mb-3" />
-        <h2 className="text-lg font-bold text-slate-900 mb-1">Chatbot Not Found</h2>
-        <p className="text-xs text-slate-500 mb-4">The chatbot ID is invalid or does not exist.</p>
-        <Link href="/" className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold">
-          Back to Home
-        </Link>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl text-center space-y-5">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shadow-inner">
+            <AlertCircle className="w-7 h-7 text-rose-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 mb-1.5">Chatbot Not Found</h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {errorState?.message || 'The chatbot ID or custom slug does not exist or may have been deleted.'}
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all inline-block"
+            >
+              Back to Home
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -777,6 +1024,42 @@ export default function BotDashboardPage() {
             </button>
 
             <button
+              onClick={() => setActiveTab('leads')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'leads'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Inbox className="w-4 h-4" />
+              <span>Captured Leads</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('guardrails')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'guardrails'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>Guardrails Engine</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('handoff')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'handoff'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Headphones className="w-4 h-4" />
+              <span>Live Handoff</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('appearance')}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'appearance'
@@ -828,7 +1111,7 @@ export default function BotDashboardPage() {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-8 pb-28 md:pb-12">
         {/* TAB 1: Live Playground & Embed Code */}
         {activeTab === 'playground' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -1053,7 +1336,15 @@ export default function BotDashboardPage() {
                 </div>
 
                 {/* Messages Container */}
-                <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                <div
+                  ref={chatScrollRef}
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+                    chatFollowRef.current = dist <= 80;
+                  }}
+                  className="flex-1 overflow-y-auto py-4 space-y-4 pr-1"
+                >
                   {chatMessages.map((msg, idx) => (
                     <div
                       key={idx}
@@ -1114,7 +1405,7 @@ export default function BotDashboardPage() {
                       </div>
                     </div>
                   ))}
-                  <div ref={messagesEndRef} />
+                  <div />
                 </div>
 
                 {/* Suggested question chips */}
@@ -1353,6 +1644,33 @@ export default function BotDashboardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* TAB: Captured Leads & Forms */}
+        {activeTab === 'leads' && (
+          <BotLeadsTab botId={botId} botName={formData.name || 'Chatbot'} />
+        )}
+
+        {/* TAB: Guardrails Engine */}
+        {activeTab === 'guardrails' && (
+          <BotGuardrailsTab
+            formData={formData}
+            setFormData={setFormData}
+            onSave={handleSaveSettings}
+            saveSuccess={saveSuccess}
+          />
+        )}
+
+        {/* TAB: Live Agent Handoff */}
+        {activeTab === 'handoff' && (
+          <BotHandoffTab
+            botId={botId}
+            botName={formData.name || 'Chatbot'}
+            formData={formData}
+            setFormData={setFormData}
+            onSave={handleSaveSettings}
+            saveSuccess={saveSuccess}
+          />
         )}
 
         {/* TAB 3: Widget Customization */}
@@ -2461,6 +2779,7 @@ export default function BotDashboardPage() {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 }

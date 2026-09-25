@@ -1,5 +1,10 @@
 import * as cheerio from 'cheerio';
 
+export interface QuickLink {
+  label: string;
+  url: string;
+}
+
 export interface SiteIdentity {
   brandName: string;
   description: string;
@@ -7,8 +12,7 @@ export interface SiteIdentity {
   phone?: string;
   whatsapp?: string;
   email?: string;
-  auditUrl?: string;
-  pricingUrl?: string;
+  quickLinks?: QuickLink[];
   keyTopics: string[];
 }
 
@@ -221,7 +225,7 @@ export async function crawlWebsite(
           url,
           title,
           text,
-          rawHtml: results.length === 0 ? html : undefined,
+          rawHtml: html,
         });
       }
 
@@ -253,6 +257,202 @@ export async function crawlWebsite(
   }
 
   return results;
+}
+
+/**
+ * Decodes Cloudflare email obfuscation (data-cfemail / __cf_email__)
+ */
+export function decodeCloudflareEmail(encoded: string): string {
+  try {
+    let email = '';
+    const r = parseInt(encoded.substr(0, 2), 16);
+    for (let n = 2; n < encoded.length; n += 2) {
+      const c = parseInt(encoded.substr(n, 2), 16) ^ r;
+      email += String.fromCharCode(c);
+    }
+    return email.trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Normalizes, decodes, and validates candidate email strings
+ */
+export function normalizeEmail(raw: string): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  let cleaned = raw
+    .trim()
+    .replace(/^mailto:/i, '')
+    .split('?')[0]
+    .replace(/^[<(\["'\s]+|[>)"'\s\].,;:]+$/g, '')
+    .trim();
+
+  try {
+    cleaned = decodeURIComponent(cleaned);
+  } catch {}
+
+  // If email was concatenated with sentence continuation e.g. domain.com.random or site.org.please
+  const trailingContinuationMatch = cleaned.match(/^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov|io|ai|app|dev|tech|info|biz|me))\.[a-zA-Z]{2,24}$/i);
+  if (trailingContinuationMatch) {
+    cleaned = trailingContinuationMatch[1];
+  }
+
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,24}$/;
+  if (!emailRegex.test(cleaned)) return null;
+
+  // Filter static assets, fonts, placeholders
+  if (/\.(png|jpe?g|gif|webp|svg|ico|css|js|json|woff2?|ttf)$/i.test(cleaned)) return null;
+  if (/(example\.com|domain\.com|yourdomain\.com|test\.com|email\.com)$/i.test(cleaned)) return null;
+  if (/@2x$/i.test(cleaned)) return null;
+  if (/^(sentry|wixpress|gravatar|git@|npm@)/i.test(cleaned)) return null;
+
+  return cleaned.toLowerCase();
+}
+
+/**
+ * Robust multi-strategy email extractor from raw HTML.
+ * Handles Cloudflare data-cfemail, mailto links, JSON-LD schema, meta tags,
+ * microdata, obfuscations (e.g. user [at] site [dot] com), and ranked scoring.
+ */
+export function extractEmailsFromHtml(html: string, siteUrl?: string): string[] {
+  if (!html) return [];
+  const $ = cheerio.load(html);
+  // Ensure block tags have spaces so cheerio text extraction doesn't glue words across tags
+  $('p, div, br, li, h1, h2, h3, h4, h5, h6, tr, td, th, section, article, header, footer').after(' ');
+  const candidates = new Set<string>();
+
+  // 1. Cloudflare protected email decoding
+  $('[data-cfemail], .__cf_email__').each((_, el) => {
+    const cfData = $(el).attr('data-cfemail') || $(el).attr('href')?.split('#')[1];
+    if (cfData) {
+      const decoded = decodeCloudflareEmail(cfData);
+      const norm = normalizeEmail(decoded);
+      if (norm) candidates.add(norm);
+    }
+  });
+
+  // 2. Mailto links (case-insensitive, handles whitespace and nested text)
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href')?.trim() || '';
+    if (/^mailto:/i.test(href)) {
+      const norm = normalizeEmail(href);
+      if (norm) candidates.add(norm);
+    }
+    const text = $(el).text().trim();
+    if (text.includes('@')) {
+      const norm = normalizeEmail(text);
+      if (norm) candidates.add(norm);
+    }
+  });
+
+  // 3. Structured Data: JSON-LD schemas (<script type="application/ld+json">)
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const text = $(el).html() || '';
+      const data = JSON.parse(text);
+      const scanObj = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return;
+        if (typeof obj.email === 'string') {
+          const norm = normalizeEmail(obj.email);
+          if (norm) candidates.add(norm);
+        }
+        for (const val of Object.values(obj)) {
+          if (typeof val === 'object') scanObj(val);
+        }
+      };
+      if (Array.isArray(data)) data.forEach(scanObj);
+      else scanObj(data);
+    } catch {}
+  });
+
+  // 4. Meta tags (og:email, email, business:contact_data:email)
+  $('meta[property*="email"], meta[name*="email"], meta[property*="contact"], meta[name*="contact"]').each((_, el) => {
+    const content = $(el).attr('content');
+    if (content && content.includes('@')) {
+      const norm = normalizeEmail(content);
+      if (norm) candidates.add(norm);
+    }
+  });
+
+  // 5. Microdata: [itemprop="email"]
+  $('[itemprop="email"]').each((_, el) => {
+    const content = $(el).attr('content') || $(el).text() || $(el).attr('href');
+    if (content) {
+      const norm = normalizeEmail(content);
+      if (norm) candidates.add(norm);
+    }
+  });
+
+  // 6. Common contact containers (header, footer, .contact, #contact, .about)
+  const contactSections = $('footer, header, .footer, .header, #footer, #header, [class*="contact"], [id*="contact"], [class*="about"], [id*="about"]').text();
+  const contactMatches = contactSections.match(/\b[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,24}\b/g) || [];
+  for (const m of contactMatches) {
+    const norm = normalizeEmail(m);
+    if (norm) candidates.add(norm);
+  }
+
+  // 7. Obfuscated patterns in full text (e.g. info [at] domain.com or info(at)domain.com or user at domain dot com)
+  const fullText = $('body').text().replace(/\u00a0/g, ' ');
+  const bracketPattern = /\b([a-zA-Z0-9._%+-]+)\s*(?:\[at\]|\(at\)|\{at\})\s*([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*)\s*(?:\[dot\]|\(dot\)|\{dot\}|\.)\s*([a-zA-Z]{2,24})\b/gi;
+  let obMatch: RegExpExecArray | null;
+  while ((obMatch = bracketPattern.exec(fullText)) !== null) {
+    const reconstructed = `${obMatch[1]}@${obMatch[2]}.${obMatch[3]}`;
+    const norm = normalizeEmail(reconstructed);
+    if (norm) candidates.add(norm);
+  }
+
+  const spelledPattern = /\b([a-zA-Z0-9._%+-]+)\s+at\s+([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*)\s+dot\s+([a-zA-Z]{2,24})\b/gi;
+  while ((obMatch = spelledPattern.exec(fullText)) !== null) {
+    const reconstructed = `${obMatch[1]}@${obMatch[2]}.${obMatch[3]}`;
+    const norm = normalizeEmail(reconstructed);
+    if (norm) candidates.add(norm);
+  }
+
+  // 8. General body text regex
+  const allMatches = fullText.match(/\b[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,24}\b/g) || [];
+  for (const m of allMatches) {
+    const norm = normalizeEmail(m);
+    if (norm) candidates.add(norm);
+  }
+
+  // 9. Score & Rank candidates
+  let siteHostname = '';
+  try {
+    if (siteUrl) siteHostname = new URL(siteUrl).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {}
+
+  const scored = Array.from(candidates).map((email) => {
+    let score = 0;
+    const [local, domain] = email.split('@');
+
+    // Matching domain gets major boost
+    if (siteHostname && domain && (domain.includes(siteHostname) || siteHostname.includes(domain))) {
+      score += 30;
+    }
+
+    // High value business prefixes
+    const preferredPrefixes = ['contact', 'info', 'support', 'hello', 'help', 'sales', 'team', 'office', 'inquiries', 'admin', 'service', 'booking'];
+    if (preferredPrefixes.some((p) => local.toLowerCase().startsWith(p))) {
+      score += 20;
+    }
+
+    // Deprioritize generic / no-reply prefixes
+    const badPrefixes = ['noreply', 'no-reply', 'donotreply', 'privacy', 'abuse', 'webmaster', 'security', 'postmaster'];
+    if (badPrefixes.some((p) => local.toLowerCase().startsWith(p))) {
+      score -= 30;
+    }
+
+    // Deprioritize common free email providers if domain-specific emails exist
+    if (['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(domain)) {
+      score -= 2;
+    }
+
+    return { email, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.email);
 }
 
 /**
@@ -358,38 +558,56 @@ export function extractSiteIdentity(html: string, pageUrl: string): SiteIdentity
     whatsapp = phone;
   }
 
-  // 6. Email
-  let email: string | undefined;
-  $('a[href^="mailto:"]').each((_, el) => {
-    if (email) return;
-    const raw = $(el).attr('href')?.replace('mailto:', '').split('?')[0].trim();
-    if (raw && raw.includes('@')) {
-      email = raw;
-    }
-  });
+  // 6. Email (Multi-strategy extraction: Cloudflare, mailto, JSON-LD, meta, obfuscated, and body text)
+  const extractedEmails = extractEmailsFromHtml(html, pageUrl);
+  const email: string | undefined = extractedEmails.length > 0 ? extractedEmails[0] : undefined;
 
-  // 7. Audit & Pricing URLs
-  let auditUrl: string | undefined;
-  let pricingUrl: string | undefined;
+  // 7. Quick Links — discover important navigation endpoints (contact, about,
+  // services, demo/booking, support, careers, etc.) as named quick links so the
+  // user can keep or remove them in settings. Pricing & Audit are intentionally
+  // excluded since they are no longer surfaced as fixed buttons.
+  const quickLinks: QuickLink[] = [];
+  const seenQuickLinks = new Set<string>();
+  const QUICK_LINK_PATTERNS: Array<{ re: RegExp; label: string }> = [
+    { re: /contact/i, label: 'Contact Us' },
+    { re: /about/i, label: 'About Us' },
+    { re: /service/i, label: 'Our Services' },
+    { re: /product/i, label: 'Our Products' },
+    { re: /book|demo|appointment|reserve|schedule|consult/i, label: 'Book a Demo' },
+    { re: /faq|help|support/i, label: 'FAQ / Help' },
+    { re: /career|job|hiring|join/i, label: 'Careers' },
+    { re: /track.*(order|ship|package)|(order|ship|package).*track/i, label: 'Track Order' },
+    { re: /review|testimonial/i, label: 'Reviews' },
+    { re: /location|store|visit|directions/i, label: 'Our Locations' },
+    { re: /gallery|portfolio|case-?stud|our-?work/i, label: 'Our Work' },
+    { re: /blog|news|article|resource/i, label: 'Blog & Updates' },
+    { re: /membership|login|sign( ?-| ?in|\s*up)|register/i, label: 'Member Login' },
+    { re: /terms|privacy|cookie|refund|shipping/i, label: 'Policies' },
+  ];
 
-  $('a[href]').each((_, el) => {
-    const href = $(el).attr('href') || '';
-    const text = $(el).text().toLowerCase();
-    const hrefLower = href.toLowerCase();
+  $('nav a[href], header a[href], footer a[href], a[href]').each((_, el) => {
+    const rawHref = $(el).attr('href') || '';
+    if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('mailto:') || rawHref.startsWith('tel:')) return;
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
+    const combined = `${text} ${rawHref}`.toLowerCase();
+    if (quickLinks.length >= 8) return false;
 
-    if (!auditUrl && (text.includes('audit') || hrefLower.includes('audit') || text.includes('free analysis') || hrefLower.includes('quote'))) {
-      try {
-        auditUrl = new URL(href, pageUrl).toString();
-      } catch {
-        auditUrl = href;
-      }
-    }
-
-    if (!pricingUrl && (text.includes('pricing') || hrefLower.includes('pricing') || text.includes('plans') || hrefLower.includes('plans'))) {
-      try {
-        pricingUrl = new URL(href, pageUrl).toString();
-      } catch {
-        pricingUrl = href;
+    for (const { re, label } of QUICK_LINK_PATTERNS) {
+      if (
+        re.test(combined) &&
+        !/^(home|index|welcome)\b/i.test(text) &&
+        !/privacy|terms|cookie|login|sign-?in/i.test(text) &&
+        !seenQuickLinks.has(label)
+      ) {
+        let url: string;
+        try {
+          url = new URL(rawHref, pageUrl).toString();
+        } catch {
+          url = rawHref;
+        }
+        quickLinks.push({ label, url });
+        seenQuickLinks.add(label);
+        break;
       }
     }
   });
@@ -418,8 +636,7 @@ export function extractSiteIdentity(html: string, pageUrl: string): SiteIdentity
     phone,
     whatsapp,
     email,
-    auditUrl,
-    pricingUrl,
+    quickLinks: quickLinks,
     keyTopics: keyTopics.slice(0, 10),
     brandColor: (() => {
       const tc = $('meta[name="theme-color"], meta[name="msapplication-TileColor"]').attr('content')?.trim();

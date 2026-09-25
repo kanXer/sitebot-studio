@@ -22,7 +22,19 @@ if (!global.mongooseCache) {
 }
 
 export function isUsingMemoryDb(): boolean {
-  return cached.isMemoryMode;
+  if (cached.isMemoryMode) return true;
+  const uri = process.env.MONGODB_URI;
+  if (
+    !uri ||
+    uri.includes('cluster0.xxxxx.mongodb.net') ||
+    uri.includes('username:password') ||
+    uri.includes('db_user:db_password') ||
+    uri.includes('dummy_user')
+  ) {
+    cached.isMemoryMode = true;
+    return true;
+  }
+  return false;
 }
 
 export async function connectToDatabase(): Promise<typeof mongoose | null> {

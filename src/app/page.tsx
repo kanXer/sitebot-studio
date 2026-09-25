@@ -25,6 +25,8 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
+import { CTALeadForm } from '@/components/CTALeadForm';
 
 export const metadata: Metadata = {
   title: 'SiteBot Studio — Multi-Tenant AI Chatbot Platform for Any Website',
@@ -210,10 +212,10 @@ export default function LandingHomePage() {
               </p>
 
               {/* Action Buttons */}
-              <div className="pt-3 flex flex-wrap items-center justify-center gap-4">
+              <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full">
                 <Link
                   href="/create"
-                  className="px-7 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-bold shadow-xl shadow-indigo-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-2.5"
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-bold shadow-xl shadow-indigo-500/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer"
                 >
                   <Bot className="w-4 h-4" />
                   <span>Deploy Your Chatbot Free</span>
@@ -222,7 +224,7 @@ export default function LandingHomePage() {
 
                 <Link
                   href="/about"
-                  className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/15 backdrop-blur-md transition-all hover:scale-[1.02]"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/15 backdrop-blur-md transition-all hover:scale-[1.02] flex items-center justify-center cursor-pointer"
                 >
                   <span>Explore Architecture</span>
                 </Link>
@@ -427,9 +429,10 @@ export default function LandingHomePage() {
                   </div>
                   <pre className="text-slate-300 overflow-x-auto leading-relaxed text-[11px]">
                     <code>{`<!-- Place before closing </body> tag -->
+<!-- Replace YOUR_BOT_ID with your bot's ID from: /bot/<your-bot-id> -->
 <script 
   src="${baseUrl}/widget.js" 
-  data-bot-id="6ab251c56de46c5075531a81" 
+  data-bot-id="YOUR_BOT_ID" 
   defer>
 </script>`}</code>
                   </pre>
@@ -440,63 +443,54 @@ export default function LandingHomePage() {
         </section>
 
         {/* Final CTA Banner */}
-        <section className="py-20 bg-gradient-to-tr from-indigo-900 via-indigo-950 to-slate-950 text-white text-center relative overflow-hidden">
-          <div className="max-w-4xl mx-auto px-4 space-y-6 relative z-10">
-            <h2 className="text-3xl sm:text-5xl font-black tracking-tight">
-              Ready to Upgrade Your Website with Autonomous AI?
-            </h2>
+        <section className="py-16 sm:py-20 bg-gradient-to-tr from-indigo-900 via-indigo-950 to-slate-950 text-white text-center relative overflow-hidden">
+          <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center relative z-10">
+            <div className="text-left space-y-6">
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight">
+                Ready to Upgrade Your Website with Autonomous AI?
+              </h2>
 
-            <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed">
-              Launch your first customized AI chatbot in under 60 seconds. Train on your pages and convert visitors 24/7.
-            </p>
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                Launch your first customized AI chatbot in under 60 seconds. Train on your pages and
+                convert visitors 24/7 — every lead lands in your dashboard instantly.
+              </p>
 
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
-              <Link
-                href="/create"
-                className="px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-extrabold text-sm shadow-xl shadow-indigo-500/30 transition-all hover:scale-105"
-              >
-                Create Your Free Chatbot
-              </Link>
-              <Link
-                href="/contact"
-                className="px-8 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/20 transition-all"
-              >
-                Contact Sales &amp; Enterprise
-              </Link>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full">
+                <Link
+                  href="/create"
+                  className="w-full sm:w-auto text-center px-7 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-extrabold text-sm shadow-xl shadow-indigo-500/30 transition-all hover:scale-105"
+                >
+                  Create Your Free Chatbot
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="w-full sm:w-auto text-center px-7 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/20 transition-all"
+                >
+                  See Pricing
+                </Link>
+              </div>
+
+              <div className="pt-2 flex flex-wrap gap-4 text-xs text-slate-400">
+                <span>✓ Free plan: 1 bot, 250K tokens/mo</span>
+                <span>✓ Lead alerts via Email, WhatsApp & Telegram</span>
+              </div>
+            </div>
+
+            {/* Lead capture CTA form */}
+            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-white/10 dark:border-slate-800 shadow-2xl p-6 sm:p-7 text-left">
+              <CTALeadForm
+                campaign="homepage-cta"
+                source="homepage_cta_form"
+                submitLabel="Talk to our team"
+                heading="Not sure where to start?"
+                subtext="Share your name and contact — our team will get back to you with a free recommendation."
+              />
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 py-10 text-xs text-slate-500 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 border border-slate-200">
-              <img src="/favicon.png" alt="SiteBot Studio Logo" className="w-full h-full object-cover" />
-            </div>
-            <div>
-              <span className="text-slate-900 font-bold block">SiteBot Studio</span>
-              <span className="text-[11px] text-slate-400">Multi-Tenant AI Chatbot Platform</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6 font-semibold">
-            <Link href="/" className="hover:text-indigo-600 transition-colors">
-              Home
-            </Link>
-            <Link href="/create" className="hover:text-indigo-600 transition-colors">
-              Create Bot
-            </Link>
-            <Link href="/about" className="hover:text-indigo-600 transition-colors">
-              About
-            </Link>
-            <Link href="/contact" className="hover:text-indigo-600 transition-colors">
-              Contact
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

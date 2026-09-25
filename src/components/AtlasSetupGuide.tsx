@@ -140,7 +140,7 @@ export function AtlasSetupGuide() {
             <pre>{INDEX_JSON}</pre>
           </div>
           <p className="text-[11px] text-slate-500">
-            768 dimensions match Google Gemini <code className="text-slate-400">text-embedding-004</code>.
+            768 dimensions match Google Gemini <code className="text-slate-400">gemini-embedding-001</code>.
           </p>
         </div>
       </div>

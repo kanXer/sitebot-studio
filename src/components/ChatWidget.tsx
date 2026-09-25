@@ -18,15 +18,18 @@ import {
   User,
   ChevronDown,
   ChevronUp,
-  LogIn,
-  Zap,
-  ArrowRight,
   Link2,
+  Headphones,
+  Check,
+  Loader2,
 } from "lucide-react";
+import { parseRuntimeTags } from "@/lib/runtime-tags";
+import { deriveBusinessRoleSubtitle } from "@/lib/niche-detector";
 
 export type ChatMsg = {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "agent" | "system";
   content: string;
+  senderName?: string;
   sources?: Array<{ url: string; title?: string }>;
 };
 
@@ -40,21 +43,19 @@ export interface ChatWidgetProps {
   botId?: string;
   apiHost?: string;
   botName?: string;
+  roleTitle?: string;
   greeting?: string;
   suggestedQuestions?: string[];
   phone?: string;
   phoneRaw?: string;
   whatsapp?: string;
   email?: string;
-  pricingUrl?: string;
-  auditUrl?: string;
   primaryColor?: string;
   brandGradient?: string;
+  launcherStyle?: string;
   customLinks?: Array<{ label: string; url: string }>;
   user?: { photoURL?: string | null; displayName?: string | null } | null;
   userProfile?: { name?: string | null };
-  openAuthModal?: () => void;
-  guestLimit?: number;
   initialOpen?: boolean;
 }
 
@@ -85,13 +86,6 @@ function extractLead(messages: ChatMsg[]): { email: string; name: string } {
 }
 
 // Default constants
-const DEFAULT_WELCOME =
-  "Namaste! 👋 I'm Friday, your AI growth strategist. How can I help you grow your business today?";
-
-const GUEST_KEY = "sitebot_chat_guest_count";
-const LOGIN_PROMPT =
-  "You've used your free messages! To keep chatting and get personalized answers, please sign in or connect with us directly.";
-
 const SERVICE_CATEGORIES = [
   "Web Development",
   "Google & Meta Ads",
@@ -101,8 +95,8 @@ const SERVICE_CATEGORIES = [
 
 const DEFAULT_QUICK_REPLIES = [
   "What services do you offer?",
-  "View Pricing Plans",
-  "Audit my website",
+  "How can you help my business?",
+  "Book a Demo",
 ];
 
 const LOADING_MESSAGES = [
@@ -119,7 +113,7 @@ const LOADING_MESSAGES = [
 ];
 
 const HINT_MESSAGES = [
-  "Hi! I'm Friday — Call, WhatsApp & AI Chat",
+  "Chat live with our AI assistant — Call, WhatsApp & AI Chat",
   "Direct Call & WhatsApp assistance inside",
   "See plans you can start paying for today",
   "Book a free consultation now",
@@ -479,19 +473,18 @@ export function ChatWidget({
   botId,
   apiHost = "",
   botName = "Friday",
-  greeting = DEFAULT_WELCOME,
+  roleTitle,
+  greeting = "",
   suggestedQuestions,
   phone = "+91 96962 62007",
   phoneRaw = "+919696262007",
   whatsapp = "919696262007",
   email = "hello@nexusdigitalmarketing.shop",
-  pricingUrl = "/pricing",
-  auditUrl = "",
+  primaryColor = "#BE123C",
+  launcherStyle = "standard",
   customLinks,
   user,
   userProfile,
-  openAuthModal,
-  guestLimit = 0,
   initialOpen = false,
 }: ChatWidgetProps) {
   const [open, setOpen] = useState(initialOpen);
@@ -518,19 +511,145 @@ export function ChatWidget({
   const followRef = useRef(true);
   const leadCapturedRef = useRef(false);
 
-  const [guestCount, setGuestCount] = useState<number>(0);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  // Stable conversation identity so backend conversational form slot-filling
+  // can persist in-progress submissions across turns (and page reloads).
+  const sessionIdRef = useRef<string | null>(null);
+  const getSessionId = useCallback((): string => {
+    let id = sessionIdRef.current;
+    if (id) return id;
+    const key = `sitebot_session_${botId || "default"}`;
+    try {
+      id = window.sessionStorage.getItem(key) || "";
+      if (!id) {
+        id = `sess-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+        window.sessionStorage.setItem(key, id);
+      }
+    } catch {
+      id = `sess-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    }
+    sessionIdRef.current = id;
+    return id;
+  }, [botId]);
+
+  // Quick links the visitor has hidden via the little "X" on each chip.
+  // Persisted per bot so removals survive reloads. Adding/editing happens in
+  // SiteBot Studio settings, not in the widget.
+  const [hiddenQuickLinks, setHiddenQuickLinks] = useState<string[]>(() => {
+    try {
+      const stored = window.localStorage.getItem(`sitebot_hidden_links_${botId || "default"}`);
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const hideQuickLink = useCallback(
+    (url: string) => {
+      setHiddenQuickLinks((prev) => {
+        const next = prev.includes(url) ? prev : [...prev, url];
+        try {
+          window.localStorage.setItem(
+            `sitebot_hidden_links_${botId || "default"}`,
+            JSON.stringify(next)
+          );
+        } catch {}
+        return next;
+      });
+    },
+    [botId]
+  );
+
+  // Live human handoff state
+  const [handoffState, setHandoffState] = useState<{
+    active: boolean;
+    status: 'bot' | 'waiting_agent' | 'agent_active' | 'resolved';
+    agentName?: string;
+  }>({ active: false, status: 'bot' });
+
+  // Dynamic Lead Capture Card state
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '', message: '' });
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+
+  const requestLiveHandoff = useCallback(async () => {
+    const sId = getSessionId();
+    setHandoffState({ active: true, status: 'waiting_agent' });
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'system',
+        content: 'Transfer requested. Connecting you to a live human representative...',
+      },
+    ]);
+    try {
+      const res = await fetch(`${apiHost}/api/chat/${botId || 'default'}/handoff`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sId,
+          reason: 'visitor_request',
+          visitorName: userProfile?.name || user?.displayName || 'Visitor',
+          visitorEmail: (user as any)?.email || '',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHandoffState({
+          active: true,
+          status: data.status || 'waiting_agent',
+        });
+      }
+    } catch (err) {
+      console.error('Handoff error:', err);
+    }
+  }, [apiHost, botId, getSessionId, user, userProfile]);
+
+  const handleLeadSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!leadForm.email && !leadForm.phone) return;
+      setLeadSubmitting(true);
+      try {
+        const sId = getSessionId();
+        const endpoint = botId ? `${apiHost}/api/chat/${botId}/lead` : `${apiHost}/api/chat/lead`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            botId,
+            sessionId: sId,
+            ...leadForm,
+          }),
+        });
+        if (res.ok) {
+          setShowLeadForm(false);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: `Thank you, ${leadForm.name || 'there'}! We have captured your contact info. A member of our team will get in touch with you shortly.`,
+            },
+          ]);
+          setLeadForm({ name: '', email: '', phone: '', message: '' });
+        }
+      } catch (err) {
+        console.error('Lead submit error:', err);
+      } finally {
+        setLeadSubmitting(false);
+      }
+    },
+    [apiHost, botId, getSessionId, leadForm]
+  );
 
   const [liveData, setLiveData] = useState<{
     botName?: string;
+    roleTitle?: string;
     greeting?: string;
     suggestedQuestions?: string[];
     phone?: string;
     phoneRaw?: string;
     whatsapp?: string;
     email?: string;
-    pricingUrl?: string;
-    auditUrl?: string;
+    launcherStyle?: string;
     customLinks?: Array<{ label: string; url: string }>;
   }>({});
 
@@ -543,14 +662,14 @@ export function ChatWidget({
         if (isMounted && data) {
           setLiveData({
             botName: data.name,
+            roleTitle: data.roleTitle,
             greeting: data.greeting,
             suggestedQuestions: data.suggestedQuestions,
             phone: data.phone,
             phoneRaw: data.phoneRaw,
             whatsapp: data.whatsapp,
             email: data.email,
-            pricingUrl: data.pricingUrl,
-            auditUrl: data.auditUrl,
+            launcherStyle: data.launcherStyle,
             customLinks: data.customLinks,
           });
         }
@@ -561,16 +680,83 @@ export function ChatWidget({
     };
   }, [botId, apiHost]);
 
+  // Polling for live handoff state & agent messages when handoff is active
+  useEffect(() => {
+    if (!handoffState.active || !botId) return;
+    const interval = setInterval(async () => {
+      try {
+        const sId = getSessionId();
+        const res = await fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${sId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status && data.status !== handoffState.status) {
+            setHandoffState({
+              active: data.status === 'waiting_agent' || data.status === 'agent_active',
+              status: data.status,
+              agentName: data.assignedAgent?.name,
+            });
+          }
+          if (Array.isArray(data.messages)) {
+            const agentOrSys = data.messages.filter(
+              (m: any) => m.role === 'agent' || m.role === 'system'
+            );
+            setMessages((prev) => {
+              const known = new Set(prev.map((p) => p.content));
+              const fresh = agentOrSys
+                .filter((m: any) => !known.has(m.content))
+                .map((m: any) => ({
+                  role: m.role as any,
+                  content: m.content,
+                  senderName: m.senderName,
+                }));
+              if (fresh.length > 0) return [...prev, ...fresh];
+              return prev;
+            });
+          }
+        }
+      } catch (e) {
+        // non-fatal
+      }
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [handoffState.active, handoffState.status, botId, apiHost, getSessionId]);
+
   const activeBotName = liveData.botName || botName;
-  const activeGreeting = liveData.greeting || greeting;
+  const activeGreeting =
+    liveData.greeting || greeting || `Hi there! 👋 I'm ${activeBotName}. How can I assist you with our services and solutions today?`;
+  const activeRoleTitle = useMemo(() => {
+    if (liveData.roleTitle && String(liveData.roleTitle).trim()) {
+      return String(liveData.roleTitle).trim();
+    }
+    if (roleTitle && roleTitle.trim()) {
+      return roleTitle.trim();
+    }
+    return deriveBusinessRoleSubtitle(activeBotName, (activeGreeting || '') + ' ' + (botName || ''));
+  }, [liveData.roleTitle, roleTitle, activeBotName, activeGreeting, botName]);
   const activeQuestions = liveData.suggestedQuestions || suggestedQuestions;
   const activePhone = liveData.phone || phone;
   const activePhoneRaw = liveData.phoneRaw || phoneRaw;
   const activeWhatsapp = liveData.whatsapp || whatsapp;
   const activeEmail = liveData.email || email;
-  const activePricingUrl = liveData.pricingUrl || pricingUrl;
-  const activeAuditUrl = liveData.auditUrl || auditUrl;
+  const activeLauncherStyle = liveData.launcherStyle || launcherStyle;
   const activeCustomLinks = liveData.customLinks || customLinks || [];
+  const launcherId = [
+    "standard",
+    "minimal",
+    "pill",
+    "chat",
+    "chatbox",
+    "heart",
+    "gradient-ring",
+    "neon-glow",
+    "emoji",
+    "square",
+    "beacon",
+    "text-button",
+  ].includes(activeLauncherStyle)
+    ? activeLauncherStyle
+    : "standard";
+  const launcherGradient = `linear-gradient(135deg, ${primaryColor} 0%, #E11D48 50%, #F59E0B 100%)`;
 
   const whatsappUrl = `https://wa.me/${activeWhatsapp.replace(/[^\d]/g, "")}?text=${encodeURIComponent(
     `Hi! I just chatted with ${activeBotName} and want to talk to your team.`
@@ -579,42 +765,14 @@ export function ChatWidget({
   const activeFastLinksCount =
     (activePhoneRaw ? 1 : 0) +
     (activeWhatsapp ? 1 : 0) +
-    (activeAuditUrl ? 1 : 0) +
-    (activePricingUrl ? 1 : 0) +
-    activeCustomLinks.filter((l: { label?: string; url?: string }) => l.label && l.url).length;
+    activeCustomLinks.filter(
+      (l: { label?: string; url?: string }) =>
+        l.label &&
+        l.url &&
+        !hiddenQuickLinks.includes(l.url)
+    ).length;
 
   const isFastDense = activeFastLinksCount >= 3;
-
-  useEffect(() => {
-    if (guestLimit <= 0) return;
-    try {
-      const saved = Number(window.localStorage.getItem(GUEST_KEY) || 0);
-      if (Number.isFinite(saved) && saved > 0) setGuestCount(saved);
-    } catch {
-      /* noop */
-    }
-  }, [guestLimit]);
-
-  useEffect(() => {
-    if (guestLimit <= 0) return;
-    try {
-      window.localStorage.setItem(GUEST_KEY, String(guestCount));
-    } catch {
-      /* noop */
-    }
-  }, [guestCount, guestLimit]);
-
-  useEffect(() => {
-    if (user) {
-      setGuestCount(0);
-      setShowLoginPrompt(false);
-      try {
-        window.localStorage.removeItem(GUEST_KEY);
-      } catch {
-        /* noop */
-      }
-    }
-  }, [user]);
 
   const firstName =
     userProfile?.name?.trim().split(/\s+/)[0] ||
@@ -771,11 +929,15 @@ export function ChatWidget({
     });
   };
 
+  // Never auto-scroll when messages/loading change: keep the viewport stable
+  // even while a reply is rendering. Only refresh the "go to latest" button.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !followRef.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, [messages, loading, open]);
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowGoDown(distFromBottom > 120);
+    followRef.current = distFromBottom <= 80;
+  }, [messages, loading]);
 
   const toggle = () => {
     followRef.current = true;
@@ -816,36 +978,22 @@ export function ChatWidget({
       return;
     }
 
-    if (text === "View Pricing Plans" || text === "View Pricing" || text === "Plans") {
-      window.open(pricingUrl, "_blank");
-      setMessages((m) => [
-        ...m,
-        { role: "user", content: text },
-        {
-          role: "assistant",
-          content: `Opening our pricing plans at ${pricingUrl} with full package details and instant options.`,
-        },
-      ]);
-      return;
-    }
-
-    if (text === "Free SEO audit" || text === "Audit my website") {
-      if (auditUrl) {
-        window.open(auditUrl, "_blank");
-      }
-    }
-
-    // Guest limit check
-    if (guestLimit > 0 && !user) {
-      if (guestCount >= guestLimit) {
-        setShowLoginPrompt(true);
-        setMessages((m) => {
-          if (m.some((x) => x.role === "assistant" && x.content === LOGIN_PROMPT)) return m;
-          return [...m, { role: "assistant", content: LOGIN_PROMPT }];
-        });
+    if (text === "Book a Demo") {
+      const demoLink =
+        activeCustomLinks.find((l) => /demo|book|consult/i.test(l.label))?.url ||
+        (activeCustomLinks[0] && activeCustomLinks[0].url);
+      if (demoLink) {
+        window.open(demoLink, "_blank");
+        setMessages((m) => [
+          ...m,
+          { role: "user", content: text },
+          {
+            role: "assistant",
+            content: `Great! Opening our booking/demo page for you — you can pick a slot that suits you best.`,
+          },
+        ]);
         return;
       }
-      setGuestCount((c) => c + 1);
     }
 
     const next: ChatMsg[] = [...messages, { role: "user", content: text }];
@@ -878,6 +1026,7 @@ export function ChatWidget({
         body: JSON.stringify({
           message: text,
           history: next.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+          sessionId: getSessionId(),
         }),
       });
 
@@ -892,7 +1041,7 @@ export function ChatWidget({
         let buffer = "";
 
         setMessages((m) => [...m, { role: "assistant", content: "", sources: [] }]);
-        setLoading(false);
+        let responseStarted = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -917,9 +1066,24 @@ export function ChatWidget({
                 } catch {
                   /* noop */
                 }
+              } else if (eventType === "handoff") {
+                try {
+                  const hData = JSON.parse(dataStr);
+                  setHandoffState({
+                    active: hData.status === 'waiting_agent' || hData.status === 'agent_active',
+                    status: hData.status,
+                    agentName: hData.assignedAgent?.name,
+                  });
+                } catch {
+                  /* noop */
+                }
               } else if (eventType === "token") {
                 try {
                   const { token } = JSON.parse(dataStr);
+                  if (!responseStarted && token) {
+                    responseStarted = true;
+                    setLoading(false);
+                  }
                   fullText += token;
                   setMessages((m) => {
                     const copy = [...m];
@@ -936,6 +1100,10 @@ export function ChatWidget({
               }
             }
           } else {
+            if (!responseStarted && value.length > 0) {
+              responseStarted = true;
+              setLoading(false);
+            }
             fullText += decoder.decode(value, { stream: true });
             setMessages((m) => {
               const copy = [...m];
@@ -947,15 +1115,41 @@ export function ChatWidget({
             });
           }
         }
+
+        const parsed = parseRuntimeTags(fullText);
+        if (parsed.handoffReason || parsed.handoffActive) {
+          setHandoffState({
+            active: true,
+            status: (parsed.handoffActive as any) || 'waiting_agent',
+          });
+        }
+        setMessages((m) => {
+          const copy = [...m];
+          const last = copy[copy.length - 1];
+          if (last && last.role === "assistant") {
+            last.content = parsed.cleanText;
+            last.sources = sourcesList;
+          }
+          return copy;
+        });
+        setLoading(false);
         return;
       }
 
       // JSON response fallback
       const data = await res.json();
       setLoading(false);
+      const rawContent = data.response || data.reply || data.content || "Thanks for your message!";
+      const parsed = parseRuntimeTags(rawContent);
+      if (parsed.handoffReason || parsed.handoffActive) {
+        setHandoffState({
+          active: true,
+          status: (parsed.handoffActive as any) || 'waiting_agent',
+        });
+      }
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: data.reply || data.content || "Thanks for your message!" },
+        { role: "assistant", content: parsed.cleanText, sources: data.sources || [] },
       ]);
     } catch {
       setLoading(false);
@@ -994,7 +1188,7 @@ export function ChatWidget({
     }
 
     if (/\b(pricing|packages|charges|cost)\b/i.test(userText)) {
-      return ["View Pricing Plans", "📞 Call Specialist", "💬 Send WhatsApp"];
+      return ["💬 Send WhatsApp", "📞 Call Specialist"];
     }
 
     return [];
@@ -1030,10 +1224,10 @@ export function ChatWidget({
         </a>
         <button
           type="button"
-          onClick={() => send("Audit my website")}
+          onClick={() => send("Book a Demo")}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[12px] font-bold text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border-default)] active:scale-95 transition-all shadow-sm"
         >
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Free Audit
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Book a Demo
         </button>
       </div>
     </div>
@@ -1042,7 +1236,11 @@ export function ChatWidget({
   return (
     <>
       {/* Floating Launcher with Halo & Hint Bubble */}
-      <div className="fixed right-5 sm:right-6 bottom-6 z-40 flex flex-col items-end gap-3 transition-all duration-300 ease-out will-change-transform">
+      <div
+        className={`fixed right-5 sm:right-6 bottom-6 z-40 flex flex-col items-end gap-3 transition-all duration-300 ease-out will-change-transform ${
+          open && isNarrow ? "opacity-0 pointer-events-none scale-75" : "opacity-100 pointer-events-auto"
+        }`}
+      >
         <AnimatePresence>
           {hint && !open && (
             <motion.div
@@ -1068,12 +1266,18 @@ export function ChatWidget({
 
         <div className="relative group">
           {/* Rotating Conic Gradient Outer Halo */}
-          {!open && (
+          {!open && ["standard", "gradient-ring", "neon-glow"].includes(launcherId) && (
             <div
-              className="absolute -inset-1 rounded-full opacity-75 group-hover:opacity-100 blur-[6px] transition-opacity duration-300 pointer-events-none"
+              className={`absolute -inset-1 rounded-full opacity-75 group-hover:opacity-100 blur-[6px] transition-opacity duration-300 pointer-events-none ${
+                launcherId === "neon-glow" ? "blur-[12px]" : ""
+              }`}
               style={{
-                background: "conic-gradient(from 0deg, #BE123C, #F43F5E, #F59E0B, #0EA5E9, #BE123C)",
-                animation: "spin 8s linear infinite",
+                background:
+                  launcherId === "neon-glow"
+                    ? `radial-gradient(circle, ${primaryColor}66, #0EA5E9 55%, transparent 75%)`
+                    : `conic-gradient(from 0deg, ${primaryColor}, #F43F5E, #F59E0B, #0EA5E9, ${primaryColor})`,
+                animation:
+                  launcherId === "gradient-ring" ? "spin 6s linear infinite" : "spin 8s linear infinite",
               }}
             />
           )}
@@ -1081,24 +1285,45 @@ export function ChatWidget({
           <motion.button
             type="button"
             onClick={toggle}
-            aria-label={`Chat with ${botName} — AI Growth Strategist`}
+            aria-label={`Chat with ${activeBotName} — ${activeRoleTitle}`}
             aria-expanded={open}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.4, type: "spring", stiffness: 220, damping: 16 }}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="relative w-14 h-14 sm:w-15 sm:h-15 rounded-full flex items-center justify-center cursor-pointer overflow-hidden border border-white/30 backdrop-blur-2xl shadow-[0_12px_35px_rgba(225,29,72,0.45),0_0_25px_rgba(245,158,11,0.3)] transition-all duration-300"
+            className={`relative flex items-center justify-center cursor-pointer overflow-hidden border transition-all duration-300 backdrop-blur-2xl ${
+              launcherId === "pill"
+                ? "h-12 rounded-full px-5 border-white/30"
+                : launcherId === "text-button"
+                ? "h-12 rounded-full px-5 border-white/40 bg-white shadow-[0_12px_35px_rgba(225,29,72,0.35)]"
+                : launcherId === "square"
+                ? "w-14 h-14 rounded-2xl border-white/30"
+                : launcherId === "chatbox"
+                ? "w-14 h-14 rounded-2xl border-white/30"
+                : launcherId === "emoji" || launcherId === "chat"
+                ? "w-14 h-14 rounded-full border-white/40 bg-white shadow-[0_12px_35px_rgba(225,29,72,0.35)]"
+                : "w-14 h-14 rounded-full border-white/30"
+            }`}
             style={{
-              background: "linear-gradient(135deg, #BE123C 0%, #E11D48 50%, #F59E0B 100%)",
+              background:
+                launcherId === "chat" || launcherId === "emoji" || launcherId === "text-button"
+                  ? "rgba(255,255,255,0.96)"
+                  : launcherGradient,
+              boxShadow:
+                launcherId === "neon-glow"
+                  ? `0 0 18px ${primaryColor}, 0 0 45px ${primaryColor}99`
+                  : undefined,
             }}
           >
             {/* Shimmer sweep */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+            {["standard", "gradient-ring", "neon-glow", "chatbox", "square"].includes(launcherId) && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+            )}
 
             {/* Periodic glow pulse */}
             <AnimatePresence>
-              {!open && (
+              {!open && ["standard", "heart", "neon-glow"].includes(launcherId) && (
                 <motion.span
                   key={pulse}
                   initial={{ opacity: 0.7, scale: 1 }}
@@ -1111,7 +1336,7 @@ export function ChatWidget({
             </AnimatePresence>
 
             {/* Breathing radar ring */}
-            {!open && (
+            {!open && ["standard", "beacon"].includes(launcherId) && (
               <div
                 className="absolute -inset-1.5 rounded-full border border-amber-400/40 animate-ping pointer-events-none opacity-40"
                 style={{ animationDuration: "3.2s" }}
@@ -1128,25 +1353,76 @@ export function ChatWidget({
                   transition={{ duration: 0.2 }}
                   className="relative z-10"
                 >
-                  <X className="w-6 h-6 text-white" />
+                  <X
+                    className="w-6 h-6"
+                    style={{
+                      color: ["chat", "emoji", "text-button"].includes(launcherId)
+                        ? primaryColor
+                        : "#ffffff",
+                    }}
+                  />
                 </motion.span>
               ) : (
-                <div className="relative z-10 flex items-center justify-center w-full h-full">
-                  <div className="relative flex items-center justify-center">
-                    <Bot className="w-7 h-7 sm:w-8 sm:h-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] animate-pulse" />
-                    <Sparkles
-                      className="absolute -top-1 -right-1 w-3.5 h-3.5 text-amber-300 animate-spin"
-                      style={{ animationDuration: "6s" }}
-                    />
-                  </div>
+                <div className="relative z-10 flex items-center justify-center w-full h-full gap-1.5">
+                  {launcherId === "emoji" ? (
+                    <span className="text-3xl leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
+                      👋
+                    </span>
+                  ) : launcherId === "heart" ? (
+                    <div className="relative flex items-center justify-center">
+                      <span className="text-3xl leading-none">💗</span>
+                      <Sparkles
+                        className="absolute -top-1 -right-1 w-3.5 h-3.5 text-amber-300 animate-spin"
+                        style={{ animationDuration: "6s" }}
+                      />
+                    </div>
+                  ) : launcherId === "beacon" ? (
+                    <span className="relative flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white" />
+                    </span>
+                  ) : launcherId === "text-button" ? (
+                    <>
+                      <Sparkles className="w-4 h-4" style={{ color: primaryColor }} />
+                      <span className="text-sm font-extrabold" style={{ color: primaryColor }}>
+                        Chat
+                      </span>
+                    </>
+                  ) : launcherId === "pill" ? (
+                    <>
+                      <Bot className="w-5 h-5 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]" />
+                      <span className="text-white text-[13px] font-extrabold whitespace-nowrap drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+                        Chat with us
+                      </span>
+                    </>
+                  ) : (
+                    <div className="relative flex items-center justify-center">
+                      <Bot
+                        className="w-7 h-7 sm:w-8 sm:h-8 z-10"
+                        style={{
+                          color: ["chat", "emoji", "text-button"].includes(launcherId)
+                            ? primaryColor
+                            : "#ffffff",
+                        }}
+                      />
+                      {!["minimal", "chat", "beacon"].includes(launcherId) && (
+                        <Sparkles
+                          className="absolute -top-1 -right-1 w-3.5 h-3.5 text-amber-300 animate-spin"
+                          style={{ animationDuration: "6s" }}
+                        />
+                      )}
+                    </div>
+                  )}
 
                   {/* Online live radar badge */}
-                  <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 flex h-3.5 w-3.5 z-20 pointer-events-none">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white items-center justify-center shadow-sm">
-                      <span className="w-1 h-1 rounded-full bg-white" />
+                  {!["emoji", "heart", "beacon", "text-button"].includes(launcherId) && (
+                    <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 flex h-3.5 w-3.5 z-20 pointer-events-none">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white items-center justify-center shadow-sm">
+                        <span className="w-1 h-1 rounded-full bg-white" />
+                      </span>
                     </span>
-                  </span>
+                  )}
                 </div>
               )}
             </AnimatePresence>
@@ -1238,7 +1514,7 @@ export function ChatWidget({
                     </div>
                     <p className="text-[10px] sm:text-[11px] chat-subtitle flex items-center gap-1 mt-0.5 truncate max-w-[210px]">
                       <Sparkles className="w-2.5 h-2.5 text-rose-400 shrink-0" />
-                      <span className="truncate">{firstName ? `Here to help you, ${firstName}` : "AI Growth Strategist"}</span>
+                      <span className="truncate">{firstName ? `Here to help you, ${firstName}` : activeRoleTitle}</span>
                     </p>
                   </div>
                   <button
@@ -1304,53 +1580,157 @@ export function ChatWidget({
                     </a>
                   )}
 
-                  {activeAuditUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.open(activeAuditUrl, "_blank");
-                      }}
-                      title="Get Free Website Audit"
-                      className={`chat-fast-btn chat-fast-btn-audit active:scale-95 shrink-0 cursor-pointer whitespace-nowrap ${
-                        isFastDense ? "gap-1 px-2 py-1 text-[10px] rounded-md" : "gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg"
-                      }`}
-                    >
-                      <Zap className={`${isFastDense ? "w-3 h-3" : "w-3.5 h-3.5"} shrink-0`} />
-                      <span>Free Audit</span>
-                    </button>
-                  ) : null}
+                  {/* Talk to Human Agent Fast Action */}
+                  <button
+                    type="button"
+                    onClick={requestLiveHandoff}
+                    title="Speak with a live human representative"
+                    className={`chat-fast-btn active:scale-95 shrink-0 whitespace-nowrap bg-emerald-600/90 hover:bg-emerald-500 text-white border border-emerald-400/30 ${
+                      isFastDense ? "gap-1 px-2 py-1 text-[10px] rounded-md" : "gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg"
+                    }`}
+                  >
+                    <Headphones className={`${isFastDense ? "w-3 h-3" : "w-3.5 h-3.5"} shrink-0`} />
+                    <span>Talk to Human</span>
+                  </button>
 
-                  {activePricingUrl && (
-                    <a
-                      href={activePricingUrl}
-                      title="View Pricing & Plans"
-                      className={`chat-fast-btn chat-fast-btn-plans active:scale-95 shrink-0 whitespace-nowrap ${
-                        isFastDense ? "gap-1 px-2 py-1 text-[10px] rounded-md" : "gap-1 px-2.5 py-1.5 text-[11px] rounded-lg"
-                      }`}
-                    >
-                      <span>Plans</span>
-                      <ArrowRight className="w-3 h-3 opacity-70 shrink-0" />
-                    </a>
-                  )}
+                  {/* Leave Message / Lead Capture Fast Action */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLeadForm((prev) => !prev)}
+                    title="Leave your contact details / request a callback"
+                    className={`chat-fast-btn active:scale-95 shrink-0 whitespace-nowrap bg-indigo-600/90 hover:bg-indigo-500 text-white border border-indigo-400/30 ${
+                      isFastDense ? "gap-1 px-2 py-1 text-[10px] rounded-md" : "gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg"
+                    }`}
+                  >
+                    <Mail className={`${isFastDense ? "w-3 h-3" : "w-3.5 h-3.5"} shrink-0`} />
+                    <span>Contact Us</span>
+                  </button>
 
                   {activeCustomLinks
-                    .filter((l) => l.label && l.url)
+                    .filter(
+                      (l) =>
+                        l.label &&
+                        l.url &&
+                        !hiddenQuickLinks.includes(l.url)
+                    )
                     .map((link, linkIdx) => (
-                      <a
+                      <div
                         key={linkIdx}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         title={link.label}
-                        className={`chat-fast-btn active:scale-95 shrink-0 whitespace-nowrap ${
-                          isFastDense ? "gap-1 px-2 py-1 text-[10px] rounded-md" : "gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg"
+                        className={`chat-fast-btn group/quick active:scale-95 shrink-0 whitespace-nowrap ${
+                          isFastDense
+                            ? "gap-1 px-1.5 py-1 text-[10px] rounded-md"
+                            : "gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg"
                         }`}
                       >
-                        <Link2 className={`${isFastDense ? "w-3 h-3" : "w-3.5 h-3.5"} shrink-0`} />
-                        <span>{link.label}</span>
-                      </a>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 min-w-0"
+                        >
+                          <Link2
+                            className={`${isFastDense ? "w-3 h-3" : "w-3.5 h-3.5"} shrink-0`}
+                          />
+                          <span className="truncate max-w-[110px]">{link.label}</span>
+                        </a>
+                        <button
+                          type="button"
+                          aria-label={`Hide ${link.label} link`}
+                          title="Hide this quick link"
+                          onClick={() => hideQuickLink(link.url)}
+                          className="opacity-40 group-hover/quick:opacity-90 hover:bg-black/10 rounded-full p-0.5 shrink-0 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     ))}
                 </div>
+
+                {/* Live Handoff Status Banner */}
+                {handoffState.active && (
+                  <div className="mx-3 my-1.5 px-3 py-2 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-200 text-xs flex items-center justify-between shadow-lg shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span>
+                        {handoffState.status === 'agent_active'
+                          ? `Connected with ${handoffState.agentName || 'Live Agent'}`
+                          : 'Waiting for live agent to connect...'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setHandoffState({ active: false, status: 'bot' })}
+                      className="text-[10px] font-semibold text-emerald-300 hover:text-white underline cursor-pointer"
+                    >
+                      Back to AI
+                    </button>
+                  </div>
+                )}
+
+                {/* Dynamic Lead Capture Card */}
+                {showLeadForm && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mx-3 my-1.5 p-3.5 rounded-2xl bg-slate-900/90 border border-indigo-500/30 text-white shadow-xl shrink-0"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold flex items-center gap-1.5 text-indigo-300">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                        Leave Contact Details
+                      </span>
+                      <button
+                        onClick={() => setShowLeadForm(false)}
+                        className="text-slate-400 hover:text-white text-xs p-1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <form onSubmit={handleLeadSubmit} className="flex flex-col gap-2">
+                      <input
+                        type="text"
+                        placeholder="Your Name (Optional)"
+                        value={leadForm.name}
+                        onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-black/40 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="email"
+                        required
+                        placeholder="Email Address *"
+                        value={leadForm.email}
+                        onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-black/40 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone (Optional)"
+                        value={leadForm.phone}
+                        onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-black/40 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                      />
+                      <textarea
+                        rows={2}
+                        placeholder="Requirement / Note (Optional)"
+                        value={leadForm.message}
+                        onChange={(e) => setLeadForm({ ...leadForm, message: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-black/40 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 resize-none"
+                      />
+                      <button
+                        type="submit"
+                        disabled={leadSubmitting || (!leadForm.email && !leadForm.phone)}
+                        className="w-full py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
+                      >
+                        {leadSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        <span>Submit Request</span>
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
 
                 {/* Messages Body */}
                 <div className="relative flex-1 min-h-0 flex flex-col">
@@ -1366,42 +1746,67 @@ export function ChatWidget({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ type: "spring", stiffness: 350, damping: 26 }}
                         className={`flex items-end gap-2 max-w-full ${
-                          m.role === "user" ? "justify-end" : "justify-start"
+                          m.role === "system"
+                            ? "justify-center w-full my-1"
+                            : m.role === "user"
+                            ? "justify-end"
+                            : "justify-start"
                         }`}
                       >
-                        {m.role === "assistant" && <FridayAvatar botName={activeBotName} />}
-                        <div
-                          className={`relative max-w-[calc(100%-3.25rem)] sm:max-w-[80%] min-w-0 px-4 py-2.5 text-[14px] leading-[1.5] break-words [overflow-wrap:anywhere] backdrop-blur-md ${
-                            m.role === "user"
-                              ? "bg-gradient-brand chat-user-bubble rounded-2xl rounded-br-sm shadow-[0_8px_24px_rgba(220,38,38,0.35)] border border-white/15 whitespace-pre-wrap"
-                              : "chat-bot-bubble rounded-2xl rounded-bl-sm shadow-card"
-                          }`}
-                        >
-                          {m.role === "user" && (
-                            <span className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent rounded-full" />
-                          )}
-                          {m.role === "user" ? linkify(m.content) : renderMessageMarkdown(m.content)}
-                          {m.sources && m.sources.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-white/10">
-                              {m.sources.map((s, idx) => (
-                                <a
-                                  key={idx}
-                                  href={s.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-rose-300 underline"
-                                >
-                                  {s.title || "Source"}
-                                </a>
-                              ))}
+                        {m.role === "system" ? (
+                          <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-black/40 border border-white/10 text-slate-300">
+                            {m.content}
+                          </span>
+                        ) : (
+                          <>
+                            {m.role === "assistant" && <FridayAvatar botName={activeBotName} />}
+                            {m.role === "agent" && (
+                              <div className="w-8 h-8 rounded-full bg-emerald-600 border border-emerald-300 flex items-center justify-center text-white shrink-0 shadow-md">
+                                <Headphones className="w-4 h-4" />
+                              </div>
+                            )}
+                            <div
+                              className={`relative max-w-[calc(100%-3.25rem)] sm:max-w-[80%] min-w-0 px-4 py-2.5 text-[14px] leading-[1.5] break-words [overflow-wrap:anywhere] backdrop-blur-md ${
+                                m.role === "user"
+                                  ? "bg-gradient-brand chat-user-bubble rounded-2xl rounded-br-sm shadow-[0_8px_24px_rgba(220,38,38,0.35)] border border-white/15 whitespace-pre-wrap"
+                                  : m.role === "agent"
+                                  ? "bg-emerald-950/80 border border-emerald-500/40 text-emerald-100 rounded-2xl rounded-bl-sm shadow-card"
+                                  : "chat-bot-bubble rounded-2xl rounded-bl-sm shadow-card"
+                              }`}
+                            >
+                              {m.role === "agent" && (
+                                <div className="text-[10px] font-bold text-emerald-400 mb-1 flex items-center gap-1">
+                                  <span>{m.senderName || 'Live Agent'}</span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                </div>
+                              )}
+                              {m.role === "user" && (
+                                <span className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent rounded-full" />
+                              )}
+                              {m.role === "user" ? linkify(m.content) : renderMessageMarkdown(m.content)}
+                              {m.sources && m.sources.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-white/10">
+                                  {m.sources.map((s, idx) => (
+                                    <a
+                                      key={idx}
+                                      href={s.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-rose-300 underline"
+                                    >
+                                      {s.title || "Source"}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        {m.role === "user" && (
-                          <UserAvatar
-                            photoURL={user?.photoURL}
-                            displayName={userProfile?.name || user?.displayName}
-                          />
+                            {m.role === "user" && (
+                              <UserAvatar
+                                photoURL={user?.photoURL}
+                                displayName={userProfile?.name || user?.displayName}
+                              />
+                            )}
+                          </>
                         )}
                       </motion.div>
                     ))}
@@ -1505,7 +1910,7 @@ export function ChatWidget({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.8 }}
                         transition={{ type: "spring", stiffness: 350, damping: 26 }}
-                        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-10 h-10 rounded-full bg-gradient-brand text-white flex items-center justify-center shadow-glow-lg border border-white/20 hover:brightness-110 active:scale-90 transition-all cursor-pointer"
+                        className="self-center mt-[10px] shrink-0 w-9 h-9 rounded-full bg-gradient-brand text-white flex items-center justify-center shadow-glow-lg border border-white/20 hover:brightness-110 active:scale-90 transition-all cursor-pointer"
                       >
                         <ArrowDown className="w-5 h-5" />
                       </motion.button>
@@ -1514,7 +1919,7 @@ export function ChatWidget({
                 </div>
 
                 {/* Suggestions / Quick Replies */}
-                {!enquiry.active && !followUp && suggestions.length > 0 && !loading && !showLoginPrompt && (
+                {!enquiry.active && !followUp && suggestions.length > 0 && !loading && (
                   <div className="shrink-0 px-4 pb-2 pt-1">
                     <div className="flex items-center justify-between gap-2 md:hidden">
                       <span className="text-[9px] font-bold uppercase tracking-wider chat-quick-label">
@@ -1550,22 +1955,6 @@ export function ChatWidget({
 
                 {/* Input Area */}
                 <div className="p-3 sm:p-3.5 chat-surface-input shrink-0">
-                  {showLoginPrompt && !user && openAuthModal && (
-                    <div className="mb-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-center">
-                      <p className="text-[12.5px] chat-title mb-2.5 font-medium">
-                        Sign in to keep chatting with {botName}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={openAuthModal}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-gradient-brand text-white text-[13px] font-bold hover:brightness-110 active:scale-95 transition-all cursor-pointer"
-                      >
-                        <LogIn className="w-4 h-4" />
-                        Log In / Sign Up
-                      </button>
-                    </div>
-                  )}
-
                   <div className="relative flex items-center gap-2 rounded-full chat-field p-1.5 pl-4 transition-all focus-within:border-rose-500 focus-within:shadow-[0_0_0_3px_rgba(225,29,72,0.15)]">
                     <input
                       type="text"
@@ -1575,14 +1964,13 @@ export function ChatWidget({
                       placeholder={
                         firstName ? `Hi ${firstName}, type your message...` : "Type your message..."
                       }
-                      disabled={showLoginPrompt && !user}
-                      className="chat-input flex-1 bg-transparent text-[13.5px] focus:outline-none min-w-0 disabled:opacity-50"
+                      className="chat-input flex-1 bg-transparent text-[13.5px] focus:outline-none min-w-0"
                       maxLength={1500}
                     />
                     <button
                       type="button"
                       onClick={() => send()}
-                      disabled={loading || !input.trim() || (showLoginPrompt && !user)}
+                      disabled={loading || !input.trim()}
                       aria-label="Send message"
                       className="w-9 h-9 rounded-full bg-gradient-brand flex items-center justify-center text-white disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-90 transition-all cursor-pointer shadow-glow-sm"
                     >

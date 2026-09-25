@@ -20,6 +20,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 
 export const metadata: Metadata = {
   title: 'About Us — Next-Gen AI Website Chatbots & RAG Platform',
@@ -262,30 +263,7 @@ export default function AboutPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 py-8 text-xs text-slate-500 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0">
-              <img src="/favicon.png" alt="SiteBot" className="w-full h-full object-cover" />
-            </div>
-            <span className="text-slate-800 font-bold">SiteBot Studio</span>
-            <span>&mdash; Multi-Tenant AI Chatbot Platform</span>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <Link href="/" className="hover:text-indigo-600 transition-colors">
-              Home
-            </Link>
-            <Link href="/about" className="hover:text-indigo-600 transition-colors">
-              About
-            </Link>
-            <Link href="/contact" className="hover:text-indigo-600 transition-colors">
-              Contact
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

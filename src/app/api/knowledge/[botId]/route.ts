@@ -11,6 +11,20 @@ interface RouteParams {
   params: Promise<{ botId: string }>;
 }
 
+async function resolveKnowledgeBot(botId: string): Promise<any> {
+  if (isUsingMemoryDb()) {
+    return MemoryDb.findChatbotById(botId);
+  }
+  let bot: any = null;
+  if (mongoose.Types.ObjectId.isValid(botId)) {
+    bot = await Chatbot.findById(botId);
+  }
+  if (!bot) {
+    bot = await Chatbot.findOne({ slug: String(botId || '').toLowerCase().trim() });
+  }
+  return bot;
+}
+
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     await connectToDatabase();
@@ -19,17 +33,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { searchParams } = new URL(req.url);
     const pageUrl = searchParams.get('pageUrl') || undefined;
 
+    const bot = await resolveKnowledgeBot(botId);
+    if (!bot) {
+      return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
+    }
+
     let chunks: any[] = [];
     let pages: any[] = [];
 
     if (isUsingMemoryDb()) {
-      chunks = MemoryDb.findDocumentChunks(botId, pageUrl);
-      pages = MemoryDb.findCrawledPages(botId);
+      const key = (bot._id || bot.id).toString();
+      chunks = MemoryDb.findDocumentChunks(key, pageUrl);
+      pages = MemoryDb.findCrawledPages(key);
     } else {
-      if (!mongoose.Types.ObjectId.isValid(botId)) {
-        return NextResponse.json({ error: 'Invalid bot ID' }, { status: 400 });
-      }
-      const botObjectId = new mongoose.Types.ObjectId(botId);
+      const botObjectId = new mongoose.Types.ObjectId(bot._id);
       const query: any = { chatbotId: botObjectId };
       if (pageUrl) query.pageUrl = pageUrl;
 
@@ -77,16 +94,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     await connectToDatabase();
     const { botId } = await params;
 
-    let bot: any;
-    if (isUsingMemoryDb()) {
-      bot = MemoryDb.findChatbotById(botId);
-    } else {
-      if (!mongoose.Types.ObjectId.isValid(botId)) {
-        return NextResponse.json({ error: 'Invalid bot ID' }, { status: 400 });
-      }
-      bot = await Chatbot.findById(botId);
-    }
-
+    const bot = await resolveKnowledgeBot(botId);
     if (!bot) {
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
     }
@@ -122,9 +130,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const chunks = chunkText(content.trim(), 700, 100);
     const createdChunks = [];
     const qdrantChunksToUpsert = [];
+    const botIdStr = (bot._id || bot.id).toString();
 
     if (isUsingMemoryDb()) {
-      MemoryDb.upsertCrawledPage(botId, resolvedUrl, {
+      MemoryDb.upsertCrawledPage(botIdStr, resolvedUrl, {
         title: title.trim(),
         status: 'indexed',
         chunkCount: chunks.length,
@@ -140,7 +149,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
         const docList = MemoryDb.insertDocumentChunks([
           {
-            chatbotId: botId,
+            chatbotId: botIdStr,
             pageUrl: resolvedUrl,
             content: chunk.content,
             embedding,
@@ -154,7 +163,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ]);
         createdChunks.push(...docList);
         qdrantChunksToUpsert.push({
-          chatbotId: botId,
+          chatbotId: botIdStr,
           pageUrl: resolvedUrl,
           content: chunk.content,
           embedding,
@@ -162,7 +171,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         });
       }
     } else {
-      const botObjectId = new mongoose.Types.ObjectId(botId);
+      const botObjectId = new mongoose.Types.ObjectId(bot._id);
 
       await CrawledPage.findOneAndUpdate(
         { chatbotId: botObjectId, url: resolvedUrl },
@@ -239,20 +248,24 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const chunkId = searchParams.get('chunkId');
     const pageId = searchParams.get('pageId');
 
+    const bot = await resolveKnowledgeBot(botId);
+    if (!bot) {
+      return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
+    }
+
+    const botIdStr = (bot._id || bot.id).toString();
+
     if (isUsingMemoryDb()) {
       if (chunkId) {
-        MemoryDb.deleteDocumentChunk(botId, chunkId);
+        MemoryDb.deleteDocumentChunk(botIdStr, chunkId);
         return NextResponse.json({ success: true, message: 'Chunk deleted' });
       }
       if (pageId) {
-        MemoryDb.deleteCrawledPage(botId, pageId);
+        MemoryDb.deleteCrawledPage(botIdStr, pageId);
         return NextResponse.json({ success: true, message: 'Page deleted' });
       }
     } else {
-      if (!mongoose.Types.ObjectId.isValid(botId)) {
-        return NextResponse.json({ error: 'Invalid bot ID' }, { status: 400 });
-      }
-      const botObjectId = new mongoose.Types.ObjectId(botId);
+      const botObjectId = new mongoose.Types.ObjectId(bot._id);
 
       if (chunkId && mongoose.Types.ObjectId.isValid(chunkId)) {
         await DocumentChunk.findOneAndDelete({

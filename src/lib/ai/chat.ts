@@ -68,7 +68,8 @@ BEHAVIOR AND ANSWERING RULES:
 3. CONTACT INFORMATION: When a user asks how to reach the team or requests contact details, ALWAYS use the exact BUSINESS CONTACT DETAILS provided above. NEVER write "[insert phone number]", "[insert email]", or any placeholder text. If no contact details are configured, say "Please visit our website for contact information."
 4. CONVERSATIONAL HELPFULNESS: If the verified context does not contain specific proprietary data or technical statistics requested by the user, politely provide what general information is known and invite the visitor to contact the team directly using the real contact details above.
 5. TONE & FORMATTING: Keep your responses engaging, clear, concise, and professional. Format with clean Markdown (bold headings, bullet points, numbered lists). Do NOT include raw citation tags like "[1]" or bracketed footnotes in your prose.
-6. CONCISE & COMPLETE ANSWERS: Always provide COMPLETE, fully-formed responses that finish every sentence naturally and NEVER cut off mid-thought. Keep answers crisp, concise, and straight to the point (typically 2 to 4 sentences or 2 to 3 clean bullet points). Avoid unnecessary preamble or repeating the user's question. Conclude every thought cleanly.`;
+6. CONCISE & COMPLETE ANSWERS: Always provide COMPLETE, fully-formed responses that finish every sentence naturally and NEVER cut off mid-thought. Keep answers crisp, concise, and straight to the point (typically 2 to 4 sentences or 2 to 3 clean bullet points). Avoid unnecessary preamble or repeating the user's question. Conclude every thought cleanly.
+7. ACKNOWLEDGING CONTACT DETAILS: When a visitor shares their contact details (such as their email, phone number, or name), warmly acknowledge and confirm receipt (e.g., "Thank you for sharing your email! Our team will reach out with the details shortly."). Then directly address any question or inquiry they asked alongside it.`;
 
   const sources = Array.from(uniqueSourcesMap.entries()).map(([url, title]) => ({
     url,
@@ -79,7 +80,7 @@ BEHAVIOR AND ANSWERING RULES:
 }
 
 /**
- * Streams chat response from Google Gemini (gemini-1.5-flash)
+ * Streams chat response from Google Gemini (gemini-2.5-flash)
  */
 export async function streamGeminiChat(
   apiKey: string,
@@ -87,25 +88,47 @@ export async function streamGeminiChat(
   systemPrompt: string,
   history: ChatMessage[],
   newMessage: string,
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  maxTokens?: number
 ): Promise<void> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: modelName || 'gemini-1.5-flash',
+    model: (modelName || 'gemini-2.5-flash').trim().toLowerCase(),
     systemInstruction: systemPrompt,
     generationConfig: {
-      maxOutputTokens: 1024,
+      maxOutputTokens: maxTokens ?? 1024,
       temperature: 0.6,
     },
   });
 
-  // Convert history to Gemini format
-  const geminiHistory = history
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+// Convert history to Gemini format. The SDK requires the FIRST message to be
+// a 'user' turn, so drop any leading assistant/model messages and collapse
+// consecutive same-role turns.
+const geminiHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+for (const m of history) {
+  if (m.role !== 'user' && m.role !== 'assistant') continue;
+  const role: 'user' | 'model' = m.role === 'assistant' ? 'model' : 'user';
+  const prev = geminiHistory[geminiHistory.length - 1];
+  if (!prev) {
+    // First message must be 'user'. If the conversation starts with a bot
+    // greeting, the bot's own reply becomes the model turn AFTER the user,
+    // so we can safely start the history at the first 'user' turn instead.
+    if (role === 'model') continue;
+    geminiHistory.push({ role, parts: [{ text: m.content.trim() }] });
+  } else {
+    if (prev.role === role) {
+      prev.parts.push({ text: m.content.trim() });
+    } else {
+      geminiHistory.push({ role, parts: [{ text: m.content.trim() }] });
+    }
+  }
+}
+
+// If there is still no user turn (or history is empty), seed with a blank user
+// turn so the sequence is always valid for the Gemini API.
+if (geminiHistory.length === 0 || geminiHistory[0].role !== 'user') {
+  geminiHistory.unshift({ role: 'user', parts: [{ text: '.' }] });
+}
 
   const chat = model.startChat({
     history: geminiHistory,
@@ -135,7 +158,8 @@ export async function streamOpenAICompatibleChat(
   systemPrompt: string,
   history: ChatMessage[],
   newMessage: string,
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  maxTokens?: number
 ): Promise<void> {
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -176,7 +200,7 @@ export async function streamOpenAICompatibleChat(
       model: resolvedModel,
       messages,
       stream: true,
-      max_tokens: 1024,
+      max_tokens: maxTokens ?? 1024,
       temperature: 0.6,
     }),
   });
