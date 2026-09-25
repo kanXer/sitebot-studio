@@ -125,19 +125,19 @@ export function BotHandoffTab({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="w-full min-w-0 max-w-full space-y-8">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white border border-emerald-500/20 shadow-xl relative overflow-hidden">
+      <div className="relative w-full min-w-0 max-w-full overflow-hidden bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 rounded-3xl p-4 sm:p-6 lg:p-8 text-white border border-emerald-500/20 shadow-xl">
         <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-3">
-            <Headphones className="w-3.5 h-3.5" />
-            <span>Live Human Handoff Engine</span>
+        <div className="relative z-10 min-w-0 max-w-2xl">
+          <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-400/30 px-3 py-1 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+            <Headphones className="w-3.5 h-3.5 shrink-0" />
+            <span className="min-w-0 break-words">Live Human Handoff Engine</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight mb-2">
+          <h2 className="mb-2 break-words text-xl sm:text-2xl font-black tracking-tight">
             Seamless Live Escalation &amp; Agent Console
           </h2>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <p className="break-words text-xs sm:text-sm text-slate-300 leading-relaxed">
             When a visitor asks to talk to a person, encounters complex requirements, or expresses
             frustration, the AI transfers the conversation to your live agent queue in real time.
           </p>
@@ -145,35 +145,41 @@ export function BotHandoffTab({
       </div>
 
       {/* Configuration Form Card */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Headphones className="w-4 h-4 text-emerald-600" />
-              Live Escalation Rules &amp; Profile
+      <div className="w-full min-w-0 max-w-full bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-6">
+        <div className="flex min-w-0 flex-col items-start justify-between gap-4 pb-4 border-b border-slate-100 sm:flex-row sm:items-center">
+          <div className="min-w-0">
+            <h3 className="flex min-w-0 items-start gap-2 text-sm font-bold text-slate-900">
+              <Headphones className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span className="break-words">Live Escalation Rules &amp; Profile</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5 break-words">
               Control when visitors are offered live transfer and set agent credentials.
             </p>
           </div>
           <button
             type="button"
             onClick={onSave}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
+            className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-white text-xs font-bold shadow-sm transition-all sm:w-auto sm:shrink-0"
           >
-            {saveSuccess ? <Check className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-            <span>{saveSuccess ? 'Saved!' : 'Save Handoff Settings'}</span>
+            {saveSuccess ? (
+              <Check className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <UserCheck className="w-3.5 h-3.5 shrink-0" />
+            )}
+            <span className="break-words">{saveSuccess ? 'Saved!' : 'Save Handoff Settings'}</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {/* Master Switch */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-800 block">Enable Live Handoff</span>
-              <span className="text-[11px] text-slate-500">Allow human takeover</span>
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <div className="min-w-0">
+              <span className="block break-words text-xs font-bold text-slate-800">
+                Enable Live Handoff
+              </span>
+              <span className="block break-words text-[11px] text-slate-500">Allow human takeover</span>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex shrink-0 items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.handoffEnabled}
@@ -187,12 +193,16 @@ export function BotHandoffTab({
           </div>
 
           {/* Auto Intent Detection */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-800 block">Auto-Detect Intent</span>
-              <span className="text-[11px] text-slate-500">Trigger on frustration / request</span>
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <div className="min-w-0">
+              <span className="block break-words text-xs font-bold text-slate-800">
+                Auto-Detect Intent
+              </span>
+              <span className="block break-words text-[11px] text-slate-500">
+                Trigger on frustration / request
+              </span>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex shrink-0 items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.handoffAutoDetect}
@@ -206,8 +216,8 @@ export function BotHandoffTab({
           </div>
 
           {/* Support Agent Name */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+          <div className="min-w-0">
+            <label className="mb-1 block break-words text-xs font-bold uppercase tracking-wider text-slate-700">
               Support Agent Display Name
             </label>
             <input
@@ -217,14 +227,14 @@ export function BotHandoffTab({
                 setFormData((prev: any) => ({ ...prev, handoffAgentName: e.target.value }))
               }
               placeholder="e.g. Sarah from Support"
-              className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600 shadow-sm"
+              className="w-full min-w-0 max-w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600 shadow-sm"
             />
           </div>
         </div>
 
         {/* Offline Message */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+        <div className="min-w-0">
+          <label className="mb-1 block break-words text-xs font-bold uppercase tracking-wider text-slate-700">
             Offline / Unavailable Notice
           </label>
           <input
@@ -234,26 +244,26 @@ export function BotHandoffTab({
               setFormData((prev: any) => ({ ...prev, handoffOfflineMessage: e.target.value }))
             }
             placeholder="Our human support agents are currently offline..."
-            className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600 shadow-sm"
+            className="w-full min-w-0 max-w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600 shadow-sm"
           />
         </div>
       </div>
 
       {/* Live Handoff Inbox & Chat Console */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col lg:flex-row h-[680px]">
+      <div className="flex h-[680px] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:flex-row">
         {/* Left Column: Conversations Queue */}
-        <div className="w-full lg:w-80 border-r border-slate-200 flex flex-col bg-slate-50/50 shrink-0">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Headphones className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-bold text-slate-900">Live Queue</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+        <div className="flex h-[300px] w-full min-w-0 shrink-0 flex-col border-b border-slate-200 bg-slate-50/50 lg:h-full lg:w-80 lg:border-b-0 lg:border-r">
+          <div className="flex min-w-0 items-center justify-between gap-3 p-4 border-b border-slate-200">
+            <div className="flex min-w-0 items-center gap-2">
+              <Headphones className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span className="min-w-0 break-words text-xs font-bold text-slate-900">Live Queue</span>
+              <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                 {conversations.length}
               </span>
             </div>
             <button
               onClick={fetchConversations}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+              className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
               title="Refresh Queue"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -261,12 +271,12 @@ export function BotHandoffTab({
           </div>
 
           {/* Filter Pills */}
-          <div className="p-2 border-b border-slate-200 flex gap-1 bg-white overflow-x-auto text-[10px] font-bold">
+          <div className="flex max-w-full gap-1 overflow-x-auto overscroll-x-contain bg-white p-2 text-[10px] font-bold border-b border-slate-200">
             {(['all', 'waiting_agent', 'agent_active', 'resolved'] as const).map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-lg capitalize whitespace-nowrap transition-colors ${
+                className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 capitalize transition-colors ${
                   statusFilter === st
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-500 hover:bg-slate-100'
@@ -278,9 +288,9 @@ export function BotHandoffTab({
           </div>
 
           {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          <div className="min-h-0 min-w-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
             {conversations.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400 space-y-2">
+              <div className="space-y-2 p-8 text-center text-xs text-slate-400">
                 <Clock className="w-6 h-6 mx-auto text-slate-300" />
                 <p>No conversations in queue.</p>
               </div>
@@ -295,18 +305,18 @@ export function BotHandoffTab({
                   <button
                     key={c.id}
                     onClick={() => setSelectedSessionId(c.sessionId)}
-                    className={`w-full text-left p-3.5 transition-all flex flex-col gap-1.5 ${
+                    className={`flex w-full min-w-0 max-w-full flex-col gap-1.5 p-3.5 text-left transition-all ${
                       isSelected
                         ? 'bg-white shadow-sm border-l-4 border-emerald-600'
                         : 'hover:bg-slate-100/80 border-l-4 border-transparent'
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="font-bold text-xs text-slate-900 truncate">
+                    <div className="flex w-full min-w-0 items-center justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-900">
                         {c.visitor?.name || 'Visitor'}
                       </span>
                       <span
-                        className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                        className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${
                           isWaiting
                             ? 'bg-amber-100 text-amber-800 animate-pulse'
                             : isActive
@@ -319,14 +329,14 @@ export function BotHandoffTab({
                     </div>
 
                     {lastMsg && (
-                      <p className="text-[11px] text-slate-500 line-clamp-1">
+                      <p className="min-w-0 break-words text-[11px] text-slate-500 line-clamp-1">
                         {lastMsg.content}
                       </p>
                     )}
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                      <span>{c.messages?.length || 0} messages</span>
-                      <span>
+                    <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] text-slate-400 font-mono">
+                      <span className="min-w-0 truncate">{c.messages?.length || 0} messages</span>
+                      <span className="shrink-0">
                         {c.lastMessageAt
                           ? new Date(c.lastMessageAt).toLocaleTimeString([], {
                               hour: '2-digit',
@@ -343,28 +353,32 @@ export function BotHandoffTab({
         </div>
 
         {/* Right Column: Live Conversation Room */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white">
+        <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col bg-white">
           {activeConversation ? (
             <>
               {/* Active Conversation Top Bar */}
-              <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
+              <div className="flex w-full min-w-0 max-w-full flex-wrap items-center justify-between gap-3 bg-slate-50/50 p-3 border-b border-slate-200 sm:p-4">
+                <div className="flex min-w-0 max-w-full flex-1 items-start gap-3">
+                  <div className="flex w-9 h-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-bold text-xs text-emerald-700">
                     <User className="w-4 h-4" />
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>{activeConversation.visitor?.name || 'Visitor'}</span>
+                  <div className="min-w-0">
+                    <h4 className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs font-bold text-slate-900">
+                      <span className="min-w-0 break-words">
+                        {activeConversation.visitor?.name || 'Visitor'}
+                      </span>
                       {activeConversation.visitor?.email && (
-                        <span className="text-slate-400 font-normal">
+                        <span className="min-w-0 break-all font-normal text-slate-400">
                           ({activeConversation.visitor.email})
                         </span>
                       )}
                     </h4>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                      <span>Session: {activeConversation.sessionId.slice(0, 16)}</span>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] text-slate-500 font-mono">
+                      <span className="min-w-0 break-all">
+                        Session: {activeConversation.sessionId.slice(0, 16)}
+                      </span>
                       {activeConversation.handoffReason && (
-                        <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
+                        <span className="min-w-0 max-w-full break-words rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700">
                           Trigger: {activeConversation.handoffReason}
                         </span>
                       )}
@@ -372,14 +386,14 @@ export function BotHandoffTab({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
                   {activeConversation.status === 'waiting_agent' && (
                     <button
                       onClick={() => handleAgentAction('accept')}
                       disabled={actionLoading}
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-sm transition-all"
+                      className="flex min-w-0 max-w-full items-center justify-center gap-1 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700"
                     >
-                      <UserCheck className="w-3.5 h-3.5" />
+                      <UserCheck className="w-3.5 h-3.5 shrink-0" />
                       <span>Accept Chat</span>
                     </button>
                   )}
@@ -388,7 +402,7 @@ export function BotHandoffTab({
                     <button
                       onClick={() => handleAgentAction('resolve')}
                       disabled={actionLoading}
-                      className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-all"
+                      className="flex min-w-0 max-w-full items-center justify-center rounded-xl border border-slate-300 px-3 py-1.5 text-left text-xs font-semibold text-slate-700 transition-all hover:bg-slate-100 sm:text-center"
                     >
                       Resolve &amp; Return to AI
                     </button>
@@ -404,7 +418,7 @@ export function BotHandoffTab({
                   const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
                   transcriptFollowRef.current = dist <= 80;
                 }}
-                className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/20"
+                className="min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-50/20 p-3 sm:p-4"
               >
                 {activeConversation.messages.map((m: any, idx: number) => {
                   const isUser = m.role === 'user';
@@ -414,8 +428,8 @@ export function BotHandoffTab({
 
                   if (isSystem) {
                     return (
-                      <div key={idx} className="flex justify-center my-2">
-                        <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                      <div key={idx} className="my-2 flex min-w-0 justify-center">
+                        <span className="inline-block max-w-full whitespace-pre-wrap break-words rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600">
                           {m.content}
                         </span>
                       </div>
@@ -425,7 +439,9 @@ export function BotHandoffTab({
                   return (
                     <div
                       key={idx}
-                      className={`flex gap-2 max-w-xl ${isUser ? 'justify-end ml-auto' : 'justify-start'}`}
+                      className={`flex w-full min-w-0 max-w-[92%] gap-2 sm:max-w-xl ${
+                        isUser ? 'justify-end ml-auto' : 'justify-start'
+                      }`}
                     >
                       {!isUser && (
                         <div
@@ -437,16 +453,16 @@ export function BotHandoffTab({
                         </div>
                       )}
 
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1 text-[10px] text-slate-400">
-                          <span className="font-bold text-slate-700">
+                      <div className="min-w-0">
+                        <div className="mb-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
+                          <span className="min-w-0 break-words font-bold text-slate-700">
                             {isUser
                               ? activeConversation.visitor?.name || 'Visitor'
                               : isAgent
                               ? m.senderName || 'Live Agent'
                               : botName}
                           </span>
-                          <span>
+                          <span className="shrink-0">
                             {m.timestamp
                               ? new Date(m.timestamp).toLocaleTimeString([], {
                                   hour: '2-digit',
@@ -457,7 +473,7 @@ export function BotHandoffTab({
                         </div>
 
                         <div
-                          className={`p-3 rounded-2xl text-xs leading-relaxed ${
+                          className={`min-w-0 whitespace-pre-wrap break-words rounded-2xl p-3 text-xs leading-relaxed ${
                             isUser
                               ? 'bg-indigo-600 text-white rounded-br-none shadow-sm'
                               : isAgent
@@ -475,37 +491,41 @@ export function BotHandoffTab({
               </div>
 
               {/* Agent Reply Box */}
-              <div className="p-3 border-t border-slate-200 bg-white">
+              <div className="w-full min-w-0 max-w-full bg-white p-3 border-t border-slate-200">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleAgentAction('reply');
                   }}
-                  className="flex items-center gap-2"
+                  className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center"
                 >
                   <input
                     type="text"
                     value={agentReply}
                     onChange={(e) => setAgentReply(e.target.value)}
                     placeholder="Type your live response to the visitor..."
-                    className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600 shadow-inner"
+                    className="w-full min-w-0 max-w-full flex-1 rounded-2xl bg-slate-50 px-4 py-2.5 text-xs text-slate-900 shadow-inner focus:border-emerald-600 focus:bg-white focus:outline-none"
                   />
                   <button
                     type="submit"
                     disabled={sendingReply || !agentReply.trim()}
-                    className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 disabled:opacity-40"
+                    className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-emerald-700 disabled:opacity-40 sm:w-auto sm:shrink-0"
                   >
-                    {sendingReply ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {sendingReply ? (
+                      <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5 shrink-0" />
+                    )}
                     <span>Reply</span>
                   </button>
                 </form>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 gap-3">
-              <Headphones className="w-10 h-10 text-slate-300" />
-              <h4 className="text-sm font-bold text-slate-700">No conversation selected</h4>
-              <p className="text-xs max-w-xs text-slate-500">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-slate-400 sm:p-8">
+              <Headphones className="w-10 h-10 shrink-0 text-slate-300" />
+              <h4 className="break-words text-sm font-bold text-slate-700">No conversation selected</h4>
+              <p className="max-w-xs break-words text-xs text-slate-500">
                 Select an active or waiting conversation from the live queue on the left to monitor
                 the transcript and reply as a human agent.
               </p>

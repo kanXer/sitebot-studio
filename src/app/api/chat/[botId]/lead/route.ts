@@ -11,6 +11,32 @@ interface RouteParams {
   params: Promise<{ botId: string }>;
 }
 
+type ObjectIdLike = { toString(): string };
+
+interface LeadBot {
+  _id: ObjectIdLike;
+  name: string;
+  siteUrl: string;
+  ownerEmail?: string;
+  ownerId?: string;
+}
+
+interface LeadSubmission {
+  _id: unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (isRecord(error) && typeof error.message === 'string' && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
@@ -29,17 +55,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     await connectToDatabase();
     const { botId } = await params;
-    const body = await req.json().catch(() => ({}));
-
-    const {
-      name = '',
-      email = '',
-      phone = '',
-      message = '',
-      formType = 'LEAD_GENERATION',
-      sessionId = `sess-${Date.now()}`,
-      data = {},
-    } = body;
+    const rawBody: unknown = await req.json().catch(() => ({}));
+    const body = isRecord(rawBody) ? rawBody : {};
+    const name = typeof body.name === 'string' ? body.name : '';
+    const email = typeof body.email === 'string' ? body.email : '';
+    const phone = typeof body.phone === 'string' ? body.phone : '';
+    const message = typeof body.message === 'string' ? body.message : '';
+    const formType =
+      typeof body.formType === 'string' ? body.formType : 'LEAD_GENERATION';
+    const sessionId =
+      typeof body.sessionId === 'string'
+        ? body.sessionId
+        : `sess-${Date.now()}`;
+    const data = isRecord(body.data) ? body.data : {};
 
     if (!name || !email || !phone) {
       return NextResponse.json(
@@ -49,7 +77,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     // Resolve bot
-    let bot: any;
+    let bot: LeadBot | null;
     if (isUsingMemoryDb()) {
       bot = MemoryDb.findChatbotById(botId);
     } else if (mongoose.Types.ObjectId.isValid(botId)) {
@@ -70,7 +98,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // 1. Locate or create default bot form
     let formId = '';
     if (isUsingMemoryDb()) {
-      let forms = MemoryDb.findBotForms(resolvedBotId);
+      const forms = MemoryDb.findBotForms(resolvedBotId);
       let targetForm = forms.find((f) => f.formType === formType || f.formType === 'LEAD_GENERATION');
       if (!targetForm) {
         targetForm = MemoryDb.createBotForm({
@@ -114,18 +142,26 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     // 2. Prepare payload
-    const submissionData = {
-      name: name || data.name || '',
-      email: email || data.email || '',
-      phone: phone || data.phone || '',
-      message: message || data.message || '',
+    const submissionData: Record<string, unknown> = {
+      name: name || (typeof data.name === 'string' ? data.name : ''),
+      email: email || (typeof data.email === 'string' ? data.email : ''),
+      phone: phone || (typeof data.phone === 'string' ? data.phone : ''),
+      message: message || (typeof data.message === 'string' ? data.message : ''),
       ...data,
       source: 'live_chat_widget',
       capturedAt: new Date().toISOString(),
     };
+    const submissionName =
+      typeof submissionData.name === 'string' ? submissionData.name : '';
+    const submissionEmail =
+      typeof submissionData.email === 'string' ? submissionData.email : '';
+    const submissionPhone =
+      typeof submissionData.phone === 'string' ? submissionData.phone : '';
+    const submissionMessage =
+      typeof submissionData.message === 'string' ? submissionData.message : '';
 
     // 3. Store submission
-    let submission: any;
+    let submission: LeadSubmission;
     if (isUsingMemoryDb()) {
       submission = MemoryDb.createFormSubmission({
         formId,
@@ -146,7 +182,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     try {
       await appendConversationMessage(resolvedBotId, sessionId, {
         role: 'system',
-        content: `Lead captured: ${submissionData.name || 'Visitor'} (${submissionData.email || submissionData.phone || 'No direct contact'})`,
+        content: `Lead captured: ${submissionName || 'Visitor'} (${submissionEmail || submissionPhone || 'No direct contact'})`,
       });
     } catch {
       // non-fatal
@@ -157,10 +193,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       sendLeadNotifications({
         bot,
         lead: {
-          name: submissionData.name || '',
-          email: submissionData.email || '',
-          phone: submissionData.phone || '',
-          message: submissionData.message || '',
+          name: submissionName,
+          email: submissionEmail,
+          phone: submissionPhone,
+          message: submissionMessage,
           campaign: 'Live Chat Widget',
           page: bot.siteUrl || '',
           botId: resolvedBotId,
@@ -196,10 +232,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       },
       { headers: CORS_HEADERS }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Lead capture failed:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to capture lead' },
+      { error: getErrorMessage(error, 'Failed to capture lead') },
       { status: 500, headers: CORS_HEADERS }
     );
   }

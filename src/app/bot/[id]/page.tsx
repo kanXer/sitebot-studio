@@ -65,6 +65,7 @@ interface BotDetail {
   embedProvider: string;
   embedModel: string;
   greeting: string;
+  roleTitle?: string;
   suggestedQuestions: string[];
   phone?: string;
   whatsapp?: string;
@@ -793,8 +794,8 @@ export default function BotDashboardPage() {
 
   if (errorState?.type === 'unauthorized') {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
-        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl text-center space-y-5">
+       <div className="flex min-h-screen min-w-0 flex-col items-center justify-center p-4 text-slate-800 sm:p-6">
+         <div className="min-w-0 w-full max-w-md space-y-5 rounded-3xl border border-slate-200 bg-white p-5 text-center shadow-xl sm:p-8">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-inner">
             <Lock className="w-7 h-7" />
           </div>
@@ -829,8 +830,8 @@ export default function BotDashboardPage() {
 
   if (errorState?.type === 'forbidden') {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
-        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl text-center space-y-5">
+       <div className="flex min-h-screen min-w-0 flex-col items-center justify-center p-4 text-slate-800 sm:p-6">
+         <div className="min-w-0 w-full max-w-md space-y-5 rounded-3xl border border-slate-200 bg-white p-5 text-center shadow-xl sm:p-8">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-inner">
             <ShieldAlert className="w-7 h-7" />
           </div>
@@ -860,8 +861,8 @@ export default function BotDashboardPage() {
 
   if (!bot) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800">
-        <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl text-center space-y-5">
+       <div className="flex min-h-screen min-w-0 flex-col items-center justify-center p-4 text-slate-800 sm:p-6">
+         <div className="min-w-0 w-full max-w-md space-y-5 rounded-3xl border border-slate-200 bg-white p-5 text-center shadow-xl sm:p-8">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shadow-inner">
             <AlertCircle className="w-7 h-7 text-rose-500" />
           </div>
@@ -885,12 +886,12 @@ export default function BotDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex min-w-0 flex-col selection:bg-indigo-500 selection:text-white">
       {/* Success / Error Notification Toast */}
       {toastMsg && (
         <div
           key={toastMsg.id}
-          className={`fixed top-5 right-5 z-[100] flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold shadow-2xl border animate-in fade-in slide-in-from-top-2 ${
+           className={`fixed left-3 right-3 top-5 z-[100] flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-2xl border px-4 py-3 text-left text-sm font-semibold shadow-2xl animate-in fade-in slide-in-from-top-2 sm:left-auto sm:right-5 ${
             toastMsg.type === 'success'
               ? 'bg-emerald-600 text-white border-emerald-500'
               : 'bg-red-600 text-white border-red-500'
@@ -901,10 +902,10 @@ export default function BotDashboardPage() {
           ) : (
             <AlertCircle className="w-5 h-5 shrink-0" />
           )}
-          <span>{toastMsg.message}</span>
+          <span className="min-w-0 break-words">{toastMsg.message}</span>
           <button
             onClick={() => setToastMsg(null)}
-            className="ml-2 text-white/70 hover:text-white transition-colors"
+            className="ml-auto shrink-0 text-white/70 transition-colors hover:text-white"
             aria-label="Dismiss"
           >
             <X className="w-4 h-4" />
@@ -916,82 +917,82 @@ export default function BotDashboardPage() {
 
       {/* Studio Header (Light Theme) */}
       <div className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-md"
-                style={{ backgroundColor: bot.primaryColor }}
-              >
-                <Bot className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">{bot.name}</h1>
-                  <span
-                    className="w-2.5 h-2.5 rounded-full ring-2 ring-white"
-                    style={{ backgroundColor: bot.primaryColor }}
-                    title={`Color: ${bot.primaryColor}`}
-                  />
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 uppercase font-mono border border-slate-200">
-                    {bot.chatProvider}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                  <a
-                    href={bot.siteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 hover:text-indigo-600 font-mono transition-colors"
-                  >
-                    <Globe className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>{bot.siteUrl}</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
-                  </a>
-                  <span>&bull;</span>
-                  <span>{stats.indexedPages} pages indexed</span>
-                  <span>&bull;</span>
-                  <span className="text-emerald-600 font-semibold font-mono">{stats.totalChunks} vector chunks</span>
-                </div>
-              </div>
-            </div>
+         <div className="mx-auto min-w-0 max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+           <div className="flex min-w-0 flex-col justify-between gap-4 md:flex-row md:items-center">
+             <div className="flex min-w-0 items-center gap-3.5">
+               <div
+                 className="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center font-bold text-white shadow-md"
+                 style={{ backgroundColor: bot.primaryColor }}
+               >
+                 <Bot className="w-6 h-6" />
+               </div>
+               <div className="min-w-0">
+                 <div className="flex min-w-0 items-center gap-2.5">
+                   <h1 className="min-w-0 truncate text-xl font-extrabold text-slate-900 sm:text-2xl">{bot.name}</h1>
+                   <span
+                     className="w-2.5 h-2.5 shrink-0 rounded-full ring-2 ring-white"
+                     style={{ backgroundColor: bot.primaryColor }}
+                     title={`Color: ${bot.primaryColor}`}
+                   />
+                   <span className="max-w-[120px] truncate rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-mono font-bold uppercase text-slate-700">
+                     {bot.chatProvider}
+                   </span>
+                 </div>
+                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                   <a
+                     href={bot.siteUrl}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className="flex min-w-0 max-w-full items-center gap-1 font-mono transition-colors hover:text-indigo-600"
+                   >
+                     <Globe className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
+                     <span className="truncate">{bot.siteUrl}</span>
+                     <ExternalLink className="w-3 h-3 shrink-0 text-slate-400" />
+                   </a>
+                   <span className="hidden sm:inline">&bull;</span>
+                   <span className="whitespace-nowrap">{stats.indexedPages} pages indexed</span>
+                   <span className="hidden sm:inline">&bull;</span>
+                   <span className="whitespace-nowrap font-mono font-semibold text-emerald-600">{stats.totalChunks} vector chunks</span>
+                 </div>
+               </div>
+             </div>
 
-            {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleStartCrawl}
-                disabled={crawling}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
-              >
-                {crawling ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RotateCcw className="w-3.5 h-3.5" />
-                )}
-                <span>{crawling ? 'Crawling...' : 'Re-Crawl'}</span>
-              </button>
+             {/* Quick Actions */}
+             <div className="grid w-full shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:w-auto">
+               <button
+                 onClick={handleStartCrawl}
+                 disabled={crawling}
+                 className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-2 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 disabled:opacity-50 sm:px-3.5"
+               >
+                 {crawling ? (
+                   <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
+                 ) : (
+                   <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                 )}
+                 <span className="truncate">{crawling ? 'Crawling...' : 'Re-Crawl'}</span>
+               </button>
 
-              <Link
-                href={`/demo/${botId}`}
-                target="_blank"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 transition-all"
-              >
-                <Play className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Live Demo</span>
-              </Link>
+               <Link
+                 href={`/demo/${botId}`}
+                 target="_blank"
+                 className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 text-xs font-semibold text-slate-800 transition-all hover:bg-slate-200 sm:px-3.5"
+               >
+                 <Play className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                 <span className="truncate">Live Demo</span>
+               </Link>
 
-              <button
-                onClick={handleDeleteBot}
-                title="Delete chatbot"
-                className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+               <button
+                 onClick={handleDeleteBot}
+                 title="Delete chatbot"
+                 className="shrink-0 rounded-xl border border-red-200 bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+               >
+                 <Trash2 className="w-4 h-4" />
+               </button>
+             </div>
+           </div>
 
           {/* Tab Navigation */}
-          <div className="flex items-center gap-1 mt-6 border-b border-slate-200 -mb-5 overflow-x-auto pb-1 scrollbar-thin">
+           <div className="flex w-full min-w-0 max-w-full items-center gap-1 -mb-5 mt-6 overflow-x-auto border-b border-slate-200 pb-1 scrollbar-thin">
             <button
               onClick={() => setActiveTab('playground')}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap ${
@@ -1104,16 +1105,16 @@ export default function BotDashboardPage() {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-8 pb-28 md:pb-12">
+       <main className="mx-auto min-w-0 w-full max-w-7xl px-3.5 py-6 pb-28 sm:px-6 sm:py-8 lg:px-8 xl:pb-12">
         {/* TAB 1: Live Playground & Embed Code */}
         {activeTab === 'playground' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Col: Embed Snippets */}
-            <div className="lg:col-span-6 space-y-6">
+             <div className="min-w-0 space-y-6 lg:col-span-6">
               {/* Embed Script Card */}
-              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+               <div className="min-w-0 space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                 <div className="flex flex-wrap items-start justify-between gap-2">
+                   <h3 className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900">
                     <Code2 className="w-4 h-4 text-indigo-600" />
                     Embed on Any Website
                   </h3>
@@ -1138,11 +1139,11 @@ export default function BotDashboardPage() {
                   </button>
                 </div>
 
-                <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-                  <span>Zero runtime dependencies</span>
-                  <button
-                    onClick={copyEmbedCode}
-                    className="text-indigo-600 hover:text-indigo-700 font-semibold"
+                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pt-2 text-xs text-slate-500">
+                   <span className="min-w-0">Zero runtime dependencies</span>
+                   <button
+                     onClick={copyEmbedCode}
+                     className="min-w-0 text-left font-semibold text-indigo-600 hover:text-indigo-700"
                   >
                     {copiedCode ? 'Copied to Clipboard!' : 'Click to copy script tag'}
                   </button>
@@ -1157,16 +1158,16 @@ export default function BotDashboardPage() {
                 ) ? (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                    <div>
-                      <span className="font-bold">Production Ready:</span>{' '}
+                     <div className="min-w-0">
+                       <span className="font-bold">Production Ready:</span>{' '}
                       <span>Widget is configured with an API key and ready for external websites.</span>
                     </div>
                   </div>
                 ) : (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Studio Preview Active</p>
+                     <div className="min-w-0">
+                       <p className="font-bold">Studio Preview Active</p>
                       <p className="text-amber-700 text-[11px] mt-0.5 leading-relaxed">
                         Internal testing and the Live Demo sandbox use your server .env credentials. To embed this widget live on an external website, add your provider API key in the{' '}
                         <button
@@ -1183,7 +1184,7 @@ export default function BotDashboardPage() {
               </div>
 
               {/* Demo Sandbox Card */}
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+               <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
                   <Play className="w-4 h-4 text-emerald-600" />
                   Live Website Sandbox
@@ -1202,11 +1203,11 @@ export default function BotDashboardPage() {
               </div>
 
               {/* Config Details */}
-              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-3 text-xs">
+               <div className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm sm:p-6">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider">
                   Active Model Configuration
                 </h4>
-                <div className="grid grid-cols-2 gap-3">
+                 <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                     <span className="text-[10px] text-slate-500 uppercase block font-semibold">Provider &amp; Model</span>
                     <span className="font-mono text-slate-900 font-bold">{bot.chatProvider} &bull; {bot.chatModel}</span>
@@ -1220,14 +1221,14 @@ export default function BotDashboardPage() {
             </div>
 
             {/* Right Col: Interactive Chat Test Bench */}
-            <div className="lg:col-span-6">
-              <div className="bg-white rounded-3xl p-6 border border-slate-200 flex flex-col h-[680px] shadow-sm relative overflow-hidden">
+             <div className="min-w-0 lg:col-span-6">
+               <div className="relative flex h-[560px] max-h-[calc(100dvh-8rem)] min-w-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:h-[680px] sm:p-6">
                 {/* Top gradient bar */}
-                <div className="h-[3.5px] w-full bg-gradient-brand shrink-0 -mt-6 -mx-6 mb-3 rounded-t-3xl" />
+                 <div className="mb-3 h-[3.5px] w-full shrink-0 -mx-4 -mt-4 rounded-t-3xl bg-gradient-brand sm:-mx-6 sm:-mt-6" />
 
                 {/* Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2.5">
+                 <div className="flex min-w-0 items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                   <div className="flex min-w-0 items-center gap-2.5">
                     <div className="relative">
                       <div
                         className="w-9 h-9 rounded-full bg-gradient-brand flex items-center justify-center text-white font-bold text-xs shadow-glow-sm ring-2 ring-white/30"
@@ -1236,17 +1237,17 @@ export default function BotDashboardPage() {
                       </div>
                       <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-1 ring-white" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-slate-900">{bot.name}</h3>
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-extrabold uppercase tracking-wider">
+                     <div className="min-w-0">
+                       <div className="flex min-w-0 items-center gap-2">
+                         <h3 className="min-w-0 truncate text-sm font-bold text-slate-900">{bot.name}</h3>
+                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-700">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           Online
                         </span>
                       </div>
-                      <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                        AI Growth Strategist &bull; RAG Active
-                      </span>
+                       <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-[11px] text-slate-500">
+                         {bot.roleTitle || 'Official AI Assistant • Verified Support'}
+                       </span>
                     </div>
                   </div>
 
@@ -1259,7 +1260,7 @@ export default function BotDashboardPage() {
                         },
                       ])
                     }
-                    className="text-xs text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                     className="shrink-0 rounded-lg p-1.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                     title="Reset test conversation"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -1340,7 +1341,7 @@ export default function BotDashboardPage() {
                   {chatMessages.map((msg, idx) => (
                     <div
                       key={idx}
-                      className={`flex items-end gap-2.5 max-w-[88%] ${
+                       className={`flex min-w-0 max-w-[92%] items-end gap-2.5 sm:max-w-[88%] ${
                         msg.role === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'
                       }`}
                     >
@@ -1361,9 +1362,9 @@ export default function BotDashboardPage() {
                       </div>
 
                       {/* Bubble */}
-                      <div className="flex flex-col">
+                       <div className="flex min-w-0 flex-col">
                         <div
-                          className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                           className={`min-w-0 break-words p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                             msg.role === 'user'
                               ? 'bg-gradient-brand text-white rounded-br-none shadow-md'
                               : 'bg-slate-100 text-slate-800 border border-slate-200/70 rounded-bl-none'
@@ -1407,7 +1408,7 @@ export default function BotDashboardPage() {
                       <button
                         key={idx}
                         onClick={() => setChatInput(q)}
-                        className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium border border-slate-200 transition-colors"
+                         className="max-w-full break-words rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-left text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
                       >
                         {q}
                       </button>
@@ -1416,7 +1417,7 @@ export default function BotDashboardPage() {
                 )}
 
                 {/* Input area */}
-                <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                 <div className="flex min-w-0 items-center gap-2 border-t border-slate-100 pt-3">
                   <input
                     type="text"
                     value={chatInput}
@@ -1428,7 +1429,7 @@ export default function BotDashboardPage() {
                       }
                     }}
                     placeholder="Type a test query..."
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-indigo-600"
+                     className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-600 focus:bg-white focus:outline-none"
                   />
                   <button
                     onClick={handlePlaygroundSend}
@@ -1445,12 +1446,12 @@ export default function BotDashboardPage() {
 
         {/* TAB 2: Crawler & Knowledge Base */}
         {activeTab === 'crawler' && (
-          <div className="space-y-8">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <Search className="w-5 h-5 text-indigo-600" />
+           <div className="min-w-0 space-y-8">
+             <div className="min-w-0 space-y-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+               <div className="flex min-w-0 flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                 <div className="min-w-0">
+                   <h3 className="flex min-w-0 items-center gap-2 text-lg font-bold text-slate-900">
+                     <Search className="w-5 h-5 shrink-0 text-indigo-600" />
                     Resource-Safe Website Crawler
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
@@ -1458,13 +1459,13 @@ export default function BotDashboardPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                 <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-3">
+                   <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500">
                     <span>Page Cap:</span>
                     <select
                       value={maxCrawlPages}
                       onChange={(e) => setMaxCrawlPages(Number(e.target.value))}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 text-xs font-medium"
+                       className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-900 sm:flex-none"
                     >
                       <option value={5}>5 Pages (Fast)</option>
                       <option value={10}>10 Pages</option>
@@ -1476,7 +1477,7 @@ export default function BotDashboardPage() {
                   <button
                     onClick={handleStartCrawl}
                     disabled={crawling}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+                     className="flex w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
                   >
                     {crawling ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                     <span>{crawling ? 'Crawling Website...' : 'Trigger Re-Crawl'}</span>
@@ -1484,7 +1485,7 @@ export default function BotDashboardPage() {
 
                   <button
                     onClick={() => setShowManualModal(true)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+                     className="flex w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 sm:w-auto"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Manual Q&amp;A</span>
@@ -1508,12 +1509,12 @@ export default function BotDashboardPage() {
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   )}
                   <div className="flex-1 min-w-0 space-y-2">
-                    <span className="font-medium">{crawlMessage}</span>
+                    <span className="break-words font-medium">{crawlMessage}</span>
                     {crawling && (
                       <div className="w-full">
                         <div className="flex justify-between items-center text-[10px] font-bold text-indigo-600 mb-1">
-                          <span>Indexing pages &amp; generating embeddings</span>
-                          <span>{crawlProgress}%</span>
+                           <span className="min-w-0 break-words">Indexing pages &amp; generating embeddings</span>
+                           <span className="shrink-0">{crawlProgress}%</span>
                         </div>
                         <div className="h-2 w-full bg-indigo-100 rounded-full overflow-hidden">
                           <div
@@ -1529,10 +1530,10 @@ export default function BotDashboardPage() {
             </div>
 
             {/* Crawled Pages Table */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-indigo-600" />
+             <div className="min-w-0 space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+               <div className="flex flex-wrap items-center justify-between gap-2">
+                 <h4 className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900">
+                   <Globe className="w-4 h-4 shrink-0 text-indigo-600" />
                   Indexed Web Pages ({pages.length})
                 </h4>
                 <span className="text-xs text-slate-500">Total Chunks: {chunks.length}</span>
@@ -1544,8 +1545,8 @@ export default function BotDashboardPage() {
                   <p>No pages indexed yet. Click &quot;Trigger Re-Crawl&quot; above to crawl your website.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-700">
+                 <div className="min-w-0 max-w-full overflow-x-auto">
+                   <table className="min-w-[720px] w-full text-left text-xs text-slate-700">
                     <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] tracking-wider border-b border-slate-200">
                       <tr>
                         <th className="py-3 px-4">Title &amp; URL</th>
@@ -1597,23 +1598,23 @@ export default function BotDashboardPage() {
             </div>
 
             {/* Chunks Inspector */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-indigo-600" />
+             <div className="min-w-0 space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+               <h4 className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900">
+                 <FileText className="w-4 h-4 shrink-0 text-indigo-600" />
                 Vector Chunks Preview ({chunks.length})
               </h4>
               <p className="text-xs text-slate-500">
                 Segmented at ~700 characters with 100 character overlap, indexed in Qdrant Vector Database.
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-1">
+               <div className="grid min-w-0 max-h-96 grid-cols-1 gap-4 overflow-y-auto pr-1 md:grid-cols-2">
                 {chunks.map((c) => (
                   <div
                     key={c.id}
-                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs relative group hover:border-indigo-300 transition-all"
+                     className="relative min-w-0 space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs transition-all group hover:border-indigo-300"
                   >
-                    <div className="flex items-center justify-between text-[11px] text-slate-600">
-                      <span className="font-bold text-slate-900 truncate max-w-[200px]">
+                     <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] text-slate-600">
+                       <span className="max-w-[min(200px,100%)] truncate font-bold text-slate-900">
                         {c.metadata?.title || 'Document Chunk'}
                       </span>
                       <button
@@ -1627,7 +1628,7 @@ export default function BotDashboardPage() {
                     <p className="text-slate-700 leading-relaxed line-clamp-4 font-mono text-[11px]">
                       {c.content}
                     </p>
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                     <div className="flex flex-wrap items-center justify-between gap-1 border-t border-slate-200 pt-2 text-[10px] font-mono text-slate-500">
                       <span>{c.content.length} chars</span>
                       <span className="text-indigo-600 font-bold">768-dim Qdrant vector</span>
                     </div>
@@ -1667,10 +1668,10 @@ export default function BotDashboardPage() {
 
         {/* TAB 3: Widget Customization */}
         {activeTab === 'appearance' && (
-          <form onSubmit={handleSaveSettings} className="max-w-3xl space-y-6">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div>
+           <form onSubmit={handleSaveSettings} className="min-w-0 max-w-3xl space-y-6">
+             <div className="min-w-0 space-y-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+               <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-4">
+                 <div className="min-w-0">
                   <h3 className="text-lg font-bold text-slate-900">Widget Customization</h3>
                   <p className="text-xs text-slate-500">
                     Adjust how your chat widget looks and behaves on your website.
@@ -1773,7 +1774,7 @@ export default function BotDashboardPage() {
                     Choose how the launcher button looks on your embedded website. All styles include bundled CSS — no separate stylesheet needed.
                   </p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {(
                     [
                       {
@@ -1826,7 +1827,7 @@ export default function BotDashboardPage() {
                       key={s.id}
                       type="button"
                       onClick={() => setFormData({ ...formData, launcherStyle: s.id })}
-                      className={`relative p-3 rounded-2xl border-2 transition-all text-left flex flex-col items-center gap-2.5 ${
+                       className={`relative flex min-w-0 flex-col items-center gap-2.5 rounded-2xl border-2 p-3 text-left transition-all ${
                         formData.launcherStyle === s.id
                           ? 'border-indigo-500 bg-indigo-50 shadow-sm'
                           : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
@@ -1943,7 +1944,7 @@ export default function BotDashboardPage() {
                     </label>
                     <div className="space-y-2">
                       {formData.customLinks.map((link, linkIdx) => (
-                        <div key={linkIdx} className="flex items-center gap-2">
+                         <div key={linkIdx} className="flex min-w-0 items-center gap-2">
                           <input
                             type="text"
                             value={link.label}
@@ -1953,7 +1954,7 @@ export default function BotDashboardPage() {
                               setFormData({ ...formData, customLinks: updated });
                             }}
                             placeholder="Button label, e.g. Book a Demo"
-                            className="w-1/3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                             className="min-w-0 w-1/3 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:border-indigo-600 focus:bg-white focus:outline-none"
                           />
                           <input
                             type="text"
@@ -1964,7 +1965,7 @@ export default function BotDashboardPage() {
                               setFormData({ ...formData, customLinks: updated });
                             }}
                             placeholder="https://yoursite.com/demo"
-                            className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                             className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:border-indigo-600 focus:bg-white focus:outline-none font-mono"
                           />
                           <button
                             type="button"
@@ -2026,10 +2027,10 @@ export default function BotDashboardPage() {
 
         {/* TAB 4: AI Models & BYOK Keys */}
         {activeTab === 'ai' && (
-          <form onSubmit={handleSaveSettings} className="max-w-3xl space-y-6">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div>
+           <form onSubmit={handleSaveSettings} className="min-w-0 max-w-3xl space-y-6">
+             <div className="min-w-0 space-y-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+               <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-4">
+                 <div className="min-w-0">
                   <h3 className="text-lg font-bold text-slate-900">AI Providers &amp; BYOK Settings</h3>
                   <p className="text-xs text-slate-500">
                     Switch between NVIDIA NIM, OpenAI, Google Gemini, or OpenRouter.
@@ -2088,7 +2089,7 @@ export default function BotDashboardPage() {
                             key={m}
                             type="button"
                             onClick={() => setFormData({ ...formData, chatModel: m })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
+                            className={`max-w-full break-all text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
                               formData.chatModel === m
                                 ? 'bg-indigo-600 text-white font-bold'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2110,7 +2111,7 @@ export default function BotDashboardPage() {
                             key={m}
                             type="button"
                             onClick={() => setFormData({ ...formData, chatModel: m })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
+                            className={`max-w-full break-all text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
                               formData.chatModel === m
                                 ? 'bg-emerald-700 text-white font-bold'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2128,7 +2129,7 @@ export default function BotDashboardPage() {
                             key={m}
                             type="button"
                             onClick={() => setFormData({ ...formData, chatModel: m })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
+                            className={`max-w-full break-all text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
                               formData.chatModel === m
                                 ? 'bg-indigo-600 text-white font-bold'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2146,7 +2147,7 @@ export default function BotDashboardPage() {
                             key={m}
                             type="button"
                             onClick={() => setFormData({ ...formData, chatModel: m })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
+                            className={`max-w-full break-all text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
                               formData.chatModel === m
                                 ? 'bg-purple-600 text-white font-bold'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2207,7 +2208,7 @@ export default function BotDashboardPage() {
                             key={m}
                             type="button"
                             onClick={() => setFormData({ ...formData, embedModel: m })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
+                            className={`max-w-full break-all text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
                               formData.embedModel === m
                                 ? 'bg-emerald-700 text-white font-bold'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2225,7 +2226,7 @@ export default function BotDashboardPage() {
                             key={m}
                             type="button"
                             onClick={() => setFormData({ ...formData, embedModel: m })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
+                            className={`max-w-full break-all text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
                               formData.embedModel === m
                                 ? 'bg-indigo-600 text-white font-bold'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2243,7 +2244,7 @@ export default function BotDashboardPage() {
                             key={m}
                             type="button"
                             onClick={() => setFormData({ ...formData, embedModel: m })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
+                            className={`max-w-full break-all text-[10px] px-2 py-0.5 rounded-md font-mono transition-all ${
                               formData.embedModel === m
                                 ? 'bg-indigo-600 text-white font-bold'
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -2284,10 +2285,10 @@ export default function BotDashboardPage() {
 
                 {/* OpenAI Key */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="text-xs text-slate-700 font-semibold">OpenAI API Key</span>
                     {bot.maskedKeys?.openai && (
-                      <span className="text-[11px] font-mono text-emerald-600 font-bold">
+                      <span className="min-w-0 break-all text-right text-[11px] font-mono font-bold text-emerald-600">
                         Configured: {bot.maskedKeys.openai}
                       </span>
                     )}
@@ -2303,10 +2304,10 @@ export default function BotDashboardPage() {
 
                 {/* NVIDIA Key */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="text-xs text-slate-700 font-semibold">NVIDIA NIM API Key</span>
                     {bot.maskedKeys?.nvidia && (
-                      <span className="text-[11px] font-mono text-emerald-600 font-bold">
+                      <span className="min-w-0 break-all text-right text-[11px] font-mono font-bold text-emerald-600">
                         Configured: {bot.maskedKeys.nvidia}
                       </span>
                     )}
@@ -2322,10 +2323,10 @@ export default function BotDashboardPage() {
 
                 {/* Gemini Key */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="text-xs text-slate-700 font-semibold">Google Gemini API Key</span>
                     {bot.maskedKeys?.gemini && (
-                      <span className="text-[11px] font-mono text-emerald-600 font-bold">
+                      <span className="min-w-0 break-all text-right text-[11px] font-mono font-bold text-emerald-600">
                         Configured: {bot.maskedKeys.gemini}
                       </span>
                     )}
@@ -2341,10 +2342,10 @@ export default function BotDashboardPage() {
 
                 {/* OpenRouter Key */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="text-xs text-slate-700 font-semibold">OpenRouter API Key</span>
                     {bot.maskedKeys?.openrouter && (
-                      <span className="text-[11px] font-mono text-emerald-600 font-bold">
+                      <span className="min-w-0 break-all text-right text-[11px] font-mono font-bold text-emerald-600">
                         Configured: {bot.maskedKeys.openrouter}
                       </span>
                     )}
@@ -2373,8 +2374,8 @@ export default function BotDashboardPage() {
 
         {/* TAB: Security & Access */}
         {activeTab === 'security' && (
-          <form onSubmit={handleSaveSettings} className="max-w-3xl space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+           <form onSubmit={handleSaveSettings} className="min-w-0 max-w-3xl space-y-6">
+             <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
               <div className="flex items-center gap-2 mb-1">
                 <ShieldCheck className="w-5 h-5 text-indigo-600" />
                 <h2 className="text-lg font-bold text-slate-900">Security & Access</h2>
@@ -2385,8 +2386,8 @@ export default function BotDashboardPage() {
               </p>
 
               {/* Custom Bot ID */}
-              <div className="border border-slate-200 rounded-xl p-5 mb-5">
-                <div className="flex items-center justify-between mb-1.5">
+               <div className="mb-5 rounded-xl border border-slate-200 p-4 sm:p-5">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1.5">
                   <span className="text-sm text-slate-700 font-bold">Custom Bot ID (for embed)</span>
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold">
                     Recommended
@@ -2413,8 +2414,8 @@ export default function BotDashboardPage() {
               </div>
 
               {/* Allowed Origins (CORS) */}
-              <div className="border border-slate-200 rounded-xl p-5 mb-5">
-                <div className="flex items-center justify-between mb-1.5">
+               <div className="mb-5 rounded-xl border border-slate-200 p-4 sm:p-5">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1.5">
                   <span className="text-sm text-slate-700 font-bold">Allowed Origins (CORS)</span>
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">
                     Saved website always allowed
@@ -2439,8 +2440,8 @@ export default function BotDashboardPage() {
               </div>
 
               {/* Rate Limiting */}
-              <div className="border border-slate-200 rounded-xl p-5">
-                <div className="flex items-center justify-between mb-1.5">
+               <div className="rounded-xl border border-slate-200 p-4 sm:p-5">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1.5">
                   <span className="text-sm text-slate-700 font-bold">Rate Limiting</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -2457,7 +2458,7 @@ export default function BotDashboardPage() {
                 <p className="text-xs text-slate-500 mb-3">
                   Limit how many messages a single visitor/IP can send to your bot to prevent abuse.
                 </p>
-                <div className={`grid grid-cols-2 gap-3 transition-opacity ${formData.rateLimitEnabled ? '' : 'opacity-40 pointer-events-none'}`}>
+                 <div className={`grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-2 ${formData.rateLimitEnabled ? '' : 'opacity-40 pointer-events-none'}`}>
                   <div>
                     <span className="text-xs text-slate-700 font-semibold">Max requests</span>
                     <input
@@ -2495,23 +2496,23 @@ export default function BotDashboardPage() {
 
         {/* TAB 5: Qdrant Vector Database */}
         {activeTab === 'qdrant' && (
-          <div className="max-w-4xl space-y-6">
+           <div className="min-w-0 max-w-4xl space-y-6">
             {/* Custom Database Config Card */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+             <div className="min-w-0 space-y-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                 <div className="flex min-w-0 items-center gap-3">
+                   <div className="flex w-10 h-10 shrink-0 items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-600">
                     <Database className="w-5 h-5" />
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Vector Database Connection</h3>
+                   <div className="min-w-0">
+                     <h3 className="text-base font-bold text-slate-900">Vector Database Connection</h3>
                     <p className="text-xs text-slate-500">
                       Configure how vector embeddings and semantic search chunks are stored for this chatbot.
                     </p>
                   </div>
                 </div>
 
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                 <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                   formData.customDbEnabled
                     ? 'bg-purple-50 text-purple-700 border border-purple-200'
                     : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -2525,14 +2526,14 @@ export default function BotDashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div
                   onClick={() => setFormData({ ...formData, customDbEnabled: false })}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                   className={`min-w-0 cursor-pointer rounded-2xl border-2 p-4 transition-all ${
                     !formData.customDbEnabled
                       ? 'border-indigo-600 bg-indigo-50/40 shadow-sm'
                       : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                   <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                     <span className="flex min-w-0 items-center gap-2 text-xs font-bold text-slate-900">
                       <Layers className="w-4 h-4 text-indigo-600" />
                       Platform Managed Qdrant
                     </span>
@@ -2550,14 +2551,14 @@ export default function BotDashboardPage() {
 
                 <div
                   onClick={() => setFormData({ ...formData, customDbEnabled: true })}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                   className={`min-w-0 cursor-pointer rounded-2xl border-2 p-4 transition-all ${
                     formData.customDbEnabled
                       ? 'border-indigo-600 bg-indigo-50/40 shadow-sm'
                       : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                   <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                     <span className="flex min-w-0 items-center gap-2 text-xs font-bold text-slate-900">
                       <Database className="w-4 h-4 text-purple-600" />
                       Bring Your Own Database (Custom Qdrant)
                     </span>
@@ -2576,8 +2577,8 @@ export default function BotDashboardPage() {
 
               {/* Custom Credentials Form */}
               {formData.customDbEnabled && (
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 animate-in fade-in">
-                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                 <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 animate-in fade-in sm:p-5">
+                   <div className="flex min-w-0 items-center gap-2 border-b border-slate-200 pb-2">
                     <Cpu className="w-4 h-4 text-indigo-600" />
                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                       Custom Qdrant Instance Credentials
@@ -2621,12 +2622,12 @@ export default function BotDashboardPage() {
 
                     {/* Qdrant API Key */}
                     <div className="sm:col-span-12">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1">
                         <label className="text-xs font-semibold text-slate-700">
                           Qdrant API Key (Optional for local/unprotected instances)
                         </label>
                         {bot?.customVectorDb?.hasApiKey && (
-                          <span className="text-[11px] font-mono text-emerald-600 font-bold">
+                          <span className="min-w-0 break-all text-right text-[11px] font-mono font-bold text-emerald-600">
                             Configured: {bot.customVectorDb.apiKey}
                           </span>
                         )}
@@ -2658,7 +2659,7 @@ export default function BotDashboardPage() {
                     </button>
 
                     {dbTestResult && (
-                      <div className={`text-xs px-3 py-1.5 rounded-xl border flex items-center gap-1.5 ${
+                       <div className={`flex min-w-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs ${
                         dbTestResult.success
                           ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                           : 'bg-red-50 text-red-800 border-red-200'
@@ -2668,7 +2669,7 @@ export default function BotDashboardPage() {
                         ) : (
                           <AlertCircle className="w-3.5 h-3.5 text-red-600" />
                         )}
-                        <span>{dbTestResult.message}</span>
+                         <span className="min-w-0 break-words">{dbTestResult.message}</span>
                       </div>
                     )}
                   </div>
@@ -2676,7 +2677,7 @@ export default function BotDashboardPage() {
               )}
 
               {/* Save Button */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+               <div className="flex flex-col items-stretch justify-between gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center">
                 <div>
                   {saveSuccess && (
                     <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
@@ -2687,7 +2688,7 @@ export default function BotDashboardPage() {
                 <button
                   type="button"
                   onClick={handleSaveSettings}
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
+                   className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-700 sm:w-auto"
                 >
                   <span>Save Database Settings</span>
                 </button>
@@ -2703,7 +2704,7 @@ export default function BotDashboardPage() {
       {/* Manual FAQ Modal (Light Theme) */}
       {showManualModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl bg-white border border-slate-200 shadow-2xl p-6 sm:p-8 relative">
+           <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <button
               onClick={() => setShowManualModal(false)}
               className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100"
@@ -2711,8 +2712,8 @@ export default function BotDashboardPage() {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-2 mb-2">
-              <Plus className="w-5 h-5 text-indigo-600" />
+             <div className="mb-2 flex min-w-0 items-center gap-2 pr-8">
+               <Plus className="w-5 h-5 shrink-0 text-indigo-600" />
               <h3 className="text-lg font-bold text-slate-900">Add Knowledge Snippet</h3>
             </div>
             <p className="text-xs text-slate-500 mb-5">
@@ -2748,7 +2749,7 @@ export default function BotDashboardPage() {
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2.5">
+               <div className="flex flex-wrap justify-end gap-2.5 border-t border-slate-100 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowManualModal(false)}

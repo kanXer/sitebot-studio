@@ -410,12 +410,12 @@ export default function AdminPanelPage() {
   // 1. Loading State
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col overflow-x-hidden">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400 mx-auto" />
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 break-words">
               Verifying administrative security credentials...
             </p>
           </div>
@@ -427,24 +427,24 @@ export default function AdminPanelPage() {
   // 2. Unauthenticated State
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col overflow-x-hidden">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5">
+          <div className="w-full min-w-0 max-w-md p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5">
             <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-100 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 mx-auto">
               <Lock className="w-7 h-7" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white font-heading">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white font-heading break-words">
                 Admin Panel Protected
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed break-words">
                 Please sign in with your authorized Google Administrator account to access the SiteBot Studio management console.
               </p>
             </div>
             <button
               onClick={() => setAuthModalOpen(true)}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs shadow-md shadow-indigo-600/25 hover:from-indigo-500 hover:to-purple-500 transition-all cursor-pointer"
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs shadow-md shadow-indigo-600/25 hover:from-indigo-500 hover:to-purple-500 transition-all cursor-pointer whitespace-nowrap"
             >
               Sign In with Google
             </button>
@@ -463,40 +463,40 @@ export default function AdminPanelPage() {
   // 3. Unauthorized State (Not an admin)
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col overflow-x-hidden">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5">
+          <div className="w-full min-w-0 max-w-md p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5">
             <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-100 dark:border-amber-900 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
               <Shield className="w-7 h-7" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white font-heading">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white font-heading break-words">
                 403 — Administrator Access Required
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                Your account (<strong className="text-slate-800 dark:text-slate-200">{user.email}</strong>) does not have administrator privileges.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed break-words">
+                Your account (<strong className="text-slate-800 dark:text-slate-200 break-all">{user.email}</strong>) does not have administrator privileges.
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 text-left text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
               <p className="font-semibold text-slate-900 dark:text-white">How to get access?</p>
-              <p className="text-[11px] leading-relaxed">
-                • Add this email to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">SUPER_ADMIN_EMAIL</code> in your <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">.env</code> file.
+              <p className="text-[11px] leading-relaxed break-words">
+                • Add this email to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono break-all">SUPER_ADMIN_EMAIL</code> in your <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono break-all">.env</code> file.
               </p>
-              <p className="text-[11px] leading-relaxed">
+              <p className="text-[11px] leading-relaxed break-words">
                 • Or ask an existing Super Admin to add you through the Admin Management tab.
               </p>
             </div>
             <div className="flex gap-2">
               <Link
                 href="/"
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs text-center transition-colors"
+                className="flex-1 min-w-0 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs text-center transition-colors whitespace-nowrap"
               >
                 Go Home
               </Link>
               <button
                 onClick={() => setAuthModalOpen(true)}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500 transition-colors cursor-pointer"
+                className="flex-1 min-w-0 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500 transition-colors cursor-pointer whitespace-nowrap"
               >
                 Switch Account
               </button>
@@ -514,22 +514,22 @@ export default function AdminPanelPage() {
 
   // 4. Authorized Admin Panel View
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/30">
+        <div className="flex min-w-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+              <div className="w-9 h-9 shrink-0 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/30">
                 <Shield className="w-5 h-5" />
               </div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white font-heading">
+              <h1 className="text-xl sm:text-2xl min-w-0 break-words font-black tracking-tight text-slate-900 dark:text-white font-heading">
                 Admin Control Center
               </h1>
               <span
-                className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+                className={`shrink-0 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
                   isSuperAdmin
                     ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                     : 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
@@ -538,12 +538,12 @@ export default function AdminPanelPage() {
                 {isSuperAdmin ? 'Super Admin' : 'Admin'}
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400 break-words">
               Platform-wide telemetry, chatbot protection, leads monitoring, and administrator access control.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 self-start sm:w-auto sm:self-auto">
             <button
               onClick={() => {
                 fetchStats();
@@ -553,13 +553,13 @@ export default function AdminPanelPage() {
                 fetchAdmins();
               }}
               title="Refresh Telemetry"
-              className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 transition-all shadow-sm cursor-pointer"
+              className="shrink-0 p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 transition-all shadow-sm cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
             <Link
               href="/create"
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/25 transition-all"
+              className="flex min-w-0 flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/25 transition-all whitespace-nowrap"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>New Chatbot</span>
@@ -568,7 +568,7 @@ export default function AdminPanelPage() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-200/60 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 overflow-x-auto text-xs font-semibold">
+        <div className="flex w-full min-w-0 max-w-full items-center gap-1.5 p-1 rounded-2xl bg-slate-200/60 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 overflow-x-auto overscroll-x-contain pb-1 text-xs font-semibold">
           {[
             { id: 'overview', label: 'Overview & Health', icon: Activity },
             { id: 'bots', label: `Chatbots (${bots.length})`, icon: Bot },
@@ -584,13 +584,13 @@ export default function AdminPanelPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                   active
                     ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{tab.label}</span>
               </button>
             );
@@ -650,18 +650,18 @@ export default function AdminPanelPage() {
                 return (
                   <div
                     key={i}
-                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1.5"
+                    className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1.5"
                   >
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    <div className="flex min-w-0 items-center justify-between gap-2 text-slate-400">
+                      <span className="min-w-0 break-words text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                         {m.label}
                       </span>
-                      <Icon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                      <Icon className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
                     </div>
-                    <div className="text-2xl font-black tracking-tight text-slate-900 dark:text-white font-heading">
+                    <div className="min-w-0 truncate text-2xl font-black tracking-tight text-slate-900 dark:text-white font-heading">
                       {m.value}
                     </div>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                    <p className="min-w-0 text-[10px] text-slate-400 dark:text-slate-500 truncate">
                       {m.sub}
                     </p>
                   </div>
@@ -672,41 +672,41 @@ export default function AdminPanelPage() {
             {/* System Status & Architecture Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Database & Vector Status */}
-              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white font-heading">
+              <div className="min-w-0 p-4 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Database className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                    <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
                       Database & Vector Infrastructure
                     </h3>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">
+                  <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">
                     Online
                   </span>
                 </div>
 
                 <div className="space-y-3 text-xs">
-                  <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="text-slate-500 dark:text-slate-400">Database Driver:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  <div className="flex min-w-0 items-start justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Database Driver:</span>
+                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200">
                       {systemHealth?.database || 'Loading...'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="text-slate-500 dark:text-slate-400">Vector Search Engine:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                  <div className="flex min-w-0 items-start justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Vector Search Engine:</span>
+                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200 font-mono">
                       {systemHealth?.vectorDatabase || 'Qdrant Cloud'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="text-slate-500 dark:text-slate-400">Default Chat Provider:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 uppercase font-mono">
+                  <div className="flex min-w-0 items-start justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Default Chat Provider:</span>
+                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200 uppercase font-mono">
                       {systemHealth?.chatProvider || 'nvidia'} ({systemHealth?.chatModel || 'muse'})
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-slate-500 dark:text-slate-400">Super Admin Config:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                  <div className="flex min-w-0 items-start justify-between gap-3 py-2">
+                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Super Admin Config:</span>
+                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200 font-mono">
                       {systemHealth?.superAdminEmail || 'Configured via .env'}
                     </span>
                   </div>
@@ -714,31 +714,31 @@ export default function AdminPanelPage() {
               </div>
 
               {/* Security & Access Overview */}
-              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white font-heading">
+              <div className="min-w-0 p-4 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Shield className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                    <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
                       Security & Role-Based Access Control
                     </h3>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800">
+                  <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800">
                     Firebase Protected
                   </span>
                 </div>
 
                 <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
-                  <p className="leading-relaxed">
-                    Chatbot creation and studio access are strictly restricted to authenticated users. Only administrators designated in <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">SUPER_ADMIN_EMAIL</code> or added by Super Admins can access this panel.
+                  <p className="break-words leading-relaxed">
+                    Chatbot creation and studio access are strictly restricted to authenticated users. Only administrators designated in <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono break-all">SUPER_ADMIN_EMAIL</code> or added by Super Admins can access this panel.
                   </p>
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 space-y-2">
-                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                    <div className="flex min-w-0 items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Current User: <strong className="font-mono">{user.email}</strong></span>
+                      <span className="min-w-0 break-all">Current User: <strong className="font-mono break-all">{user.email}</strong></span>
                     </div>
-                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                    <div className="flex min-w-0 items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Role Level: <strong className="uppercase">{role}</strong></span>
+                      <span className="min-w-0 break-words">Role Level: <strong className="uppercase">{role}</strong></span>
                     </div>
                   </div>
                 </div>
@@ -746,30 +746,30 @@ export default function AdminPanelPage() {
             </div>
 
             {/* Quick Actions Bar */}
-            <div className="p-5 rounded-3xl bg-gradient-to-r from-indigo-900/90 to-purple-900/90 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-950/20">
-              <div className="space-y-1 text-center sm:text-left">
-                <h4 className="text-sm font-bold">Quick Administrative Tools</h4>
-                <p className="text-xs text-indigo-200">
+            <div className="min-w-0 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-indigo-900/90 to-purple-900/90 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-950/20">
+              <div className="min-w-0 space-y-1 text-center sm:text-left">
+                <h4 className="break-words text-sm font-bold">Quick Administrative Tools</h4>
+                <p className="break-words text-xs text-indigo-200">
                   Manage bot lifecycle, export collected customer leads, or invite new administrative staff.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
                 <button
                   onClick={() => setActiveTab('bots')}
-                  className="px-3.5 py-2 rounded-xl bg-white text-indigo-950 font-bold text-xs hover:bg-indigo-50 transition-colors cursor-pointer"
+                  className="flex min-w-0 flex-1 sm:flex-none items-center justify-center px-3.5 py-2 rounded-xl bg-white text-indigo-950 font-bold text-xs text-center hover:bg-indigo-50 transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap"
                 >
                   Manage Bots
                 </button>
                 <button
                   onClick={() => setActiveTab('submissions')}
-                  className="px-3.5 py-2 rounded-xl bg-indigo-700/80 hover:bg-indigo-700 text-white font-bold text-xs border border-indigo-400/30 transition-colors cursor-pointer"
+                  className="flex min-w-0 flex-1 sm:flex-none items-center justify-center px-3.5 py-2 rounded-xl bg-indigo-700/80 hover:bg-indigo-700 text-white font-bold text-xs text-center border border-indigo-400/30 transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap"
                 >
                   Export Leads
                 </button>
                 {isSuperAdmin && (
                   <button
                     onClick={() => setActiveTab('admins')}
-                    className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md transition-colors cursor-pointer"
+                    className="flex min-w-0 flex-1 sm:flex-none items-center justify-center px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs text-center shadow-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap"
                   >
                     Add Admin
                   </button>
@@ -782,36 +782,36 @@ export default function AdminPanelPage() {
         {/* ================= TAB: USERS & QUOTAS ================= */}
         {activeTab === 'users' && (
           <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+              <div className="relative w-full min-w-0 max-w-full sm:w-80">
+                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search users by name, company, or email..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-[11px] text-slate-400 font-semibold">{users.length} users</span>
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                <span className="shrink-0 text-[11px] text-slate-400 font-semibold">{users.length} users</span>
                 <button
                   onClick={() =>
                     window.open(`/api/admin/users?email=${encodeURIComponent(user?.email || '')}&export=csv`, '_blank')
                   }
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors cursor-pointer"
+                  className="flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" /> Export All Users (CSV)
                 </button>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <div className="p-5 border-b border-slate-200/80 dark:border-slate-800">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white font-heading">
+            <div className="min-w-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="min-w-0 p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800">
+                <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
                   User-wise Analytics &amp; Quota Usage
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="min-w-0 break-words text-[11px] text-slate-500 dark:text-slate-400">
                   Token consumption, chat counts, leads, and remaining quota per account.
                 </p>
               </div>
@@ -826,8 +826,8 @@ export default function AdminPanelPage() {
                   No user accounts yet. Profiles are auto-created on first sign-in or chat usage.
                 </div>
               ) : (
-                <div className="overflow-x-auto max-h-[70vh]">
-                  <table className="w-full text-left">
+                <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain max-h-[70vh]">
+                  <table className="w-full min-w-[760px] text-left">
                     <thead className="sticky top-0 bg-white dark:bg-slate-900">
                       <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-200/80 dark:border-slate-800">
                         <th className="px-4 py-3 font-bold">User</th>
@@ -855,12 +855,12 @@ export default function AdminPanelPage() {
                           return (
                             <tr key={u.email} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                               <td className="px-4 py-3">
-                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[180px]">
+                                <p className="min-w-0 text-xs font-bold text-slate-900 dark:text-white truncate max-w-[180px]">
                                   {u.name || '—'}
                                 </p>
-                                <p className="text-[10px] text-slate-400 truncate max-w-[180px]">{u.email}</p>
+                                <p className="min-w-0 text-[10px] text-slate-400 truncate max-w-[180px]">{u.email}</p>
                                 {u.companyName && (
-                                  <p className="text-[10px] text-indigo-500 dark:text-indigo-400 truncate max-w-[180px]">{u.companyName}</p>
+                                  <p className="min-w-0 text-[10px] text-indigo-500 dark:text-indigo-400 truncate max-w-[180px]">{u.companyName}</p>
                                 )}
                               </td>
                               <td className="px-4 py-3">
@@ -927,36 +927,36 @@ export default function AdminPanelPage() {
         {/* ================= TAB: CTA SUBMISSIONS ================= */}
         {activeTab === 'ctas' && (
           <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+              <div className="relative w-full min-w-0 max-w-full sm:w-80">
+                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search CTA leads by name, email, campaign..."
                   value={ctaSearch}
                   onChange={(e) => setCtaSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-[11px] text-slate-400 font-semibold">{ctas.length} submissions</span>
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                <span className="shrink-0 text-[11px] text-slate-400 font-semibold">{ctas.length} submissions</span>
                 <button
                   onClick={() =>
                     window.open(`/api/admin/ctas?email=${encodeURIComponent(user?.email || '')}&export=csv`, '_blank')
                   }
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors cursor-pointer"
+                  className="flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" /> Export CTAs (CSV)
                 </button>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <div className="p-5 border-b border-slate-200/80 dark:border-slate-800">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white font-heading">
+            <div className="min-w-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="min-w-0 p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800">
+                <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
                   Website CTA Form Submissions
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="min-w-0 break-words text-[11px] text-slate-500 dark:text-slate-400">
                   Leads captured through CTA lead-capture forms across the site, with campaign and source attribution.
                 </p>
               </div>
@@ -971,8 +971,8 @@ export default function AdminPanelPage() {
                   No CTA submissions yet. They appear here whenever a visitor submits a lead form.
                 </div>
               ) : (
-                <div className="overflow-x-auto max-h-[70vh]">
-                  <table className="w-full text-left">
+                <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain max-h-[70vh]">
+                  <table className="w-full min-w-[760px] text-left">
                     <thead className="sticky top-0 bg-white dark:bg-slate-900">
                       <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-200/80 dark:border-slate-800">
                         <th className="px-4 py-3 font-bold">Name / Contact</th>
@@ -998,24 +998,24 @@ export default function AdminPanelPage() {
                         .map((c) => (
                           <tr key={c.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                             <td className="px-4 py-3">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white">{c.name || 'Anonymous'}</p>
-                              {c.email && <p className="text-[11px] text-slate-500 dark:text-slate-300 flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" />{c.email}</p>}
-                              {c.phone && <p className="text-[11px] text-slate-500 dark:text-slate-300">{c.phone}</p>}
+                              <p className="min-w-0 text-xs font-bold text-slate-900 dark:text-white truncate max-w-[180px]">{c.name || 'Anonymous'}</p>
+                              {c.email && <p className="flex min-w-0 items-center gap-1 text-[11px] text-slate-500 dark:text-slate-300"><Mail className="w-3 h-3 shrink-0 text-slate-400" /><span className="min-w-0 truncate max-w-[180px]">{c.email}</span></p>}
+                              {c.phone && <p className="min-w-0 text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[180px]">{c.phone}</p>}
                             </td>
                             <td className="px-4 py-3">
-                              <span className="text-[10px] px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold">
+                              <span className="inline-block max-w-full break-words text-[10px] px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold">
                                 {c.campaign || 'default'}
                               </span>
-                              <p className="text-[10px] text-slate-400 mt-1">{c.source || 'website_cta'}</p>
+                              <p className="min-w-0 break-words text-[10px] text-slate-400 mt-1">{c.source || 'website_cta'}</p>
                             </td>
                             <td className="px-4 py-3">
-                              <p className="text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[180px]">{c.page || c.botName || '—'}</p>
+                              <p className="min-w-0 text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[180px]">{c.page || c.botName || '—'}</p>
                             </td>
                             <td className="px-4 py-3">
-                              <p className="text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[220px]">{c.message || '—'}</p>
+                              <p className="min-w-0 text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[220px]">{c.message || '—'}</p>
                             </td>
                             <td className="px-4 py-3">
-                              <p className="text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[160px]">{c.ownerEmail || '—'}</p>
+                              <p className="min-w-0 text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[160px]">{c.ownerEmail || '—'}</p>
                             </td>
                             <td className="px-4 py-3">
                               <p className="text-[11px] text-slate-400 whitespace-nowrap">
@@ -1036,24 +1036,24 @@ export default function AdminPanelPage() {
         {activeTab === 'bots' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             {/* Search & Filter Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+              <div className="relative w-full min-w-0 max-w-full sm:w-80">
+                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search bots by name, domain, or owner..."
                   value={botSearch}
                   onChange={(e) => setBotSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
                 <span className="text-xs text-slate-500 hidden sm:inline">Status:</span>
                 <select
                   value={botStatusFilter}
                   onChange={(e: any) => setBotStatusFilter(e.target.value)}
-                  className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:outline-none"
+                  className="min-w-0 max-w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:outline-none"
                 >
                   <option value="all">All Chatbots ({bots.length})</option>
                   <option value="active">Active Only</option>
@@ -1063,9 +1063,9 @@ export default function AdminPanelPage() {
             </div>
 
             {/* Bots Table */}
-            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[900px] text-left text-xs">
                   <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                     <tr>
                       <th className="px-5 py-3.5">Chatbot</th>
@@ -1092,15 +1092,15 @@ export default function AdminPanelPage() {
                           className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
                         >
                           <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
+                            <div className="flex min-w-0 items-center gap-3">
                               <span
                                 className="w-3.5 h-3.5 rounded-full shrink-0 ring-2 ring-slate-200 dark:ring-slate-700"
                                 style={{ backgroundColor: b.primaryColor || '#6366f1' }}
                               />
-                              <div>
+                              <div className="min-w-0">
                                 <Link
                                   href={`/bot/${b.id}`}
-                                  className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors truncate block max-w-[180px]"
+                                  className="min-w-0 font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors truncate block max-w-[180px]"
                                 >
                                   {b.name}
                                 </Link>
@@ -1108,7 +1108,7 @@ export default function AdminPanelPage() {
                                   href={b.siteUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="text-[11px] text-slate-400 font-mono hover:underline truncate block max-w-[180px]"
+                                  className="min-w-0 text-[11px] text-slate-400 font-mono hover:underline truncate block max-w-[180px]"
                                 >
                                   {b.siteUrl}
                                 </a>
@@ -1117,7 +1117,7 @@ export default function AdminPanelPage() {
                           </td>
 
                           <td className="px-4 py-4 text-slate-600 dark:text-slate-300">
-                            <span className="font-mono text-[11px]">
+                            <span className="block min-w-0 max-w-[200px] truncate font-mono text-[11px]">
                               {b.ownerEmail || 'admin@sitebotstudio.com'}
                             </span>
                           </td>
@@ -1129,7 +1129,7 @@ export default function AdminPanelPage() {
                           </td>
 
                           <td className="px-4 py-4 text-[11px] font-mono text-slate-500">
-                            {b.chatModel?.split('/')[1] || b.chatModel || 'gpt-4o-mini'}
+                            <span className="block min-w-0 max-w-[140px] truncate">{b.chatModel?.split('/')[1] || b.chatModel || 'gpt-4o-mini'}</span>
                           </td>
 
                           <td className="px-4 py-4">
@@ -1145,12 +1145,12 @@ export default function AdminPanelPage() {
                             )}
                           </td>
 
-                          <td className="px-4 py-4 text-[11px] text-slate-400">
+                          <td className="px-4 py-4 text-[11px] text-slate-400 whitespace-nowrap">
                             {new Date(b.createdAt).toLocaleDateString()}
                           </td>
 
                           <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex shrink-0 items-center justify-end gap-1.5">
                               {/* Open in Studio */}
                               <Link
                                 href={`/bot/${b.id}`}
@@ -1215,23 +1215,23 @@ export default function AdminPanelPage() {
         {activeTab === 'submissions' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             {/* Filter and Export Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+              <div className="relative w-full min-w-0 max-w-full sm:w-80">
+                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search leads by contact or field..."
                   value={submissionSearch}
                   onChange={(e) => setSubmissionSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
                 <select
                   value={selectedBotFilter}
                   onChange={(e) => setSelectedBotFilter(e.target.value)}
-                  className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:outline-none"
+                  className="min-w-0 max-w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:outline-none"
                 >
                   <option value="all">All Chatbots ({submissions.length} leads)</option>
                   {bots.map((b) => (
@@ -1244,7 +1244,7 @@ export default function AdminPanelPage() {
                 <button
                   onClick={handleExportCSV}
                   disabled={submissions.length === 0}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex max-w-full shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Export CSV</span>
@@ -1253,9 +1253,9 @@ export default function AdminPanelPage() {
             </div>
 
             {/* Submissions Table */}
-            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[760px] text-left text-xs">
                   <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                     <tr>
                       <th className="px-5 py-3.5">Chatbot</th>
@@ -1280,26 +1280,26 @@ export default function AdminPanelPage() {
                           className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
                         >
                           <td className="px-5 py-4">
-                            <span className="font-bold text-slate-900 dark:text-white block">
+                            <span className="block min-w-0 max-w-[220px] truncate font-bold text-slate-900 dark:text-white">
                               {s.botName}
                             </span>
-                            <span className="text-[11px] text-slate-400 font-mono">
+                            <span className="block min-w-0 max-w-[240px] truncate text-[11px] text-slate-400 font-mono">
                               {s.siteUrl}
                             </span>
                           </td>
 
                           <td className="px-4 py-4">
-                            <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold font-mono">
+                            <span className="inline-block max-w-full break-words px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold font-mono">
                               {s.formType}
                             </span>
                           </td>
 
                           <td className="px-4 py-4">
-                            <div className="space-y-1 max-w-md">
+                            <div className="min-w-0 max-w-[280px] space-y-1 break-words">
                               {Object.entries(s.data || {}).map(([key, val]: any) => (
-                                <div key={key} className="text-[11px]">
-                                  <span className="text-slate-400 font-medium">{key}: </span>
-                                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                <div key={key} className="min-w-0 text-[11px] break-words">
+                                  <span className="break-words text-slate-400 font-medium">{key}: </span>
+                                  <span className="break-words font-semibold text-slate-800 dark:text-slate-200">
                                     {String(val)}
                                   </span>
                                 </div>
@@ -1309,7 +1309,7 @@ export default function AdminPanelPage() {
 
                           <td className="px-4 py-4">
                             <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              className={`inline-block max-w-full break-words px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 s.status === 'completed'
                                   ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
                                   : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
@@ -1319,7 +1319,7 @@ export default function AdminPanelPage() {
                             </span>
                           </td>
 
-                          <td className="px-4 py-4 text-[11px] text-slate-400">
+                          <td className="px-4 py-4 text-[11px] text-slate-400 whitespace-nowrap">
                             {new Date(s.createdAt).toLocaleString()}
                           </td>
                         </tr>
@@ -1335,9 +1335,9 @@ export default function AdminPanelPage() {
         {/* ================= TAB 4: DETECTED FORMS ================= */}
         {activeTab === 'forms' && (
           <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[760px] text-left text-xs">
                   <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                     <tr>
                       <th className="px-5 py-3.5">Chatbot</th>
@@ -1363,22 +1363,22 @@ export default function AdminPanelPage() {
                           className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
                         >
                           <td className="px-5 py-4 font-bold text-slate-900 dark:text-white">
-                            {f.botName}
+                            <span className="block min-w-0 max-w-[180px] truncate">{f.botName}</span>
                           </td>
                           <td className="px-4 py-4">
-                            <span className="px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[10px] font-bold font-mono">
+                            <span className="inline-block max-w-full break-words px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[10px] font-bold font-mono">
                               {f.formType}
                             </span>
                           </td>
-                          <td className="px-4 py-4 text-[11px] font-mono text-slate-500 truncate max-w-[200px]">
-                            {f.targetUrl}
+                          <td className="px-4 py-4 text-[11px] font-mono text-slate-500">
+                            <span className="block min-w-0 max-w-[200px] truncate">{f.targetUrl}</span>
                           </td>
                           <td className="px-4 py-4">
                             <span className="text-slate-600 dark:text-slate-300 font-semibold">
                               {f.fieldsSchema?.length || 0} fields
                             </span>
                           </td>
-                          <td className="px-4 py-4 text-[11px] font-mono text-slate-500">
+                          <td className="px-4 py-4 text-[11px] font-mono text-slate-500 whitespace-nowrap">
                             {f.submitMethod || 'POST'}
                           </td>
                           <td className="px-4 py-4">
@@ -1400,14 +1400,14 @@ export default function AdminPanelPage() {
         {activeTab === 'admins' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             {/* RBAC Rules Banner */}
-            <div className="p-5 rounded-3xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900 flex items-start gap-3.5 text-xs text-indigo-900 dark:text-indigo-200">
+            <div className="min-w-0 p-4 sm:p-5 rounded-3xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900 flex items-start gap-3.5 text-xs text-indigo-900 dark:text-indigo-200">
               <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <h4 className="font-bold">Admin Panel Access Control Architecture</h4>
-                <p className="text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
-                  • <strong>Super Admins:</strong> Configured via <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono">SUPER_ADMIN_EMAIL</code> in your <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono">.env</code>. Permanent and cannot be revoked through the UI.
+              <div className="min-w-0 flex-1 space-y-1">
+                <h4 className="break-words font-bold">Admin Panel Access Control Architecture</h4>
+                <p className="break-words text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
+                  • <strong>Super Admins:</strong> Configured via <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono break-all">SUPER_ADMIN_EMAIL</code> in your <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono break-all">.env</code>. Permanent and cannot be revoked through the UI.
                 </p>
-                <p className="text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
+                <p className="break-words text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
                   • <strong>Admins:</strong> Added by Super Admins only. Have full access to telemetry, chatbot monitoring, and captured leads, but cannot add other admins.
                 </p>
               </div>
@@ -1415,17 +1415,17 @@ export default function AdminPanelPage() {
 
             {/* Super Admin Add New Admin Form */}
             {isSuperAdmin ? (
-              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white font-heading">
+              <div className="min-w-0 p-4 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex min-w-0 items-center gap-2">
+                  <UserCheck className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
                     Add New Administrator
                   </h3>
                 </div>
 
                 {adminActionMsg && (
                   <div
-                    className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
+                    className={`p-3 rounded-2xl text-xs flex min-w-0 items-center gap-2 ${
                       adminActionMsg.type === 'success'
                         ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                         : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
@@ -1436,12 +1436,12 @@ export default function AdminPanelPage() {
                     ) : (
                       <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                     )}
-                    <span>{adminActionMsg.text}</span>
+                    <span className="min-w-0 break-words">{adminActionMsg.text}</span>
                   </div>
                 )}
 
-                <form onSubmit={handleAddAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
+                <form onSubmit={handleAddAdmin} className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                       Admin Email *
                     </label>
@@ -1451,11 +1451,11 @@ export default function AdminPanelPage() {
                       placeholder="e.g. colleague@company.com"
                       value={newAdminEmail}
                       onChange={(e) => setNewAdminEmail(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      className="w-full min-w-0 max-w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                       Staff / Member Name
                     </label>
@@ -1464,15 +1464,15 @@ export default function AdminPanelPage() {
                       placeholder="e.g. Sarah Jenkins"
                       value={newAdminName}
                       onChange={(e) => setNewAdminName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      className="w-full min-w-0 max-w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
                   </div>
 
-                  <div className="flex items-end">
+                  <div className="flex min-w-0 items-end">
                     <button
                       type="submit"
                       disabled={addingAdmin}
-                      className="w-full py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="w-full min-w-0 max-w-full py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {addingAdmin ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1485,15 +1485,15 @@ export default function AdminPanelPage() {
                 </form>
               </div>
             ) : (
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300">
+              <div className="min-w-0 break-words p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300">
                 You are viewing this as an <strong>Admin</strong>. Adding or revoking other administrators requires <strong>Super Admin</strong> privileges.
               </div>
             )}
 
             {/* Administrators Table */}
-            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+                <table className="w-full min-w-[680px] text-left text-xs">
                   <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                     <tr>
                       <th className="px-5 py-3.5">Administrator</th>
@@ -1510,22 +1510,22 @@ export default function AdminPanelPage() {
                         className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
                       >
                         <td className="px-5 py-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 text-xs">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                            <div className="w-7 h-7 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 text-xs">
                               {(a.name || a.email)[0].toUpperCase()}
                             </div>
-                            <div>
-                              <p className="font-bold text-slate-900 dark:text-white">
+                            <div className="min-w-0">
+                              <p className="min-w-0 max-w-[180px] truncate font-bold text-slate-900 dark:text-white">
                                 {a.name || 'Admin User'}
                               </p>
-                              <p className="text-[11px] text-slate-400 font-mono">{a.email}</p>
+                              <p className="min-w-0 max-w-[200px] truncate text-[11px] text-slate-400 font-mono">{a.email}</p>
                             </div>
                           </div>
                         </td>
 
                         <td className="px-4 py-4">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                            className={`inline-block max-w-full break-words px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
                               a.isEnv
                                 ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                                 : 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
@@ -1536,10 +1536,10 @@ export default function AdminPanelPage() {
                         </td>
 
                         <td className="px-4 py-4 text-[11px] font-mono text-slate-500">
-                          {a.addedBy}
+                          <span className="block min-w-0 max-w-[180px] truncate">{a.addedBy}</span>
                         </td>
 
-                        <td className="px-4 py-4 text-[11px] text-slate-400">
+                        <td className="px-4 py-4 text-[11px] text-slate-400 whitespace-nowrap">
                           {new Date(a.createdAt).toLocaleDateString()}
                         </td>
 
@@ -1554,7 +1554,7 @@ export default function AdminPanelPage() {
                                 onClick={() => handleRevokeAdmin(a.email)}
                                 disabled={revokingAdminEmail === a.email}
                                 title="Revoke Admin Access"
-                                className="px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                                className="shrink-0 px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
                               >
                                 {revokingAdminEmail === a.email ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

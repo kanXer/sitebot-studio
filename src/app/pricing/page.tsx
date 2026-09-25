@@ -41,17 +41,17 @@ export default function PricingPage() {
   const plans = [PLANS.free, PLANS.pro];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-slate-50 dark:bg-slate-950 flex flex-col">
       <Navbar />
 
       {/* Hero */}
-      <section className="relative overflow-hidden pt-12 pb-12 text-center px-4">
+      <section className="relative min-w-0 overflow-hidden pt-12 pb-12 text-center px-4">
         <div className="absolute inset-0 bg-gradient-to-b from-indigo-50 dark:from-indigo-950/30 to-transparent pointer-events-none" />
-        <div className="relative max-w-3xl mx-auto">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold mb-5">
+        <div className="relative max-w-3xl mx-auto min-w-0">
+          <span className="inline-flex max-w-full flex-wrap items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold mb-5 text-center leading-relaxed">
             Simple, transparent pricing
           </span>
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight">
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight break-words">
             AI chatbots that{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
               deliver leads
@@ -65,14 +65,14 @@ export default function PricingPage() {
       </section>
 
       {/* Plan cards */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+      <section className="max-w-5xl mx-auto min-w-0 px-4 sm:px-6 pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch min-w-0">
           {plans.map((plan) => {
             const isPro = plan.id === 'pro';
             return (
               <div
                 key={plan.id}
-                className={`relative flex flex-col rounded-3xl border p-8 shadow-sm transition-all ${
+                className={`relative flex min-w-0 flex-col rounded-3xl border p-8 shadow-sm transition-all ${
                   isPro
                     ? 'bg-gradient-to-b from-indigo-600 to-purple-700 text-white border-transparent shadow-xl shadow-purple-600/25 md:scale-[1.03]'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
@@ -84,24 +84,24 @@ export default function PricingPage() {
                   </span>
                 )}
 
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex min-w-0 items-center gap-2 mb-3">
                   {isPro ? (
                     <Rocket className="w-5 h-5 text-white" />
                   ) : (
                     <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   )}
-                  <h2 className={`text-lg font-extrabold font-heading ${isPro ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                  <h2 className={`min-w-0 text-lg font-extrabold font-heading break-words ${isPro ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                     {plan.label}
                   </h2>
                 </div>
 
-                <p className={`text-[11px] ${isPro ? 'text-indigo-100' : 'text-slate-500 dark:text-slate-400'}`}>
+                <p className={`min-w-0 text-[11px] break-words ${isPro ? 'text-indigo-100' : 'text-slate-500 dark:text-slate-400'}`}>
                   {isPro
                     ? 'For growing businesses that need multiple bots & advanced alerts.'
                     : 'Perfect for trying out your first AI website assistant.'}
                 </p>
 
-                <div className="mt-5 mb-6">
+                <div className="mt-5 mb-6 min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                   <span className={`text-4xl font-extrabold font-heading ${isPro ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                     {plan.monthlyPrice === 0 ? '$0' : formatMoney(plan.monthlyPrice)}
                   </span>
@@ -110,11 +110,11 @@ export default function PricingPage() {
                   </span>
                 </div>
 
-                <ul className="space-y-2.5 flex-1 mb-7">
+                <ul className="min-w-0 space-y-2.5 flex-1 mb-7">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5">
+                    <li key={f} className="flex min-w-0 items-start gap-2.5">
                       <Check className={`w-4 h-4 mt-0.5 shrink-0 ${isPro ? 'text-white' : 'text-emerald-600'}`} />
-                      <span className={`text-xs font-semibold ${isPro ? 'text-white/95' : 'text-slate-700 dark:text-slate-200'}`}>
+                      <span className={`min-w-0 text-xs font-semibold break-words ${isPro ? 'text-white/95' : 'text-slate-700 dark:text-slate-200'}`}>
                         {f}
                       </span>
                     </li>
@@ -147,8 +147,8 @@ export default function PricingPage() {
       </section>
 
       {/* CTA lead forms */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-20">
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8">
+      <section className="max-w-5xl mx-auto min-w-0 px-4 sm:px-6 pb-20">
+        <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-8">
           <div className="text-center mb-7">
             <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white font-heading">
               Not sure which plan fits?
@@ -157,16 +157,16 @@ export default function PricingPage() {
               Leave your details and our team will help you pick the right setup for your business.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+          <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="min-w-0 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+              <p className="min-w-0 text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
                 <Bot className="w-4 h-4 text-indigo-600" /> Free plan help
               </p>
               <p className="text-[11px] text-slate-400 mb-4">Getting started with your first bot</p>
               <ContactCTAForm plan="Free" />
             </div>
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+            <div className="min-w-0 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+              <p className="min-w-0 text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
                 <Rocket className="w-4 h-4 text-purple-600" /> Talk to sales
               </p>
               <p className="text-[11px] text-slate-400 mb-4">Multi-bot teams, agencies & Pro queries</p>
@@ -177,7 +177,7 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-24">
+      <section className="max-w-3xl mx-auto min-w-0 px-4 sm:px-6 pb-24">
         <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white font-heading text-center mb-8">
           Frequently Asked Questions
         </h2>
@@ -185,15 +185,15 @@ export default function PricingPage() {
           {FAQS.map((f) => (
             <details
               key={f.q}
-              className="group rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 open:border-indigo-300 dark:open:border-indigo-800 transition-all"
+              className="min-w-0 group rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 open:border-indigo-300 dark:open:border-indigo-800 transition-all"
             >
-              <summary className="flex items-center justify-between cursor-pointer list-none">
-                <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{f.q}</span>
+              <summary className="flex min-w-0 items-start justify-between gap-3 cursor-pointer list-none">
+                <span className="min-w-0 text-sm font-bold text-slate-800 dark:text-slate-100 break-words">{f.q}</span>
                 <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 group-open:rotate-45 transition-transform shrink-0 ml-3">
                   +
                 </span>
               </summary>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">{f.a}</p>
+              <p className="min-w-0 text-xs text-slate-500 dark:text-slate-400 mt-3 leading-relaxed break-words">{f.a}</p>
             </details>
           ))}
         </div>

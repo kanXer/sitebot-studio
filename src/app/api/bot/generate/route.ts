@@ -66,10 +66,10 @@ export async function POST(req: NextRequest) {
       },
       { headers: CORS_HEADERS }
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error('[GenerateRoute] AI Meta-Analysis failed:', err);
     return NextResponse.json(
-      { error: err.message || 'Failed to generate bot configuration' },
+      { error: err instanceof Error ? err.message : 'Failed to generate bot configuration' },
       { status: 500, headers: CORS_HEADERS }
     );
   }

@@ -9,9 +9,9 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Chatbot, DocumentChunk } from '@/lib/models';
+import { Chatbot, DocumentChunk, type IChatbot } from '@/lib/models';
 import { isUsingMemoryDb } from '@/lib/db';
-import { MemoryDb } from '@/lib/memoryDb';
+import { MemoryDb, type MemoryChatbot } from '@/lib/memoryDb';
 import { chunkText } from '@/lib/crawler/chunker';
 import { getBatchEmbeddings } from '@/lib/ai/embeddings';
 import { upsertQdrantChunks, isQdrantConfigured } from '@/lib/vector/qdrant';
@@ -39,6 +39,7 @@ export const BotConfigSchema = z.object({
 });
 
 export type BotConfig = z.infer<typeof BotConfigSchema>;
+export type ChatbotRecord = IChatbot | MemoryChatbot;
 
 export interface ParsedChatTags {
   cleanText: string;
@@ -261,7 +262,7 @@ export function heuristicBotConfigExtractor(scrapedContent: string): BotConfig {
 // 3. Fast LLM Meta-Analysis Generator
 // ============================================================================
 
-function extractJsonObject(raw: string): any {
+function extractJsonObject(raw: string): unknown {
   const jsonBlock = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   const target = jsonBlock ? jsonBlock[1] : raw;
   const start = target.indexOf('{');
@@ -442,7 +443,7 @@ export interface IngestAndBuildParams {
 
 export interface IngestAndBuildResult {
   botId: string;
-  bot: any;
+  bot: ChatbotRecord;
   botConfig: BotConfig;
   chunksCount: number;
   vectorStore: 'qdrant' | 'mongodb' | 'memory';
@@ -531,7 +532,7 @@ export async function ingestAndBuildBot(params: IngestAndBuildParams): Promise<I
     status: 'active' as const,
   };
 
-  let bot: any;
+  let bot: ChatbotRecord;
   let botId = '';
 
   if (isUsingMemoryDb()) {
@@ -539,7 +540,7 @@ export async function ingestAndBuildBot(params: IngestAndBuildParams): Promise<I
     botId = bot._id;
   } else {
     bot = await Chatbot.create(botRecordData);
-    botId = bot._id.toString();
+    botId = String(bot._id);
   }
 
   // Step 3: Semantic Chunking

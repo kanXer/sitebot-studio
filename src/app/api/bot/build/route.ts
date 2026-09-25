@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import {
   ingestAndBuildBot,
-  generateBotConfig,
   BotConfigSchema,
   BotConfig,
 } from '@/lib/bot-builder';

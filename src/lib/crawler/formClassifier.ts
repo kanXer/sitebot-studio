@@ -28,6 +28,33 @@ export interface ClassifiedForm {
   submitMethod?: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toPartialClassifiedField(value: unknown): Partial<ClassifiedField> | undefined {
+  if (!isRecord(value)) return undefined;
+  const field: Partial<ClassifiedField> = {};
+  if (typeof value.key === 'string') field.key = value.key;
+  if (typeof value.label === 'string') field.label = value.label;
+  if (typeof value.type === 'string') field.type = value.type;
+  if (typeof value.required === 'boolean') field.required = value.required;
+  if (typeof value.selector === 'string') field.selector = value.selector;
+  if (typeof value.placeholder === 'string') field.placeholder = value.placeholder;
+  if (Array.isArray(value.options)) {
+    field.options = value.options.filter((option): option is string => typeof option === 'string');
+  }
+  if (typeof value.inputType === 'string') field.inputType = value.inputType;
+  return field;
+}
+
+function getResponseContent(value: unknown): string {
+  if (!isRecord(value) || !Array.isArray(value.choices) || !isRecord(value.choices[0])) return '';
+  const message = value.choices[0].message;
+  if (!isRecord(message) || typeof message.content !== 'string') return '';
+  return message.content;
+}
+
 const DEFAULT_MODEL = 'meta/llama-3.3-70b-instruct';
 
 function toSnakeCase(value: string): string {
@@ -148,15 +175,19 @@ function dedupeFields(fields: ClassifiedField[]): ClassifiedField[] {
 /**
  * Normalizes a raw extracted form into the strict bot_forms schema.
  */
-export function normalizeForm(raw: RawExtractedForm, llmResult?: any): ClassifiedForm {
-  const llmFields = Array.isArray(llmResult?.fields) ? llmResult.fields : [];
+export function normalizeForm(raw: RawExtractedForm, llmResult?: unknown): ClassifiedForm {
+  const llm = isRecord(llmResult) ? llmResult : null;
+  const rawLlmFields = llm && Array.isArray(llm.fields) ? llm.fields : [];
+  const llmFields = rawLlmFields
+    .map(toPartialClassifiedField)
+    .filter((field): field is Partial<ClassifiedField> => field !== undefined);
   const fieldsSchema = dedupeFields(
     raw.fields.map((f, i) => normalizeField(f, llmFields[i] || undefined))
   );
 
   let formType: FormIntent = 'OTHER';
-  if (llmResult?.formType) {
-    const candidate = String(llmResult.formType).toUpperCase().replace(/[^A-Z_]/g, '');
+  if (llm?.formType) {
+    const candidate = String(llm.formType).toUpperCase().replace(/[^A-Z_]/g, '');
     if ((FORM_INTENTS as readonly string[]).includes(candidate)) {
       formType = candidate as FormIntent;
     }
@@ -166,7 +197,7 @@ export function normalizeForm(raw: RawExtractedForm, llmResult?: any): Classifie
     if (heuristic !== 'OTHER') formType = heuristic;
   }
 
-  let title = String(llmResult?.title || '').trim();
+  let title = String(llm?.title || '').trim();
   if (!title) {
     const submitText = raw.submitButtonText?.trim();
     const candidate =
@@ -282,9 +313,9 @@ Rules:
     throw new Error(`Form classification LLM failed (${res.status}): ${errText.slice(0, 300)}`);
   }
 
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  let parsed: any;
+  const data: unknown = await res.json();
+  const content = getResponseContent(data);
+  let parsed: unknown;
   try {
     parsed = JSON.parse(cleanJsonResponse(content));
   } catch {

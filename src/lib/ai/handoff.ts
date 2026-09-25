@@ -67,7 +67,7 @@ export function detectHandoffIntent(userMessage: string): HandoffDetectionResult
 /**
  * Ensures or retrieves the conversation record for a session
  */
-function toBotObjectId(botId: string): any {
+function toBotObjectId(botId: string): mongoose.Types.ObjectId | string {
   return mongoose.Types.ObjectId.isValid(botId) ? new mongoose.Types.ObjectId(botId) : botId;
 }
 
@@ -75,7 +75,7 @@ export async function getOrCreateConversation(
   botId: string,
   sessionId: string,
   visitorInfo?: { name?: string; email?: string; phone?: string; ip?: string }
-): Promise<any> {
+): Promise<IConversation | MemoryConversation> {
   if (isUsingMemoryDb()) {
     let conv = MemoryDb.findConversation(botId, sessionId);
     if (!conv) {
@@ -155,8 +155,8 @@ export async function escalateToLiveAgent(
   sessionId: string,
   reason: string,
   visitorInfo?: { name?: string; email?: string; phone?: string }
-): Promise<any> {
-  const conv = await getOrCreateConversation(botId, sessionId, visitorInfo);
+): Promise<IConversation | MemoryConversation | null> {
+  await getOrCreateConversation(botId, sessionId, visitorInfo);
 
   if (isUsingMemoryDb()) {
     return MemoryDb.updateConversationStatus(
@@ -189,7 +189,7 @@ export async function escalateToLiveAgent(
 /**
  * Resolves a live conversation, closing handoff and handing back to bot
  */
-export async function resolveLiveConversation(botId: string, sessionId: string): Promise<any> {
+export async function resolveLiveConversation(botId: string, sessionId: string): Promise<IConversation | MemoryConversation | null> {
   if (isUsingMemoryDb()) {
     return MemoryDb.updateConversationStatus(botId, sessionId, 'resolved');
   }
@@ -214,7 +214,7 @@ export async function assignLiveAgent(
   botId: string,
   sessionId: string,
   agent: { id: string; name: string; email: string }
-): Promise<any> {
+): Promise<IConversation | MemoryConversation | null> {
   if (isUsingMemoryDb()) {
     return MemoryDb.assignConversationAgent(botId, sessionId, agent);
   }

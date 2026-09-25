@@ -3,14 +3,45 @@ import mongoose from 'mongoose';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { Chatbot, Conversation } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
-import {
-  getOrCreateConversation,
-  appendConversationMessage,
-  escalateToLiveAgent,
-} from '@/lib/ai/handoff';
+import { appendConversationMessage, escalateToLiveAgent } from '@/lib/ai/handoff';
 
 interface RouteParams {
   params: Promise<{ botId: string }>;
+}
+
+type ObjectIdLike = { toString(): string };
+
+interface HandoffBot {
+  _id: ObjectIdLike;
+  handoff?: {
+    enabled?: boolean;
+    offlineMessage?: string;
+  };
+}
+
+interface HandoffMessage {
+  timestamp: Date | string;
+}
+
+interface HandoffConversation {
+  _id: ObjectIdLike;
+  status: string;
+  handoffReason?: string;
+  assignedAgent?: unknown;
+  messages?: HandoffMessage[];
+  lastMessageAt?: Date | string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (isRecord(error) && typeof error.message === 'string' && error.message) {
+    return error.message;
+  }
+  return fallback;
 }
 
 const CORS_HEADERS = {
@@ -46,7 +77,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Resolve bot
-    let bot: any;
+    let bot: HandoffBot | null;
     if (isUsingMemoryDb()) {
       bot = MemoryDb.findChatbotById(botId);
     } else if (mongoose.Types.ObjectId.isValid(botId)) {
@@ -64,7 +95,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     const resolvedBotId = bot._id.toString();
 
-    let conv: any;
+    let conv: HandoffConversation | null;
     if (isUsingMemoryDb()) {
       conv = MemoryDb.findConversation(resolvedBotId, sessionId);
     } else {
@@ -89,7 +120,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       const afterDate = new Date(afterTimestamp);
       if (!isNaN(afterDate.getTime())) {
         newMessages = newMessages.filter(
-          (m: any) => new Date(m.timestamp).getTime() > afterDate.getTime()
+          (m) => new Date(m.timestamp).getTime() > afterDate.getTime()
         );
       }
     }
@@ -104,10 +135,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       },
       { headers: CORS_HEADERS }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Handoff status check failure:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to check handoff status' },
+      { error: getErrorMessage(error, 'Failed to check handoff status') },
       { status: 500, headers: CORS_HEADERS }
     );
   }
@@ -120,16 +151,18 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     await connectToDatabase();
     const { botId } = await params;
-    const body = await req.json().catch(() => ({}));
-
-    const {
-      sessionId,
-      visitorName,
-      visitorEmail,
-      visitorPhone,
-      reason = 'visitor_request',
-      message = '',
-    } = body;
+    const rawBody: unknown = await req.json().catch(() => ({}));
+    const body = isRecord(rawBody) ? rawBody : {};
+    const sessionId = typeof body.sessionId === 'string' ? body.sessionId : '';
+    const visitorName =
+      typeof body.visitorName === 'string' ? body.visitorName : undefined;
+    const visitorEmail =
+      typeof body.visitorEmail === 'string' ? body.visitorEmail : undefined;
+    const visitorPhone =
+      typeof body.visitorPhone === 'string' ? body.visitorPhone : undefined;
+    const reason =
+      typeof body.reason === 'string' ? body.reason : 'visitor_request';
+    const message = typeof body.message === 'string' ? body.message : '';
 
     if (!sessionId) {
       return NextResponse.json(
@@ -139,7 +172,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     // Resolve bot
-    let bot: any;
+    let bot: HandoffBot | null;
     if (isUsingMemoryDb()) {
       bot = MemoryDb.findChatbotById(botId);
     } else if (mongoose.Types.ObjectId.isValid(botId)) {
@@ -202,10 +235,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       },
       { headers: CORS_HEADERS }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Handoff escalation failure:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to escalate to live agent' },
+      { error: getErrorMessage(error, 'Failed to escalate to live agent') },
       { status: 500, headers: CORS_HEADERS }
     );
   }

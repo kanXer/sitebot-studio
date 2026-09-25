@@ -33,7 +33,7 @@ const IGNORED_EXTENSIONS = new Set([
 
 export function normalizeUrl(rawUrl: string, baseUrl: string): string | null {
   try {
-    let cleanRaw = rawUrl.trim();
+    const cleanRaw = rawUrl.trim();
     if (!cleanRaw || cleanRaw.startsWith('javascript:') || cleanRaw.startsWith('mailto:') || cleanRaw.startsWith('tel:')) {
       return null;
     }
@@ -350,15 +350,20 @@ export function extractEmailsFromHtml(html: string, siteUrl?: string): string[] 
   $('script[type="application/ld+json"]').each((_, el) => {
     try {
       const text = $(el).html() || '';
-      const data = JSON.parse(text);
-      const scanObj = (obj: any) => {
-        if (!obj || typeof obj !== 'object') return;
+      const data: unknown = JSON.parse(text);
+      const scanObj = (value: unknown) => {
+        if (!value || typeof value !== 'object') return;
+        if (Array.isArray(value)) {
+          for (const item of value) scanObj(item);
+          return;
+        }
+        const obj = value as Record<string, unknown>;
         if (typeof obj.email === 'string') {
           const norm = normalizeEmail(obj.email);
           if (norm) candidates.add(norm);
         }
-        for (const val of Object.values(obj)) {
-          if (typeof val === 'object') scanObj(val);
+        for (const nestedValue of Object.values(obj)) {
+          if (nestedValue && typeof nestedValue === 'object') scanObj(nestedValue);
         }
       };
       if (Array.isArray(data)) data.forEach(scanObj);

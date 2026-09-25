@@ -250,25 +250,25 @@ export interface MemoryUsageRecord {
 
 // Global in-memory collections surviving hot reloads
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __memoryChatbots: Map<string, MemoryChatbot> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryCrawledPages: Map<string, MemoryCrawledPage> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryDocumentChunks: Map<string, MemoryDocumentChunk> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryBotForms: Map<string, MemoryBotForm> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryFormSubmissions: Map<string, MemoryFormSubmission> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryAdminUsers: Map<string, MemoryAdminUser> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryConversations: Map<string, MemoryConversation> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryUserProfiles: Map<string, MemoryUserProfile> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryCtaSubmissions: Map<string, MemoryCtaSubmission> | undefined;
-  // eslint-disable-next-line no-var
+   
   var __memoryUsageRecords: Map<string, MemoryUsageRecord> | undefined;
 }
 

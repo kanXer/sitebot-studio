@@ -205,10 +205,10 @@ export default function TermsPage() {
           <p className="leading-relaxed">
             If you have questions, concerns, or legal notices regarding these Terms of Service, please reach out to our team:
           </p>
-          <div className="mt-4 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs">
+          <div className="min-w-0 mt-4 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs">
             <p className="font-bold text-slate-900 dark:text-white">SiteBot Studio Legal Department</p>
-            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: support@sitebotstudio.com</p>
-            <p className="text-slate-600 dark:text-slate-300">Website: https://sitebotstudio.com</p>
+            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: <span className="break-all">support@sitebotstudio.com</span></p>
+            <p className="text-slate-600 dark:text-slate-300">Website: <span className="break-all">https://sitebotstudio.com</span></p>
           </div>
         </>
       ),
@@ -216,50 +216,50 @@ export default function TermsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       <Navbar />
 
-      <main className="flex-1 pb-28 sm:pb-20">
+      <main className="flex-1 min-w-0 pb-28 sm:pb-20">
         {/* Hero Section */}
-        <section className="relative pt-12 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 text-indigo-700 dark:text-indigo-300 text-xs font-bold mb-4">
+        <section className="relative min-w-0 pt-12 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
+          <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 text-indigo-700 dark:text-indigo-300 text-xs font-bold mb-4 text-center leading-relaxed">
             <FileText className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>Legal Documentation &amp; User Agreement</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white font-heading">
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white font-heading break-words">
             Terms of Service
           </h1>
 
-          <p className="mt-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
+          <p className="mt-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex min-w-0 flex-wrap items-center justify-center gap-1.5 text-center">
             <Clock className="w-4 h-4 text-slate-400" />
-            <span>Last updated: {lastUpdated}</span>
+            <span className="min-w-0 break-words">Last updated: {lastUpdated}</span>
           </p>
 
-          <p className="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
+          <p className="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto break-words">
             Please read these terms carefully before deploying our chatbots, crawling your website, or subscribing to our
             services. These terms ensure a reliable, safe, and transparent environment for all users.
           </p>
         </section>
 
         {/* Terms Content Sections */}
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <section className="max-w-4xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8 space-y-6">
           {sections.map((sec) => (
             <div
               key={sec.id}
               id={sec.id}
-              className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-sm transition-all"
+              className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-sm transition-all"
             >
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex min-w-0 items-center gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-100 dark:border-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
                   <sec.icon className="w-4 h-4" />
                 </div>
-                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white font-heading">
+                <h2 className="min-w-0 text-base sm:text-lg font-extrabold text-slate-900 dark:text-white font-heading break-words">
                   {sec.title}
                 </h2>
               </div>
 
-              <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="min-w-0 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed break-words">
                 {sec.content}
               </div>
             </div>
@@ -267,17 +267,17 @@ export default function TermsPage() {
         </section>
 
         {/* Quick Contact & Questions Footer Box */}
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 text-center">
-          <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-950 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 text-left">
-            <div>
-              <h3 className="text-base sm:text-lg font-extrabold">Have questions about our terms?</h3>
-              <p className="text-xs text-indigo-200 mt-1 max-w-md">
+        <section className="max-w-4xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8 mt-12 text-center">
+          <div className="min-w-0 rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-950 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 text-left">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-extrabold break-words">Have questions about our terms?</h3>
+              <p className="min-w-0 text-xs text-indigo-200 mt-1 max-w-md break-words">
                 Our support and compliance team is available to assist with custom enterprise licensing, SLA agreements, or data processing questions.
               </p>
             </div>
             <Link
               href="/contact"
-              className="px-5 py-2.5 rounded-xl bg-white text-indigo-900 font-extrabold text-xs shadow-md hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 shrink-0 inline-flex items-center gap-1.5"
+              className="w-full sm:w-auto max-w-full px-5 py-2.5 rounded-xl bg-white text-indigo-900 font-extrabold text-xs shadow-md hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 shrink-0 inline-flex items-center justify-center gap-1.5 text-center"
             >
               <span>Contact Support</span>
               <ArrowRight className="w-3.5 h-3.5" />

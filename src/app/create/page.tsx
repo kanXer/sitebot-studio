@@ -511,17 +511,17 @@ PRIMARY INSTRUCTIONS:
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex min-w-0 flex-col selection:bg-indigo-500 selection:text-white">
       <Navbar />
 
-      <main className="flex-1 py-6 sm:py-12 px-3.5 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full pb-28 sm:pb-16">
+      <main className="flex-1 py-6 sm:py-12 px-3.5 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full min-w-0 pb-28 xl:pb-16">
         {authLoading ? (
           <div className="py-24 text-center space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
             <p className="text-xs font-semibold text-slate-500">Checking authentication...</p>
           </div>
         ) : !user ? (
-          <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-2xl text-center space-y-6 max-w-lg mx-auto relative overflow-hidden animate-in fade-in duration-300 my-8">
+          <div className="bg-white rounded-3xl p-5 sm:p-10 border border-slate-200/80 shadow-2xl text-center space-y-6 max-w-lg mx-auto relative overflow-hidden animate-in fade-in duration-300 my-8">
             <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 absolute top-0 left-0" />
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
               <Lock className="w-7 h-7" />
@@ -550,10 +550,19 @@ PRIMARY INSTRUCTIONS:
           <>
             {/* Step Progress Tracker */}
             <div className="mb-10 max-w-xl mx-auto">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-                <span className={step >= 1 ? 'text-indigo-600' : ''}>1. Project Name &amp; URL</span>
-                <span className={step >= 2 ? 'text-indigo-600' : ''}>2. Auto-Crawl &amp; Extract</span>
-                <span className={step >= 3 ? 'text-indigo-600' : ''}>3. Autofilled Customization</span>
+              <div className="grid grid-cols-3 gap-2 text-center text-[10px] sm:text-xs font-bold text-slate-400">
+                <span className={`min-w-0 leading-tight ${step >= 1 ? 'text-indigo-600' : ''}`}>
+                  <span className="sm:hidden">1. Setup</span>
+                  <span className="hidden sm:inline">1. Project Name &amp; URL</span>
+                </span>
+                <span className={`min-w-0 leading-tight ${step >= 2 ? 'text-indigo-600' : ''}`}>
+                  <span className="sm:hidden">2. Crawl</span>
+                  <span className="hidden sm:inline">2. Auto-Crawl &amp; Extract</span>
+                </span>
+                <span className={`min-w-0 leading-tight ${step >= 3 ? 'text-indigo-600' : ''}`}>
+                  <span className="sm:hidden">3. Customize</span>
+                  <span className="hidden sm:inline">3. Autofilled Customization</span>
+                </span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div
@@ -564,19 +573,19 @@ PRIMARY INSTRUCTIONS:
             </div>
 
         {error && (
-          <div className="mb-8 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
-            <span>⚠️ {error}</span>
+          <div className="mb-8 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-start gap-2 min-w-0">
+            <span className="min-w-0 break-words">⚠️ {error}</span>
           </div>
         )}
 
         {botLimitError && (
           <div className="mb-8 rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-600 p-6 sm:p-8 text-white shadow-xl shadow-indigo-600/20">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-3 min-w-0">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center">
                   <CreditCard className="w-5 h-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-base font-extrabold font-heading">Bot limit reached</h3>
                   <p className="text-xs text-white/80 mt-0.5">
                     You have reached the {botLimitError.plan} plan limit of {botLimitError.limit}{' '}
@@ -838,7 +847,7 @@ PRIMARY INSTRUCTIONS:
             STEP 2: LIVE CRAWLING & IDENTITY EXTRACTION IN-PROGRESS
             ======================================================== */}
         {step === 2 && (
-          <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-2xl text-center space-y-6 relative overflow-hidden animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl p-5 sm:p-10 border border-slate-200/80 shadow-2xl text-center space-y-6 relative overflow-hidden animate-in fade-in duration-300">
             <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 absolute top-0 left-0" />
 
             <div className="relative w-16 h-16 mx-auto">
@@ -848,7 +857,7 @@ PRIMARY INSTRUCTIONS:
             </div>
 
             <div className="space-y-1.5 max-w-md mx-auto">
-              <h2 className="text-xl font-bold text-slate-900">
+              <h2 className="text-xl font-bold text-slate-900 break-words">
                 Crawling &amp; Vectorizing {siteUrl}
               </h2>
               <p className="text-xs text-slate-500 leading-relaxed font-mono">
@@ -872,15 +881,15 @@ PRIMARY INSTRUCTIONS:
 
             {/* Extracted Details Pill Grid (Pops in dynamically) */}
             <div className="pt-4 flex flex-wrap items-center justify-center gap-3 text-xs">
-              <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+              <span className="max-w-full min-w-0 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5 break-words">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Recursive Link Traversal</span>
               </span>
-              <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+              <span className="max-w-full min-w-0 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5 break-words">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Qdrant 768d Vector Memory</span>
               </span>
-              <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5">
+              <span className="max-w-full min-w-0 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1.5 break-words">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Identity &amp; Contact Detection</span>
               </span>
@@ -899,11 +908,11 @@ PRIMARY INSTRUCTIONS:
           <form onSubmit={handleFinalSave} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
             {/* Success Banner */}
             <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                   <Check className="w-5 h-5 stroke-[2.5]" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800">
                     Website Crawled &amp; Details Autofilled!
                   </h3>
@@ -925,8 +934,8 @@ PRIMARY INSTRUCTIONS:
             {/* AI Meta-Analysis & Guardrails Derived Config Card */}
             {derivedBotConfig && (
               <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 rounded-3xl p-7 sm:p-8 text-white border border-indigo-500/20 shadow-xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                  <div className="inline-flex min-w-0 max-w-full items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
                     <span>AI Meta-Analysis Derived Identity &amp; Guardrails</span>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
@@ -995,7 +1004,7 @@ PRIMARY INSTRUCTIONS:
             )}
 
             {/* 1. Brand & Appearance Card */}
-            <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-6">
+            <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
                 <Palette className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
@@ -1102,7 +1111,7 @@ PRIMARY INSTRUCTIONS:
             </div>
 
             {/* 2. Fast Actions & Contact Links Card (Autofilled!) */}
-            <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-6">
+            <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
                 <Zap className="w-5 h-5 text-amber-500" />
                 <div>
@@ -1155,13 +1164,13 @@ PRIMARY INSTRUCTIONS:
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-2 min-w-0">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     🔗 Quick Links <span className="text-slate-400 font-normal">(auto-added from crawling or you can add/remove)</span>
                   </label>
                   <div className="space-y-2">
                     {customLinks.map((link, linkIdx) => (
-                      <div key={linkIdx} className="flex items-center gap-2">
+                      <div key={linkIdx} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 min-w-0">
                         <input
                           type="text"
                           value={link.label}
@@ -1171,7 +1180,7 @@ PRIMARY INSTRUCTIONS:
                             setCustomLinks(updated);
                           }}
                           placeholder="Button label, e.g. Book a Demo"
-                          className="w-1/3 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
+                          className="w-full min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600"
                         />
                         <input
                           type="text"
@@ -1182,14 +1191,14 @@ PRIMARY INSTRUCTIONS:
                             setCustomLinks(updated);
                           }}
                           placeholder="https://yoursite.com/demo"
-                          className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
+                          className="w-full min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-mono"
                         />
                         <button
                           type="button"
                           aria-label="Remove quick link"
                           title="Remove this quick link"
                           onClick={() => setCustomLinks(customLinks.filter((_, i) => i !== linkIdx))}
-                          className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                          className="justify-self-end sm:justify-self-auto p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1246,7 +1255,7 @@ PRIMARY INSTRUCTIONS:
             </div>
 
             {/* 3. AI Behavior & Persona Card (Autofilled!) */}
-            <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-5">
+            <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/80 shadow-sm space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
                 <Bot className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
@@ -1279,8 +1288,8 @@ PRIMARY INSTRUCTIONS:
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2 min-w-0">
+                  <label className="block min-w-0 text-xs font-bold text-slate-700 dark:text-slate-200 break-words">
                     Auto-Generated Suggested Questions{' '}
                     <span className="text-slate-400 font-normal">(Click question text to edit)</span>
                   </label>
@@ -1304,7 +1313,7 @@ PRIMARY INSTRUCTIONS:
                       return (
                         <div
                           key={qIdx}
-                          className="flex items-center gap-1.5 p-1 px-2.5 rounded-xl bg-white dark:bg-slate-800 border-2 border-indigo-500 shadow-md shadow-indigo-500/10"
+                          className="flex w-full sm:w-auto min-w-0 flex-wrap items-center gap-1.5 p-1 px-2.5 rounded-xl bg-white dark:bg-slate-800 border-2 border-indigo-500 shadow-md shadow-indigo-500/10"
                         >
                           <input
                             type="text"
@@ -1319,7 +1328,7 @@ PRIMARY INSTRUCTIONS:
                               }
                             }}
                             autoFocus
-                            className="text-xs bg-transparent text-slate-900 dark:text-white outline-none min-w-[200px]"
+                            className="text-xs bg-transparent text-slate-900 dark:text-white outline-none w-full sm:w-[200px] min-w-0"
                           />
                           <button
                             type="button"
@@ -1344,14 +1353,14 @@ PRIMARY INSTRUCTIONS:
                     return (
                       <div
                         key={qIdx}
-                        className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 transition-all cursor-pointer select-none"
+                        className="group flex min-w-0 max-w-full items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700/80 border border-slate-200/80 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 transition-all cursor-pointer select-none"
                       >
                         <span
                           onClick={() => handleStartEditQuestion(qIdx)}
-                          className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 cursor-pointer"
+                           className="min-w-0 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1.5 cursor-pointer"
                           title="Click to edit"
                         >
-                          <span>{q}</span>
+                           <span className="min-w-0 break-words">{q}</span>
                           <Pencil className="w-3 h-3 text-slate-400 opacity-60 group-hover:opacity-100 transition-opacity" />
                         </span>
                         <button
@@ -1371,7 +1380,7 @@ PRIMARY INSTRUCTIONS:
 
                   {/* Inline Add Question Input */}
                   {isAddingQuestion && (
-                    <div className="flex items-center gap-1.5 p-1 px-2.5 rounded-xl bg-white dark:bg-slate-800 border-2 border-indigo-500 shadow-md shadow-indigo-500/10">
+                    <div className="flex w-full sm:w-auto min-w-0 flex-wrap items-center gap-1.5 p-1 px-2.5 rounded-xl bg-white dark:bg-slate-800 border-2 border-indigo-500 shadow-md shadow-indigo-500/10">
                       <input
                         type="text"
                         value={newQuestionInput}
@@ -1387,7 +1396,7 @@ PRIMARY INSTRUCTIONS:
                         }}
                         placeholder="Type suggested question..."
                         autoFocus
-                        className="text-xs bg-transparent text-slate-900 dark:text-white outline-none min-w-[200px]"
+                        className="text-xs bg-transparent text-slate-900 dark:text-white outline-none w-full sm:w-[200px] min-w-0"
                       />
                       <button
                         type="button"
@@ -1416,22 +1425,22 @@ PRIMARY INSTRUCTIONS:
             </div>
 
             {/* 4. AI Models & BYOK Keys Accordion */}
-            <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-sm space-y-4">
+            <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/80 shadow-sm space-y-4">
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="w-full flex items-center justify-between text-left"
+                className="w-full flex items-center justify-between gap-3 text-left min-w-0"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Cpu className="w-5 h-5 text-indigo-600" />
-                  <span className="text-sm font-bold text-slate-900">
+                  <span className="text-sm font-bold text-slate-900 min-w-0 break-words">
                     AI Models &amp; BYOK Keys Configuration
                   </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  <span className="max-w-full truncate text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                     {activeProvider.toUpperCase()} &bull; {chatModel}
                   </span>
                 </div>
-                {showAdvanced ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                {showAdvanced ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
               </button>
 
               {showAdvanced && (

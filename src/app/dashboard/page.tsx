@@ -378,10 +378,10 @@ function DashboardContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex min-w-0 flex-col selection:bg-indigo-500 selection:text-white">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-8 w-full pb-28 md:pb-12">
+      <main className="flex-1 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-8 w-full min-w-0 pb-28 xl:pb-12">
         {/* Header Hero */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-7 lg:p-8 border border-slate-200/80 dark:border-slate-800 shadow-sm mb-8 relative overflow-hidden">
           <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 absolute top-0 left-0" />
@@ -392,7 +392,7 @@ function DashboardContent() {
                 <img
                   src={user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.email}`}
                   alt={user.displayName || 'User'}
-                  className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl ring-2 ring-indigo-500/30 object-cover shadow-sm bg-slate-100 dark:bg-slate-800"
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl ring-2 ring-indigo-500/30 object-cover shadow-sm bg-slate-100 dark:bg-slate-800"
                 />
                 <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900" />
               </div>
@@ -423,7 +423,7 @@ function DashboardContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap shrink-0">
+            <div className="grid w-full grid-cols-1 sm:flex sm:w-auto sm:items-center gap-2 sm:gap-3 sm:flex-nowrap shrink-0">
               <Link
                 href="/create"
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-extrabold rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/25 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
@@ -457,15 +457,15 @@ function DashboardContent() {
         {upgradeMsg && (
           <div className="mb-6 flex items-center gap-2.5 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span>{upgradeMsg}</span>
+            <span className="min-w-0 break-words">{upgradeMsg}</span>
           </div>
         )}
 
         {paypalError && (
           <div className="mb-6 flex items-center justify-between gap-2.5 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs font-bold">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-              <span>{paypalError}</span>
+              <span className="min-w-0 break-words">{paypalError}</span>
             </div>
             <button onClick={() => setPaypalError('')} aria-label="Dismiss" className="p-1 hover:bg-rose-100 rounded-lg">
               <X className="w-4 h-4" />
@@ -474,19 +474,19 @@ function DashboardContent() {
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-8">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 min-w-0 max-w-full pb-2 mb-8">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all border cursor-pointer ${
+              className={`flex w-full sm:w-auto min-w-0 items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2.5 rounded-2xl text-[11px] sm:text-xs font-extrabold whitespace-nowrap transition-all border cursor-pointer ${
                 tab === t.id
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/25'
                   : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-indigo-300 dark:hover:border-slate-700'
               }`}
             >
               <t.icon className="w-4 h-4" />
-              <span>{t.label}</span>
+              <span className="min-w-0 truncate">{t.label}</span>
               {typeof t.badge === 'number' && (
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
@@ -542,7 +542,7 @@ function DashboardContent() {
       {/* Embed Script Modal */}
       {embedBotModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-8 shadow-2xl relative space-y-4">
             <button
               onClick={() => setEmbedBotModal(null)}
               className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -554,8 +554,8 @@ function DashboardContent() {
               <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                 <Code2 className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading">
+              <div className="min-w-0">
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading break-words">
                   Embed {embedBotModal.name}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -570,7 +570,7 @@ function DashboardContent() {
               </code>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <Link
                 href="/help"
                 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
@@ -687,12 +687,12 @@ function OverviewTab({
   return (
     <div className="space-y-8">
       {/* 4 Quick Stat Metric Cards (2x2 on Mobile, 4x1 on Desktop) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {statCards.map((s) => (
           <div
             key={s.label}
             onClick={s.onClick}
-            className={`rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm transition-all ${
+            className={`min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm transition-all ${
               s.onClick ? 'cursor-pointer hover:border-indigo-300 dark:hover:border-slate-700 hover:shadow-md' : ''
             }`}
           >
@@ -709,7 +709,7 @@ function OverviewTab({
             <p className="text-2xl font-black text-slate-900 dark:text-white font-heading">
               {s.value}
             </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-0.5">{s.label}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold mt-0.5 break-words">{s.label}</p>
             {s.pct !== null && (
               <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                 <div
@@ -718,7 +718,7 @@ function OverviewTab({
                 />
               </div>
             )}
-            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+            <p className="text-[10px] text-slate-400 mt-1.5 font-medium break-words">{s.sub}</p>
           </div>
         ))}
       </div>
@@ -728,9 +728,9 @@ function OverviewTab({
         {/* Left Column: Chatbots & Recent Leads (2 cols wide) */}
         <div className="lg:col-span-2 space-y-8">
           {/* Your Chatbots Showcase */}
-          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2.5">
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-7 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading">
                   Your AI Chatbots ({bots.length})
@@ -766,7 +766,7 @@ function OverviewTab({
                 {bots.slice(0, 4).map((b) => (
                   <div
                     key={b.id}
-                    className="p-4 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-indigo-300 dark:hover:border-slate-700 transition-all"
+                    className="p-3 sm:p-4 rounded-2xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:border-indigo-300 dark:hover:border-slate-700 transition-all min-w-0"
                   >
                     <div className="flex items-start gap-3.5 min-w-0">
                       <div
@@ -815,11 +815,11 @@ function OverviewTab({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="grid w-full grid-cols-3 gap-1.5 sm:flex sm:w-auto sm:items-center sm:gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => onGetEmbedCode(b)}
-                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                        className="min-w-0 px-1.5 sm:px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] sm:text-xs font-bold border border-slate-200 dark:border-slate-700 transition-colors flex items-center justify-center gap-0.5 sm:gap-1 cursor-pointer whitespace-nowrap"
                         title="Get Embed Code"
                       >
                         <Code2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -829,7 +829,7 @@ function OverviewTab({
                       <Link
                         href={`/demo/${b.id}`}
                         target="_blank"
-                        className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center gap-1"
+                        className="min-w-0 px-1.5 sm:px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] sm:text-xs font-bold border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap"
                       >
                         <Play className="w-3.5 h-3.5" />
                         <span>Live Test</span>
@@ -837,7 +837,7 @@ function OverviewTab({
 
                       <Link
                         href={`/bot/${b.id}`}
-                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+                        className="min-w-0 px-1.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-[10px] sm:text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap"
                       >
                         <span>Studio</span>
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -860,9 +860,9 @@ function OverviewTab({
           </div>
 
           {/* Recent Leads Preview */}
-          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2.5">
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-7 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <Users className="w-5 h-5 text-rose-500" />
                 <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading">
                   Recent Captured Leads ({leads.length})
@@ -1013,8 +1013,8 @@ function OverviewTab({
           </div>
 
           {/* Quick Integration Card */}
-          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2.5">
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 shadow-sm space-y-4">
+                <div className="flex min-w-0 items-center gap-2.5">
               <Code2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               <h3 className="text-sm font-extrabold text-slate-900 dark:text-white font-heading">
                 1-Step Embed Widget
@@ -1025,7 +1025,7 @@ function OverviewTab({
             </p>
 
             <div className="p-3 bg-slate-900 rounded-xl text-[11px] font-mono text-indigo-300 overflow-x-auto border border-slate-800">
-              <code>&lt;script src=".../widget.js" data-bot-id="YOUR_BOT" defer&gt;&lt;/script&gt;</code>
+              <code>{'<script src=".../widget.js" data-bot-id="YOUR_BOT" defer></script>'}</code>
             </div>
 
             <Link
@@ -1082,12 +1082,12 @@ function BotsTab({
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
           {(['all', 'free', 'individual', 'enterprise'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTierFilter(t)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`min-w-0 flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                 tierFilter === t
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -1099,7 +1099,7 @@ function BotsTab({
 
           <Link
             href="/create"
-            className="ml-auto sm:ml-2 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/25 transition-all shrink-0"
+            className="w-full sm:w-auto ml-0 sm:ml-2 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/25 transition-all shrink-0 whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>New Chatbot</span>
@@ -1114,7 +1114,7 @@ function BotsTab({
           <p className="text-xs text-slate-400 mt-2 font-semibold">Loading chatbots...</p>
         </div>
       ) : filteredBots.length === 0 ? (
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-12 text-center space-y-3">
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-12 text-center space-y-3">
           <Bot className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
           <h3 className="text-base font-bold text-slate-900 dark:text-white">No Chatbots Found</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
@@ -1131,14 +1131,14 @@ function BotsTab({
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredBots.map((b) => (
             <div
               key={b.id}
-              className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between"
+              className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between"
             >
               <div className="space-y-4">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3 min-w-0">
                   <div className="flex items-center gap-3">
                     <div
                       className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0"
@@ -1163,7 +1163,7 @@ function BotsTab({
                   </div>
 
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0 ${
+                    className={`max-w-full truncate px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0 ${
                       b.planTier === 'enterprise'
                         ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                         : b.planTier === 'individual'
@@ -1192,11 +1192,11 @@ function BotsTab({
                 </div>
               </div>
 
-              <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
+              <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2">
                 <button
                   type="button"
                   onClick={() => onGetEmbedCode(b)}
-                  className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  className="min-w-0 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] sm:text-xs font-bold transition-colors flex items-center justify-center gap-0.5 sm:gap-1 cursor-pointer whitespace-nowrap"
                   title="Copy Embed Script"
                 >
                   <Code2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -1206,7 +1206,7 @@ function BotsTab({
                 <Link
                   href={`/demo/${b.id}`}
                   target="_blank"
-                  className="flex-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center justify-center gap-1"
+                  className="min-w-0 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] sm:text-xs font-bold border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap"
                 >
                   <Play className="w-3.5 h-3.5" />
                   <span>Demo</span>
@@ -1214,7 +1214,7 @@ function BotsTab({
 
                 <Link
                   href={`/bot/${b.id}`}
-                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-1"
+                  className="min-w-0 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] sm:text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap"
                 >
                   <span>Studio</span>
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -1234,8 +1234,8 @@ function BotsTab({
 function LeadsTab({ leads, loading }: { leads: Lead[]; loading: boolean }) {
   return (
     <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-      <div className="p-6 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-        <div>
+      <div className="p-4 sm:p-6 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
           <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading">
             Captured Leads &amp; CTA Submissions
           </h3>
@@ -1261,8 +1261,8 @@ function LeadsTab({ leads, loading }: { leads: Lead[]; loading: boolean }) {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          <table className="min-w-[720px] w-full text-left">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
                 <th className="px-6 py-3.5 font-bold">Contact Name</th>
@@ -1387,9 +1387,9 @@ function ProfileTab({
   setDraftNotif: (c: 'email' | 'whatsapp' | 'telegram', f: string, v: any) => void;
   onSave: () => void;
 }) {
-  if (!draft) return null;
-
   const { user } = useAuth();
+
+  if (!draft) return null;
 
   const input =
     'w-full px-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all';
@@ -1404,7 +1404,7 @@ function ProfileTab({
             <img
               src={user?.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.email || 'user'}`}
               alt={user?.displayName || 'User'}
-              className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl ring-2 ring-indigo-500/30 object-cover shadow-sm shrink-0 bg-slate-100 dark:bg-slate-800"
+              className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl ring-2 ring-indigo-500/30 object-cover shadow-sm shrink-0 bg-slate-100 dark:bg-slate-800"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1430,7 +1430,7 @@ function ProfileTab({
         </div>
 
         {/* Business Details Form */}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 shadow-sm space-y-4">
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white font-heading">
             Personal &amp; Business Information
           </h3>
@@ -1509,7 +1509,7 @@ function ProfileTab({
         </div>
 
         {/* Lead Alert Notifications */}
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5">
             <Mail className="w-4 h-4 text-indigo-600" />
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-white font-heading">
@@ -1524,9 +1524,9 @@ function ProfileTab({
             {/* Email Channel */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <Mail className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Email Notification</p>
                     <p className="text-[10px] text-slate-400">Dispatches an instant lead summary to your email</p>
                   </div>
@@ -1554,9 +1554,9 @@ function ProfileTab({
             {/* WhatsApp Channel */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100">WhatsApp Alert</p>
                     <p className="text-[10px] text-slate-400">Receives direct WhatsApp alert upon lead capture</p>
                   </div>
@@ -1584,9 +1584,9 @@ function ProfileTab({
             {/* Telegram Channel */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <Send className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Telegram Bot Alert</p>
                     <p className="text-[10px] text-slate-400">Bot token and Chat ID for instant Telegram notifications</p>
                   </div>
@@ -1624,7 +1624,7 @@ function ProfileTab({
 
       {/* Save Settings Sidebar */}
       <div className="space-y-6">
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm sticky top-24 space-y-4">
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 shadow-sm static lg:sticky lg:top-24 space-y-4">
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white font-heading">Save Changes</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Your profile details and notification settings are applied across all chatbots created under this account.

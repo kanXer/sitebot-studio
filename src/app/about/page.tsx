@@ -100,23 +100,23 @@ export default function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Navbar />
 
-      <main className="flex-1">
+      <main className="flex-1 min-w-0">
         {/* Hero Section */}
         <section className="relative overflow-hidden pt-16 pb-20 lg:pt-24 lg:pb-28 bg-gradient-to-b from-white via-indigo-50/30 to-slate-50 border-b border-slate-200/80">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="max-w-3xl mx-auto text-center space-y-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-bold shadow-sm">
+            <div className="max-w-3xl mx-auto min-w-0 text-center space-y-6">
+              <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-bold shadow-sm text-center leading-relaxed">
                 <span>Next-Generation Architecture</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-950 tracking-tight leading-[1.15]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-950 tracking-tight leading-[1.15] break-words">
                 Powering Intelligent Website Conversations with{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600">
                   SiteBot Studio
@@ -127,17 +127,17 @@ export default function AboutPage() {
                 SiteBot Studio was built to eliminate the frustration of clunky, slow, and style-breaking web chatbots. We engineered an isolated Shadow DOM embed combined with state-of-the-art vector search to turn any website into an autonomous 24/7 conversion engine.
               </p>
 
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
+              <div className="pt-2 flex min-w-0 flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-4">
                 <Link
                   href="/"
-                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] flex items-center gap-2"
+                  className="w-full sm:w-auto max-w-full px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 text-center"
                 >
                   <span>Launch Free Chatbot</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/contact"
-                  className="px-6 py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-800 text-sm font-bold border border-slate-200 shadow-sm transition-all"
+                  className="w-full sm:w-auto max-w-full px-6 py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-800 text-sm font-bold border border-slate-200 shadow-sm transition-all text-center"
                 >
                   <span>Talk to Sales &amp; Engineering</span>
                 </Link>
@@ -145,13 +145,13 @@ export default function AboutPage() {
             </div>
 
             {/* Logo showcase card */}
-            <div className="mt-14 max-w-xl mx-auto p-4 rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-xl flex items-center justify-center gap-6">
-              <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-lg border border-slate-100 shrink-0">
+            <div className="mt-14 max-w-xl mx-auto min-w-0 p-4 rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-xl flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-center sm:text-left">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-lg border border-slate-100 shrink-0">
                 <img src="/logo.png" alt="SiteBot Studio Official Logo" className="w-full h-full object-cover" />
               </div>
-              <div className="space-y-1">
-                <h2 className="text-lg font-bold text-slate-900">SiteBot Studio Platform</h2>
-                <p className="text-xs text-slate-500 leading-relaxed">
+              <div className="min-w-0 space-y-1">
+                <h2 className="text-lg font-bold text-slate-900 break-words">SiteBot Studio Platform</h2>
+                <p className="text-xs text-slate-500 leading-relaxed break-words">
                   Engineered with Next.js App Router, Qdrant Vector DB, OpenAI, and NVIDIA NIM AI. Zero bloat, instant setup.
                 </p>
               </div>
@@ -177,13 +177,13 @@ export default function AboutPage() {
             {PILLARS.map((p, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-2xl p-7 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow space-y-4 relative group"
+                className="min-w-0 bg-white rounded-2xl p-7 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow space-y-4 relative group"
               >
                 <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-center group-hover:scale-105 transition-transform">
                   {p.icon}
                 </div>
-                <h3 className="text-base font-bold text-slate-900">{p.title}</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">{p.desc}</p>
+                <h3 className="text-base font-bold text-slate-900 break-words">{p.title}</h3>
+                <p className="text-xs text-slate-600 leading-relaxed break-words">{p.desc}</p>
               </div>
             ))}
           </div>
@@ -201,8 +201,8 @@ export default function AboutPage() {
               </p>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="min-w-0 max-w-full overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+              <table className="w-full min-w-[680px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-900 text-white font-bold">
                     <th className="py-4 px-5">Capability</th>
@@ -242,16 +242,16 @@ export default function AboutPage() {
               No credit card required. Enter your website URL, let our AI crawl your knowledge base, and paste a single script tag into your website.
             </p>
 
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
+            <div className="pt-2 flex min-w-0 flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-4">
               <Link
                 href="/"
-                className="px-7 py-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-sm shadow-xl shadow-indigo-500/25 transition-all hover:scale-105"
+                className="w-full sm:w-auto max-w-full px-7 py-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-sm shadow-xl shadow-indigo-500/25 transition-all hover:scale-105 text-center"
               >
                 Get Started Now &mdash; It&apos;s Free
               </Link>
               <Link
                 href="/contact"
-                className="px-7 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/20 transition-all"
+                className="w-full sm:w-auto max-w-full px-7 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/20 transition-all text-center"
               >
                 Contact Enterprise Support
               </Link>

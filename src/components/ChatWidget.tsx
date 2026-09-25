@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/immutability */
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";

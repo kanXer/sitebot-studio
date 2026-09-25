@@ -6,6 +6,24 @@ import { MemoryDb } from '@/lib/memoryDb';
 import { isAdminEmail } from '@/lib/auth/adminAuth';
 import { deleteQdrantBotChunks, isQdrantConfigured } from '@/lib/vector/qdrant';
 
+interface AdminBotSummary {
+  id: string;
+  slug?: string;
+  name: string;
+  siteUrl: string;
+  primaryColor: string;
+  chatProvider: string;
+  chatModel: string;
+  ownerEmail?: string;
+  ownerName?: string;
+  status?: string;
+  pagesCount: number;
+  chunksCount: number;
+  formsCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -22,7 +40,7 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    let bots: any[] = [];
+    let bots: AdminBotSummary[] = [];
     if (isUsingMemoryDb()) {
       bots = MemoryDb.findChatbots();
       bots = bots.map((b) => ({
@@ -91,10 +109,10 @@ export async function GET(req: NextRequest) {
       success: true,
       bots,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in admin bots GET:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch admin bot list' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch admin bot list' },
       { status: 500 }
     );
   }
@@ -112,16 +130,18 @@ export async function PATCH(req: NextRequest) {
     }
 
     await connectToDatabase();
-    const body = await req.json();
-    const { botId, status, ownerEmail } = body;
+    const body = (await req.json()) as Record<string, unknown>;
+    const botIdValue = body.botId;
+    const botId = botIdValue == null ? '' : String(botIdValue);
+    const { status, ownerEmail } = body;
 
     if (!botId) {
       return NextResponse.json({ error: 'botId is required' }, { status: 400 });
     }
 
-    const updateFields: any = {};
+    const updateFields: Record<string, unknown> = {};
     if (status !== undefined) {
-      if (!['active', 'disabled'].includes(status)) {
+      if (status !== 'active' && status !== 'disabled') {
         return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
       }
       updateFields.status = status;
@@ -149,10 +169,10 @@ export async function PATCH(req: NextRequest) {
       }
       return NextResponse.json({ success: true, bot: updated });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in admin bots PATCH:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to update chatbot status' },
+      { error: error instanceof Error ? error.message : 'Failed to update chatbot status' },
       { status: 500 }
     );
   }
@@ -220,10 +240,10 @@ export async function DELETE(req: NextRequest) {
       success: true,
       message: 'Chatbot and all associated data permanently deleted.',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in admin bots DELETE:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to delete chatbot' },
+      { error: error instanceof Error ? error.message : 'Failed to delete chatbot' },
       { status: 500 }
     );
   }

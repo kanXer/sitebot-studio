@@ -70,47 +70,47 @@ export default function ContactPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Navbar />
 
-      <main className="flex-1">
+      <main className="flex-1 min-w-0">
         {/* Header Hero */}
         <section className="pt-16 pb-12 lg:pt-20 lg:pb-16 bg-gradient-to-b from-white to-slate-50 border-b border-slate-200/80">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shadow-sm">
+          <div className="max-w-7xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8 text-center space-y-4">
+            <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shadow-sm text-center leading-relaxed">
               <span>We&apos;re Here to Help</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-950 tracking-tight">
+            <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-950 tracking-tight break-words">
               Get in Touch with{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
                 SiteBot Studio
               </span>
             </h1>
 
-            <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed break-words">
               Have questions about integrating SiteBot on your platform, setting up custom Qdrant vector databases, or enterprise licensing? Our engineers are ready to assist you.
             </p>
           </div>
         </section>
 
         {/* Form + Channel Cards Grid */}
-        <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <section className="py-16 max-w-7xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8">
+          <div className="grid min-w-0 grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             {/* Left: Contact Form (7 cols) */}
-            <div className="lg:col-span-7">
+            <div className="min-w-0 lg:col-span-7">
               <ContactForm />
             </div>
 
             {/* Right: Direct Channels & Guarantee (5 cols) */}
-            <div className="lg:col-span-5 space-y-6">
+            <div className="min-w-0 lg:col-span-5 space-y-6">
               {/* Direct Support Channels */}
-              <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-sm space-y-5">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+              <div className="min-w-0 bg-white rounded-3xl p-7 border border-slate-200/80 shadow-sm space-y-5">
+                <h3 className="min-w-0 text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2 break-words">
                   <Globe className="w-4 h-4 text-indigo-600" />
                   Direct Channels
                 </h3>
@@ -118,17 +118,17 @@ export default function ContactPage() {
                 <div className="space-y-4">
                   <a
                     href="mailto:support@sitebotstudio.com"
-                    className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 transition-colors group"
+                    className="flex min-w-0 items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 transition-colors group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                       <Mail className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-[11px] font-bold text-slate-500 block uppercase">Technical Support</span>
-                      <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      <span className="min-w-0 text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors break-all">
                         support@sitebotstudio.com
                       </span>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Assistance with embedding, crawling, and RAG configuration</p>
+                      <p className="min-w-0 text-[11px] text-slate-500 mt-0.5 break-words">Assistance with embedding, crawling, and RAG configuration</p>
                     </div>
                   </a>
 
@@ -136,17 +136,17 @@ export default function ContactPage() {
                     href="https://wa.me/919696262007"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 hover:border-emerald-200 transition-colors group"
+                    className="flex min-w-0 items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 hover:border-emerald-200 transition-colors group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                       <MessageCircle className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-[11px] font-bold text-slate-500 block uppercase">WhatsApp Direct</span>
-                      <span className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      <span className="min-w-0 text-xs font-bold text-slate-900 group-hover:text-emerald-700 transition-colors break-words">
                         +91 96962 62007
                       </span>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Quick answers for sales and urgent integration inquiries</p>
+                      <p className="min-w-0 text-[11px] text-slate-500 mt-0.5 break-words">Quick answers for sales and urgent integration inquiries</p>
                     </div>
                   </a>
 
@@ -154,22 +154,22 @@ export default function ContactPage() {
                     <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
                       <Clock className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-[11px] font-bold text-slate-500 block uppercase">Response Guarantee</span>
-                      <span className="text-xs font-bold text-slate-900">Under 2 Hours</span>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Standard support hours: Mon &ndash; Sat, 9:00 AM &ndash; 8:00 PM IST</p>
+                      <span className="min-w-0 text-xs font-bold text-slate-900 break-words">Under 2 Hours</span>
+                      <p className="min-w-0 text-[11px] text-slate-500 mt-0.5 break-words">Standard support hours: Mon &ndash; Sat, 9:00 AM &ndash; 8:00 PM IST</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Live Sandbox Quick Test */}
-              <div className="p-6 rounded-3xl bg-gradient-to-tr from-slate-900 to-indigo-950 text-white shadow-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold flex items-center gap-2">
+              <div className="min-w-0 p-6 rounded-3xl bg-gradient-to-tr from-slate-900 to-indigo-950 text-white shadow-xl space-y-3">
+                <div className="flex min-w-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <h4 className="min-w-0 text-sm font-bold flex items-center gap-2 break-words">
                     Try Before You Contact
                   </h4>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-white/10 border border-white/15">
+                  <span className="self-start sm:self-auto shrink-0 text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-white/10 border border-white/15">
                     Live Demo
                   </span>
                 </div>
@@ -190,28 +190,28 @@ export default function ContactPage() {
 
         {/* FAQs */}
         <section className="py-16 bg-white border-t border-slate-200">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-xl mx-auto mb-12 space-y-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center justify-center gap-1.5">
+              <h2 className="min-w-0 text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center justify-center gap-1.5 break-words">
                 <HelpCircle className="w-4 h-4" />
                 Frequently Asked Questions
               </h2>
-              <p className="text-2xl font-extrabold text-slate-900">
+              <p className="min-w-0 text-2xl font-extrabold text-slate-900 break-words">
                 Common Questions &amp; Integration Details
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-6">
               {FAQS.map((faq, idx) => (
                 <div
                   key={idx}
-                  className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2"
+                  className="min-w-0 p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2"
                 >
-                  <h3 className="text-xs font-bold text-slate-900 flex items-start gap-2">
+                  <h3 className="min-w-0 text-xs font-bold text-slate-900 flex items-start gap-2 break-words">
                     <span className="text-indigo-600 font-extrabold">Q.</span>
-                    <span>{faq.q}</span>
+                    <span className="min-w-0 break-words">{faq.q}</span>
                   </h3>
-                  <p className="text-xs text-slate-600 leading-relaxed pl-4">
+                  <p className="min-w-0 text-xs text-slate-600 leading-relaxed pl-4 break-words">
                     {faq.a}
                   </p>
                 </div>

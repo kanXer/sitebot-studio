@@ -2,16 +2,16 @@ import mongoose from 'mongoose';
 
 interface MongooseCache {
   conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
+  promise: Promise<typeof mongoose | null> | null;
   isMemoryMode: boolean;
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var mongooseCache: MongooseCache | undefined;
 }
 
-let cached: MongooseCache = global.mongooseCache || {
+const cached: MongooseCache = global.mongooseCache || {
   conn: null,
   promise: null,
   isMemoryMode: false,
@@ -77,7 +77,7 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
           err.message
         );
         cached.isMemoryMode = true;
-        return null as any;
+        return null;
       });
   }
 

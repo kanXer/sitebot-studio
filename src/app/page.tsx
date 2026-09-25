@@ -175,29 +175,29 @@ export default function LandingHomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-white text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Navbar />
 
-      <main className="flex-1">
+      <main className="flex-1 min-w-0">
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-16 pb-24 lg:pt-24 lg:pb-32 bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white">
+        <section className="relative overflow-hidden pt-12 pb-16 sm:pt-16 sm:pb-24 lg:pt-24 lg:pb-32 bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white">
           {/* Subtle Ambient Glows */}
           <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute top-1/2 -right-40 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="max-w-3xl mx-auto text-center space-y-6">
+            <div className="max-w-3xl mx-auto min-w-0 text-center space-y-6">
               {/* Eyebrow badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-300 shadow-inner">
+              <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-300 shadow-inner text-center leading-relaxed">
                 <span>Next-Gen RAG AI Chatbot Platform</span>
               </div>
 
               {/* Primary SEO H1 */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] break-words">
                 Build, Train &amp; Embed Intelligent AI Chatbots on{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-rose-400">
                   Any Website in 60 Seconds
@@ -205,7 +205,7 @@ export default function LandingHomePage() {
               </h1>
 
               {/* Subheadline with high-value keywords */}
-              <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed break-words">
                 Autonomous knowledge base crawling, isolated Shadow DOM encapsulation, and state-of-the-art vector memory. Powered by Qdrant, NVIDIA NIM, and OpenAI.
               </p>
 
@@ -229,7 +229,7 @@ export default function LandingHomePage() {
               </div>
 
               {/* Quick Trust Badges */}
-              <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
+              <div className="pt-6 flex min-w-0 flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   No credit card required
@@ -246,12 +246,12 @@ export default function LandingHomePage() {
             </div>
 
             {/* Hero Visual Preview Card */}
-            <div className="mt-16 max-w-5xl mx-auto rounded-3xl p-3 bg-white/5 backdrop-blur-xl border border-white/15 shadow-2xl relative">
-              <div className="rounded-2xl overflow-hidden shadow-inner border border-slate-800">
+            <div className="mt-16 max-w-5xl mx-auto min-w-0 rounded-3xl p-3 bg-white/5 backdrop-blur-xl border border-white/15 shadow-2xl relative">
+              <div className="rounded-2xl min-w-0 max-w-full overflow-hidden shadow-inner border border-slate-800">
                 <img
                   src="/og-image.jpg"
                   alt="SiteBot Studio Platform Dashboard &amp; Floating Chat Widget"
-                  className="w-full h-auto object-cover"
+                  className="w-full max-w-full h-auto object-cover"
                 />
               </div>
             </div>
@@ -261,13 +261,13 @@ export default function LandingHomePage() {
         {/* Metrics Bar */}
         <section className="border-y border-slate-200 bg-slate-50 py-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
               {KEY_METRICS.map((metric, idx) => (
-                <div key={idx} className="space-y-1">
+                <div key={idx} className="min-w-0 space-y-1">
                   <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
                     {metric.value}
                   </div>
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider break-words">
                     {metric.label}
                   </div>
                 </div>
@@ -286,7 +286,7 @@ export default function LandingHomePage() {
               {PLATFORMS.map((plat, idx) => (
                 <span
                   key={idx}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/80 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                  className="min-w-0 max-w-full px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/80 hover:bg-indigo-50 hover:text-indigo-600 transition-colors break-words"
                 >
                   {plat}
                 </span>
@@ -313,12 +313,12 @@ export default function LandingHomePage() {
             {STEPS.map((s, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm hover:shadow-md transition-all relative group"
+                className="min-w-0 bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm hover:shadow-md transition-all relative group"
               >
                 <div className="text-5xl font-black text-slate-100 group-hover:text-indigo-100 transition-colors mb-4">
                   {s.step}
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">{s.title}</h3>
+                <h3 className="text-lg font-bold text-slate-900 mb-2 break-words">{s.title}</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">{s.desc}</p>
               </div>
             ))}
@@ -354,18 +354,18 @@ export default function LandingHomePage() {
               {FEATURES.map((f, idx) => (
                 <div
                   key={idx}
-                  className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow space-y-3.5 relative group"
+                  className="min-w-0 bg-white rounded-3xl p-7 border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow space-y-3.5 relative group"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex min-w-0 items-center justify-between gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-center justify-center group-hover:scale-105 transition-transform">
                       {f.icon}
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono">
+                    <span className="min-w-0 text-right text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono break-words">
                       {f.badge}
                     </span>
                   </div>
-                  <h3 className="text-base font-bold text-slate-900">{f.title}</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">{f.desc}</p>
+                  <h3 className="text-base font-bold text-slate-900 break-words">{f.title}</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed break-words">{f.desc}</p>
                 </div>
               ))}
             </div>
@@ -375,8 +375,8 @@ export default function LandingHomePage() {
         {/* Live Embed Code Snippet Demonstration */}
         <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-slate-950 rounded-3xl p-8 sm:p-12 text-white border border-slate-800 shadow-2xl relative overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-              <div className="lg:col-span-6 space-y-5">
+            <div className="grid min-w-0 grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+              <div className="min-w-0 lg:col-span-6 space-y-5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Single Line Integration</span>
@@ -416,8 +416,8 @@ export default function LandingHomePage() {
                 </div>
               </div>
 
-              <div className="lg:col-span-6">
-                <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5 font-mono text-xs shadow-inner space-y-3">
+              <div className="min-w-0 lg:col-span-6">
+                <div className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-5 font-mono text-xs shadow-inner space-y-3">
                   <div className="flex items-center justify-between text-slate-500 pb-2 border-b border-slate-800">
                     <span className="flex items-center gap-1.5">
                       <Terminal className="w-3.5 h-3.5 text-indigo-400" />
@@ -425,7 +425,7 @@ export default function LandingHomePage() {
                     </span>
                     <span className="text-[10px] text-emerald-400 font-semibold">Ready to Embed</span>
                   </div>
-                  <pre className="text-slate-300 overflow-x-auto leading-relaxed text-[11px]">
+                  <pre className="w-full max-w-full text-slate-300 overflow-x-auto leading-relaxed text-[11px]">
                     <code>{`<!-- Place before closing </body> tag -->
 <!-- Replace YOUR_BOT_ID with your bot's ID from: /bot/<your-bot-id> -->
 <script 
@@ -443,12 +443,12 @@ export default function LandingHomePage() {
         {/* Final CTA Banner */}
         <section className="py-16 sm:py-20 bg-gradient-to-tr from-indigo-900 via-indigo-950 to-slate-950 text-white text-center relative overflow-hidden">
           <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center relative z-10">
-            <div className="text-left space-y-6">
-              <h2 className="text-3xl sm:text-5xl font-black tracking-tight">
+            <div className="min-w-0 text-left space-y-6">
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight break-words">
                 Ready to Upgrade Your Website with Autonomous AI?
               </h2>
 
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed break-words">
                 Launch your first customized AI chatbot in under 60 seconds. Train on your pages and
                 convert visitors 24/7 — every lead lands in your dashboard instantly.
               </p>
@@ -475,7 +475,7 @@ export default function LandingHomePage() {
             </div>
 
             {/* Lead capture CTA form */}
-            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-white/10 dark:border-slate-800 shadow-2xl p-6 sm:p-7 text-left">
+            <div className="min-w-0 max-w-full rounded-3xl bg-white dark:bg-slate-900 border border-white/10 dark:border-slate-800 shadow-2xl p-6 sm:p-7 text-left">
               <CTALeadForm
                 campaign="homepage-cta"
                 source="homepage_cta_form"

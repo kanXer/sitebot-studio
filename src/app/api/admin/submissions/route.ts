@@ -4,6 +4,21 @@ import { FormSubmission, BotForm, Chatbot } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
 import { isAdminEmail } from '@/lib/auth/adminAuth';
 
+interface AdminSubmissionSummary {
+  id: string;
+  formId: string;
+  botId: string;
+  botName: string;
+  siteUrl: string;
+  formType: string;
+  targetUrl: string;
+  sessionId: string;
+  data: Record<string, unknown>;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -20,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    let submissions: any[] = [];
+    let submissions: AdminSubmissionSummary[] = [];
     if (isUsingMemoryDb()) {
       const subs = MemoryDb.findFormSubmissions();
       submissions = subs.map((s) => {
@@ -89,10 +104,10 @@ export async function GET(req: NextRequest) {
       success: true,
       submissions,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching admin form submissions:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch form submissions' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch form submissions' },
       { status: 500 }
     );
   }

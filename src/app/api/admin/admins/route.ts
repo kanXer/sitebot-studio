@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
       admins,
       callerIsSuperAdmin,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in admins GET:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch admin list' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch admin list' },
       { status: 500 }
     );
   }
@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { email, name } = body;
+    const body = (await req.json()) as Record<string, unknown>;
+    const email = body.email == null ? '' : String(body.email);
+    const name = typeof body.name === 'string' ? body.name : undefined;
 
     if (!email || !String(email).includes('@')) {
       return NextResponse.json(
@@ -70,10 +71,10 @@ export async function POST(req: NextRequest) {
       message: `Admin access granted to ${email}`,
       admin: result.admin,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in admins POST:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to add admin' },
+      { error: error instanceof Error ? error.message : 'Failed to add admin' },
       { status: 500 }
     );
   }
@@ -113,10 +114,10 @@ export async function DELETE(req: NextRequest) {
       success: true,
       message: `Admin access revoked for ${targetEmail}`,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in admins DELETE:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to remove admin' },
+      { error: error instanceof Error ? error.message : 'Failed to remove admin' },
       { status: 500 }
     );
   }

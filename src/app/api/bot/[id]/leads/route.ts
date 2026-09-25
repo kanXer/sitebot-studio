@@ -8,6 +8,27 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+interface BotRecord {
+  _id: string | mongoose.Types.ObjectId;
+  name: string;
+}
+
+interface PopulatedForm {
+  _id: string | mongoose.Types.ObjectId;
+  title?: string;
+  formType?: string;
+  targetUrl?: string;
+}
+
+interface SubmissionRecord {
+  _id: string | mongoose.Types.ObjectId;
+  formId: string | PopulatedForm;
+  sessionId: string;
+  data: Record<string, unknown>;
+  status: string;
+  createdAt: Date;
+}
+
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     await connectToDatabase();
@@ -16,7 +37,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const format = searchParams.get('format');
 
     // Verify bot
-    let bot: any;
+    let bot: BotRecord | null;
     if (isUsingMemoryDb()) {
       bot = MemoryDb.findChatbotById(id);
     } else {
@@ -32,7 +53,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
     }
 
-    const botIdStr = (bot._id || bot.id).toString();
+    const botIdStr = bot._id.toString();
 
     let formIds: string[] = [];
     if (isUsingMemoryDb()) {
@@ -40,10 +61,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       formIds = forms.map((f) => f._id);
     } else {
       const forms = await BotForm.find({ botId: new mongoose.Types.ObjectId(bot._id) }).select('_id').lean();
-      formIds = forms.map((f: any) => f._id.toString());
+      formIds = forms.map((f) => f._id.toString());
     }
 
-    let submissions: any[] = [];
+    let submissions: SubmissionRecord[] = [];
     if (formIds.length > 0) {
       if (isUsingMemoryDb()) {
         submissions = Array.from(MemoryDb.findFormSubmissions()).filter((s) => formIds.includes(s.formId));
@@ -61,13 +82,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       const headers = ['Submission ID', 'Date', 'Name', 'Email', 'Phone', 'Message', 'Status'];
       const rows = submissions.map((s) => {
         const d = s.data || {};
+        const name = typeof d.name === 'string' ? d.name : '';
+        const email = typeof d.email === 'string' ? d.email : '';
+        const phone = typeof d.phone === 'string' ? d.phone : '';
+        const message = typeof d.message === 'string' ? d.message : '';
         return [
           `"${s._id}"`,
           `"${new Date(s.createdAt).toISOString()}"`,
-          `"${(d.name || '').replace(/"/g, '""')}"`,
-          `"${(d.email || '').replace(/"/g, '""')}"`,
-          `"${(d.phone || '').replace(/"/g, '""')}"`,
-          `"${(d.message || '').replace(/"/g, '""')}"`,
+          `"${name.replace(/"/g, '""')}"`,
+          `"${email.replace(/"/g, '""')}"`,
+          `"${phone.replace(/"/g, '""')}"`,
+          `"${message.replace(/"/g, '""')}"`,
           `"${s.status}"`,
         ].join(',');
       });
@@ -85,15 +110,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       success: true,
       botName: bot.name,
       totalLeads: submissions.length,
-      submissions: submissions.map((s) => ({
-        id: s._id.toString(),
-        formId: typeof s.formId === 'object' ? s.formId?._id?.toString() : s.formId,
-        formTitle: typeof s.formId === 'object' ? s.formId?.title : 'Lead Form',
-        sessionId: s.sessionId,
-        data: s.data || {},
-        status: s.status,
-        createdAt: s.createdAt,
-      })),
+      submissions: submissions.map((s) => {
+        const populatedForm = typeof s.formId === 'object' && s.formId !== null ? s.formId : null;
+        return {
+          id: s._id.toString(),
+          formId: populatedForm ? populatedForm._id.toString() : s.formId,
+          formTitle: populatedForm ? populatedForm.title : 'Lead Form',
+          sessionId: s.sessionId,
+          data: s.data || {},
+          status: s.status,
+          createdAt: s.createdAt,
+        };
+      }),
     });
   } catch (error: any) {
     console.error('Fetch bot leads error:', error);
@@ -104,7 +132,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, _context: RouteParams) {
   try {
     await connectToDatabase();
     const { id } = await params;

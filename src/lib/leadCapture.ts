@@ -121,7 +121,7 @@ export async function autoCaptureLead(params: {
     let createdNewSubmission = false;
 
     if (isUsingMemoryDb()) {
-      let forms = MemoryDb.findBotForms(botId);
+      const forms = MemoryDb.findBotForms(botId);
       let targetForm = forms.find((f) => f.formType === 'LEAD_GENERATION');
       if (!targetForm) {
         targetForm = MemoryDb.createBotForm({
@@ -192,7 +192,7 @@ export async function autoCaptureLead(params: {
       formId = targetForm._id.toString();
 
       // Check if session already has a submission to merge contact data
-      let existingSub = await FormSubmission.findOne({ formId, sessionId });
+      const existingSub = await FormSubmission.findOne({ formId, sessionId });
       if (existingSub) {
         const existingData = (existingSub.data as Record<string, any>) || {};
         existingSub.data = {

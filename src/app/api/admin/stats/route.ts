@@ -91,10 +91,10 @@ export async function GET(req: NextRequest) {
       },
       systemHealth,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching admin statistics:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch admin stats' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch admin stats' },
       { status: 500 }
     );
   }

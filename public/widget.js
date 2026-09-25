@@ -86,16 +86,9 @@
       widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       sessionStorage.setItem('sitebot_session_' + botId, widgetSessionId);
     }
-  } catch (e) {
+  } catch {
     widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
-
-  let handoffState = {
-    active: false,
-    status: 'bot',
-    agentName: '',
-  };
-  let handoffPollInterval = null;
 
   const messageHistory = [];
 
@@ -1941,7 +1934,6 @@
   const launcherIconClose = shadow.getElementById('launcherIconClose');
   const haloRing = shadow.getElementById('haloRing');
   const radarRing = shadow.getElementById('radarRing');
-  const hoverTooltip = shadow.getElementById('hoverTooltip');
   const tooltipText = shadow.getElementById('tooltipText');
   const hintBubble = shadow.getElementById('hintBubble');
   const hintText = shadow.getElementById('hintText');
@@ -1993,7 +1985,7 @@
         window.sessionStorage.setItem(key, id);
       }
       return id;
-    } catch (e) {
+    } catch {
       return 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
     }
   }
@@ -2087,7 +2079,7 @@
             }
           }
         }
-      } catch (err) {
+      } catch {
         // non-fatal
       }
     }, 3500);
@@ -2112,7 +2104,7 @@
     if (savedTheme === 'light' || savedTheme === 'dark') {
       widgetTheme = savedTheme;
     }
-  } catch (e) { }
+  } catch { }
 
   container.dataset.theme = widgetTheme;
 
@@ -2131,7 +2123,7 @@
       updateThemeIcons();
       try {
         localStorage.setItem('sitebot-theme-' + botId, widgetTheme);
-      } catch (e) { }
+      } catch { }
     });
   }
 
@@ -2393,7 +2385,7 @@
             action: 'resolve',
           }),
         });
-      } catch (e) {}
+      } catch {}
       currentHandoffStatus = 'resolved';
       showHandoffBanner('resolved');
       appendLiveMessage('system', 'Switched back to AI Assistant.', '');
@@ -2455,7 +2447,7 @@
         } else {
           alert('Could not submit contact details. Please try again.');
         }
-      } catch (err) {
+      } catch {
         alert('Network error while submitting details.');
       } finally {
         submitLeadBtn.disabled = false;
@@ -2725,7 +2717,6 @@
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let isFirstChunk = true;
 
       // Prepare assistant bubble
       clearInterval(loadingInterval);
@@ -2844,7 +2835,7 @@
               currentHandoffStatus = hData.status;
               showHandoffBanner(hData.status, hData.assignedAgent);
               startHandoffPolling();
-            } catch (e) {
+            } catch {
               /* noop */
             }
           } else if (eventType === 'error') {

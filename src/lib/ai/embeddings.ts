@@ -1,5 +1,32 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseEmbedding(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const values: unknown[] = value;
+  return values.filter((entry): entry is number => typeof entry === 'number');
+}
+
+function getEmbedding(value: unknown): number[] | undefined {
+  if (!isRecord(value) || !Array.isArray(value.data) || !isRecord(value.data[0])) return undefined;
+  const embedding = parseEmbedding(value.data[0].embedding);
+  return embedding.length > 0 ? embedding : undefined;
+}
+
+function getEmbeddings(value: unknown): number[][] {
+  if (!isRecord(value) || !Array.isArray(value.data)) return [];
+  const embeddings: number[][] = [];
+  for (const item of value.data) {
+    if (!isRecord(item)) continue;
+    const embedding = parseEmbedding(item.embedding);
+    if (embedding.length > 0) embeddings.push(embedding);
+  }
+  return embeddings;
+}
+
 /**
  * Generates 768-dimensional embeddings using Google Gemini gemini-embedding-001.
  */
@@ -53,9 +80,9 @@ async function getOpenAICompatibleEmbedding(
   ]) {
     const res = await fetch(endpointUrl, options(body));
     if (!res.ok) continue;
-    const data = await res.json();
-    const values: number[] | undefined = data?.data?.[0]?.embedding;
-    if (Array.isArray(values) && values.length === 768) return values;
+    const data: unknown = await res.json();
+    const values = getEmbedding(data);
+    if (values && values.length === 768) return values;
   }
 
   const last = await fetch(endpointUrl, options({ input: text, model: modelName }));
@@ -164,9 +191,9 @@ export async function getNvidiaEmbedding(
     throw new Error(`NVIDIA NIM embedding failed (${res.status}): ${errText}`);
   }
 
-  const data = await res.json();
-  const embedding = data.data?.[0]?.embedding;
-  if (!embedding || embedding.length === 0) {
+  const data: unknown = await res.json();
+  const embedding = getEmbedding(data);
+  if (!embedding) {
     throw new Error('Empty embedding vector returned from NVIDIA NIM.');
   }
   return embedding;
@@ -225,8 +252,8 @@ export async function getBatchEmbeddings(
         throw new Error(`NVIDIA NIM batch embedding failed: ${await res.text()}`);
       }
 
-      const data = await res.json();
-      allEmbeddings.push(...data.data.map((d: any) => d.embedding));
+      const data: unknown = await res.json();
+      allEmbeddings.push(...getEmbeddings(data));
 
       if (i + batchSize < texts.length) {
         await new Promise((r) => setTimeout(r, delayMs));
@@ -255,8 +282,8 @@ export async function getBatchEmbeddings(
         throw new Error(`OpenAI batch embedding failed: ${await res.text()}`);
       }
 
-      const data = await res.json();
-      allEmbeddings.push(...data.data.map((d: any) => d.embedding));
+      const data: unknown = await res.json();
+      allEmbeddings.push(...getEmbeddings(data));
 
       if (i + batchSize < texts.length) {
         await new Promise((r) => setTimeout(r, delayMs));

@@ -4,6 +4,22 @@ import { BotForm, Chatbot } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
 import { isAdminEmail } from '@/lib/auth/adminAuth';
 
+interface AdminFormSummary {
+  id: string;
+  botId: string;
+  botName: string;
+  siteUrl: string;
+  formType: string;
+  title: string;
+  targetUrl: string;
+  fieldsSchema: unknown[];
+  submitEndpoint: string;
+  submitMethod: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -20,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    let forms: any[] = [];
+    let forms: AdminFormSummary[] = [];
     if (isUsingMemoryDb()) {
       const allForms = MemoryDb.findBotForms(botId || undefined);
       forms = allForms.map((f) => {
@@ -42,7 +58,7 @@ export async function GET(req: NextRequest) {
         };
       });
     } else {
-      const query: any = {};
+      const query: Record<string, string> = {};
       if (botId) query.botId = botId;
 
       const allForms = await BotForm.find(query).sort({ createdAt: -1 }).lean();
@@ -76,10 +92,10 @@ export async function GET(req: NextRequest) {
       success: true,
       forms,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching admin forms:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch forms' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch forms' },
       { status: 500 }
     );
   }

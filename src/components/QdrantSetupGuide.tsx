@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Database, Copy, Check, Info, Server, Cpu, ShieldCheck } from 'lucide-react';
+import { Database, Copy, Check, Info, Server, Cpu } from 'lucide-react';
 
 const DOCKER_CMD = 'docker run -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_storage:/qdrant/storage:z qdrant/qdrant';
 

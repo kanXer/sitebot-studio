@@ -9,6 +9,38 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+interface BotRecord {
+  _id: string | mongoose.Types.ObjectId;
+  name: string;
+  customVectorDb?: {
+    enabled?: boolean;
+    url?: string;
+    apiKey?: string;
+    collectionName?: string;
+  };
+}
+
+interface ConversationRecord {
+  _id: string | mongoose.Types.ObjectId;
+  sessionId: string;
+  status: string;
+  handoffReason?: string;
+  visitor?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    ip?: string;
+  };
+  assignedAgent?: {
+    id?: string;
+    name?: string;
+    email?: string;
+  } | null;
+  messages?: unknown[];
+  lastMessageAt: Date;
+  createdAt: Date;
+}
+
 /**
  * Dashboard agent endpoint to list conversations for this bot
  */
@@ -20,7 +52,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const status = searchParams.get('status') || 'all';
 
     // Verify bot
-    let bot: any;
+    let bot: BotRecord | null;
     if (isUsingMemoryDb()) {
       bot = MemoryDb.findChatbotById(id);
     } else {
@@ -36,13 +68,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
     }
 
-    const botIdStr = (bot._id || bot.id).toString();
+    const botIdStr = bot._id.toString();
 
-    let conversations: any[] = [];
+    let conversations: ConversationRecord[] = [];
     if (isUsingMemoryDb()) {
       conversations = MemoryDb.findConversationsByBot(botIdStr, status);
     } else {
-      const query: any = { botId: new mongoose.Types.ObjectId(bot._id) };
+      const query: { botId: mongoose.Types.ObjectId; status?: string } = {
+        botId: new mongoose.Types.ObjectId(bot._id),
+      };
       if (status && status !== 'all') {
         query.status = status;
       }
@@ -67,10 +101,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         createdAt: c.createdAt,
       })),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Fetch bot conversations error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch conversations' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch conversations' },
       { status: 500 }
     );
   }
@@ -83,15 +117,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     await connectToDatabase();
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { action, sessionId, agentName = 'Support Agent', agentEmail = '', message = '' } = body;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const action = typeof body.action === 'string' ? body.action : '';
+    const sessionId = typeof body.sessionId === 'string' ? body.sessionId : '';
+    const agentName = typeof body.agentName === 'string' ? body.agentName : 'Support Agent';
+    const agentEmail = typeof body.agentEmail === 'string' ? body.agentEmail : '';
+    const message = typeof body.message === 'string' ? body.message : '';
 
     if (!sessionId) {
       return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
     }
 
     // Verify bot
-    let bot: any;
+    let bot: BotRecord | null;
     if (isUsingMemoryDb()) {
       bot = MemoryDb.findChatbotById(id);
     } else {
@@ -107,7 +145,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
     }
 
-    const botIdStr = (bot._id || bot.id).toString();
+    const botIdStr = bot._id.toString();
     const botObjectId = !isUsingMemoryDb() ? new mongoose.Types.ObjectId(bot._id) : null;
 
     if (action === 'accept') {
@@ -204,10 +242,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       { error: `Unknown action: "${action}". Supported actions: accept, reply, resolve.` },
       { status: 400 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Agent action failure:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to process agent action' },
+      { error: error instanceof Error ? error.message : 'Failed to process agent action' },
       { status: 500 }
     );
   }

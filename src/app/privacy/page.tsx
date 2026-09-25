@@ -88,7 +88,7 @@ export default function PrivacyPage() {
             When your website is scanned, extracted textual segments are transformed into high-dimensional vector representations
             (768d or 1536d embeddings) and indexed in our isolated Qdrant vector database collections.
           </p>
-          <div className="mt-3 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 text-xs">
+          <div className="min-w-0 mt-3 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 text-xs">
             <p className="font-bold text-indigo-900 dark:text-indigo-200">Zero AI Model Training Guarantee</p>
             <p className="text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
               We do <strong>NOT</strong> use your private customer chat logs, website knowledge chunks, or captured leads to train
@@ -162,7 +162,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Account Removal:</strong> You may request the full closure of your user account and removal of all associated
-              records by contacting support@sitebotstudio.com.
+              records by contacting <span className="break-all">support@sitebotstudio.com</span>.
             </li>
           </ul>
         </>
@@ -196,10 +196,10 @@ export default function PrivacyPage() {
             If you have questions regarding this Privacy Policy or wish to exercise your legal data rights, please contact our
             Data Protection Officer:
           </p>
-          <div className="mt-4 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs">
+          <div className="min-w-0 mt-4 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs">
             <p className="font-bold text-slate-900 dark:text-white">SiteBot Studio Privacy Office</p>
-            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: privacy@sitebotstudio.com</p>
-            <p className="text-slate-600 dark:text-slate-300">Support: support@sitebotstudio.com</p>
+            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: <span className="break-all">privacy@sitebotstudio.com</span></p>
+            <p className="text-slate-600 dark:text-slate-300">Support: <span className="break-all">support@sitebotstudio.com</span></p>
           </div>
         </>
       ),
@@ -207,50 +207,50 @@ export default function PrivacyPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       <Navbar />
 
-      <main className="flex-1 pb-28 sm:pb-20">
+      <main className="flex-1 min-w-0 pb-28 sm:pb-20">
         {/* Hero Section */}
-        <section className="relative pt-12 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 text-xs font-bold mb-4">
+        <section className="relative min-w-0 pt-12 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
+          <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 text-xs font-bold mb-4 text-center leading-relaxed">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Data Protection &amp; Privacy Standards</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white font-heading">
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white font-heading break-words">
             Privacy Policy
           </h1>
 
-          <p className="mt-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
+          <p className="mt-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex min-w-0 flex-wrap items-center justify-center gap-1.5 text-center">
             <Clock className="w-4 h-4 text-slate-400" />
-            <span>Last updated: {lastUpdated}</span>
+            <span className="min-w-0 break-words">Last updated: {lastUpdated}</span>
           </p>
 
-          <p className="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
+          <p className="mt-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto break-words">
             Your privacy matters to us. We never sell your personal data, never train public models on your private
             content, and protect all customer records with enterprise-grade encryption.
           </p>
         </section>
 
         {/* Policy Sections */}
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <section className="max-w-4xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8 space-y-6">
           {sections.map((sec) => (
             <div
               key={sec.id}
               id={sec.id}
-              className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-sm transition-all"
+              className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-sm transition-all"
             >
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex min-w-0 items-center gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-100 dark:border-emerald-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                   <sec.icon className="w-4 h-4" />
                 </div>
-                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white font-heading">
+                <h2 className="min-w-0 text-base sm:text-lg font-extrabold text-slate-900 dark:text-white font-heading break-words">
                   {sec.title}
                 </h2>
               </div>
 
-              <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="min-w-0 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed break-words">
                 {sec.content}
               </div>
             </div>
@@ -258,17 +258,17 @@ export default function PrivacyPage() {
         </section>
 
         {/* Privacy Inquiries Card */}
-        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 text-center">
-          <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 text-left border border-emerald-900/30">
-            <div>
-              <h3 className="text-base sm:text-lg font-extrabold">Need custom DPA or GDPR compliance documentation?</h3>
-              <p className="text-xs text-emerald-200 mt-1 max-w-md">
+        <section className="max-w-4xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8 mt-12 text-center">
+          <div className="min-w-0 rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 text-left border border-emerald-900/30">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-extrabold break-words">Need custom DPA or GDPR compliance documentation?</h3>
+              <p className="min-w-0 text-xs text-emerald-200 mt-1 max-w-md break-words">
                 We provide signed Data Processing Addendums (DPA) and SOC2 security verification upon request for enterprise plans.
               </p>
             </div>
             <Link
               href="/contact"
-              className="px-5 py-2.5 rounded-xl bg-white text-slate-900 font-extrabold text-xs shadow-md hover:bg-slate-100 transition-all hover:scale-105 active:scale-95 shrink-0 inline-flex items-center gap-1.5"
+              className="w-full sm:w-auto max-w-full px-5 py-2.5 rounded-xl bg-white text-slate-900 font-extrabold text-xs shadow-md hover:bg-slate-100 transition-all hover:scale-105 active:scale-95 shrink-0 inline-flex items-center justify-center gap-1.5 text-center"
             >
               <span>Request DPA</span>
               <ArrowRight className="w-3.5 h-3.5" />

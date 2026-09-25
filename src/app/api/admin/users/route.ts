@@ -4,6 +4,36 @@ import { UserProfile, UsageRecord } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
 import { isAdminEmail } from '@/lib/auth/adminAuth';
 
+interface AdminUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  chats?: number;
+  leads?: number;
+}
+
+interface AdminUserProfile {
+  email: string;
+  name?: string;
+  companyName?: string;
+  phone?: string;
+  plan?: string;
+  planExpiresAt?: Date;
+  botLimit?: number;
+  tokenQuota?: number;
+  chatQuota?: number;
+  usage: AdminUsage;
+  botCount?: number;
+  createdAt: Date;
+}
+
+interface MonthlyUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  chats: number;
+  leads: number;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -18,7 +48,7 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    let profiles: any[] = [];
+    let profiles: AdminUserProfile[] = [];
     if (isUsingMemoryDb()) {
       profiles = MemoryDb.findAllUserProfiles().map((p) => ({
         email: p.email,
@@ -51,7 +81,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Attach aggregated monthly usage
-    const aggregated = new Map<string, any>();
+    const aggregated = new Map<string, MonthlyUsage>();
     if (isUsingMemoryDb()) {
       for (const rec of MemoryDb.findUsageRecords()) {
         const cur = aggregated.get(rec.email) || {
@@ -91,7 +121,7 @@ export async function GET(req: NextRequest) {
     }
 
     const users = profiles.map((u) => {
-      const usg: any = aggregated.get(u.email) || {
+      const usg: MonthlyUsage = aggregated.get(u.email) || {
         inputTokens: 0,
         outputTokens: 0,
         totalTokens: 0,
@@ -169,10 +199,10 @@ export async function GET(req: NextRequest) {
       total: users.length,
       users,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching admin users:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch users' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch users' },
       { status: 500 }
     );
   }

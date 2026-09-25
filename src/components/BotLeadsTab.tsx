@@ -81,29 +81,29 @@ export function BotLeadsTab({ botId, botName }: BotLeadsTabProps) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 max-w-full space-y-6">
       {/* Top Header Card */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Inbox className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-base font-bold text-slate-900">
+      <div className="w-full min-w-0 max-w-full bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Inbox className="w-5 h-5 shrink-0 text-indigo-600" />
+            <h3 className="min-w-0 break-words text-base font-bold text-slate-900">
               Captured Leads &amp; Form Inquiries
             </h3>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
               {submissions.length} Leads
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-1 break-words">
             Customer inquiries, dynamic form submissions, and contact details gathered by {botName}.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2.5 sm:w-auto sm:flex-nowrap sm:justify-end">
           <button
             onClick={fetchLeads}
             disabled={loading}
-            className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+            className="max-w-full shrink-0 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
             title="Refresh Leads"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -112,47 +112,47 @@ export function BotLeadsTab({ botId, botName }: BotLeadsTabProps) {
           <a
             href={`/api/bot/${botId}/leads?format=csv`}
             download
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all"
+            className="inline-flex min-w-0 max-w-full items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4 shrink-0" />
             <span>Export to CSV</span>
           </a>
         </div>
       </div>
 
       {/* Search Input */}
-      <div className="relative">
+      <div className="relative w-full min-w-0 max-w-full">
         <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Filter leads by contact name, email, phone, or requirements..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm"
+          className="w-full min-w-0 max-w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 shadow-sm"
         />
       </div>
 
       {/* Leads Table / Cards */}
       {loading ? (
-        <div className="bg-white rounded-3xl p-12 border border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-3">
+        <div className="flex w-full min-w-0 max-w-full flex-col items-center justify-center gap-3 rounded-3xl bg-white p-6 border border-slate-200 text-slate-400 sm:p-12">
           <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
           <span className="text-xs">Loading captured leads...</span>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+        <div className="w-full min-w-0 max-w-full space-y-3 rounded-3xl bg-white p-6 text-center border border-slate-200 sm:p-12">
+          <div className="flex w-12 h-12 mx-auto items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
             <Inbox className="w-6 h-6" />
           </div>
-          <h4 className="text-sm font-bold text-slate-900">No leads captured yet</h4>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          <h4 className="break-words text-sm font-bold text-slate-900">No leads captured yet</h4>
+          <p className="mx-auto max-w-sm break-words text-xs text-slate-500">
             When visitors share contact information or submit quote requests in the chat widget,
             they will automatically be cataloged here.
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-600">
+        <div className="w-full min-w-0 max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="max-w-full overflow-x-auto overscroll-x-contain">
+            <table className="w-full min-w-[760px] text-left text-xs text-slate-600">
               <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-5 py-3.5">Contact Details</th>
@@ -167,24 +167,29 @@ export function BotLeadsTab({ botId, botName }: BotLeadsTabProps) {
                   const d = item.data || {};
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="space-y-1">
-                          <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>{d.name || 'Anonymous Visitor'}</span>
+                      <td className="min-w-[190px] px-5 py-4 align-top">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex min-w-0 items-center gap-1.5 font-bold text-slate-900">
+                            <User className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
+                            <span className="min-w-0 break-words">
+                              {d.name || 'Anonymous Visitor'}
+                            </span>
                           </div>
                           {d.email && (
-                            <div className="text-slate-600 flex items-center gap-1.5 font-mono text-[11px]">
-                              <Mail className="w-3 h-3 text-slate-400" />
-                              <a href={`mailto:${d.email}`} className="hover:underline">
+                            <div className="flex min-w-0 items-center gap-1.5 text-slate-600 font-mono text-[11px]">
+                              <Mail className="w-3 h-3 shrink-0 text-slate-400" />
+                              <a
+                                href={`mailto:${d.email}`}
+                                className="min-w-0 break-all hover:underline"
+                              >
                                 {d.email}
                               </a>
                             </div>
                           )}
                           {d.phone && (
-                            <div className="text-slate-600 flex items-center gap-1.5 font-mono text-[11px]">
-                              <Phone className="w-3 h-3 text-slate-400" />
-                              <a href={`tel:${d.phone}`} className="hover:underline">
+                            <div className="flex min-w-0 items-center gap-1.5 text-slate-600 font-mono text-[11px]">
+                              <Phone className="w-3 h-3 shrink-0 text-slate-400" />
+                              <a href={`tel:${d.phone}`} className="min-w-0 break-all hover:underline">
                                 {d.phone}
                               </a>
                             </div>
@@ -192,21 +197,21 @@ export function BotLeadsTab({ botId, botName }: BotLeadsTabProps) {
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 max-w-xs sm:max-w-md">
-                        <p className="text-xs text-slate-800 line-clamp-3 leading-relaxed">
+                      <td className="min-w-[240px] max-w-xs px-5 py-4 align-top sm:max-w-md">
+                        <p className="whitespace-pre-wrap break-words text-xs text-slate-800 line-clamp-3 leading-relaxed">
                           {d.message || 'No additional note provided.'}
                         </p>
                       </td>
 
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      <td className="min-w-[160px] px-5 py-4 align-top">
+                        <span className="inline-block max-w-[180px] break-words rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">
                           {item.formTitle || d.source || 'Lead Capture'}
                         </span>
                       </td>
 
-                      <td className="px-5 py-4 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                      <td className="whitespace-nowrap px-5 py-4 align-top font-mono text-[11px] text-slate-500">
                         <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <Calendar className="w-3 h-3 shrink-0 text-slate-400" />
                           <span>
                             {item.createdAt
                               ? new Date(item.createdAt).toLocaleDateString(undefined, {
@@ -220,11 +225,11 @@ export function BotLeadsTab({ botId, botName }: BotLeadsTabProps) {
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-4 text-right align-top">
                         <button
                           onClick={() => handleDelete(item.id)}
                           disabled={deletingId === item.id}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                           title="Delete Lead"
                         >
                           {deletingId === item.id ? (

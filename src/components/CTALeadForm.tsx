@@ -52,9 +52,9 @@ export function CTALeadForm({
       if (!res.ok) throw new Error(data.error || 'Submission failed');
       setStatus('done');
       setForm({ name: '', email: '', phone: '', message: '' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus('error');
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     }
   };
 

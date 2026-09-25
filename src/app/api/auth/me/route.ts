@@ -31,10 +31,10 @@ export async function GET(req: NextRequest) {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error verifying user role:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to verify auth role' },
+      { error: error instanceof Error ? error.message : 'Failed to verify auth role' },
       { status: 500 }
     );
   }

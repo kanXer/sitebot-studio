@@ -145,8 +145,9 @@ if (geminiHistory.length === 0 || geminiHistory[0].role !== 'user') {
       }
     }
     callbacks.onDone?.();
-  } catch (err: any) {
-    callbacks.onError?.(err);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    callbacks.onError?.(error);
   }
 }
 

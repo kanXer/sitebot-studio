@@ -5,6 +5,21 @@ import { CtaSubmission, Chatbot } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
 import { isAdminEmail } from '@/lib/auth/adminAuth';
 
+interface AdminCtaSummary {
+  id: string;
+  botId?: string;
+  botName: string;
+  campaign: string;
+  page: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  message?: string;
+  ownerEmail?: string;
+  source: string;
+  createdAt: Date;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -19,7 +34,7 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    let ctas: any[] = [];
+    let ctas: AdminCtaSummary[] = [];
     if (isUsingMemoryDb()) {
       ctas = MemoryDb.findAllCtaSubmissions().map((c) => {
         const bot = c.botId ? MemoryDb.findChatbotById(c.botId) : null;
@@ -96,10 +111,10 @@ export async function GET(req: NextRequest) {
       total: ctas.length,
       ctas,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching admin CTA submissions:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch CTA submissions' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch CTA submissions' },
       { status: 500 }
     );
   }
