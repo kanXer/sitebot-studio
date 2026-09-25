@@ -12,7 +12,7 @@ export interface QuickLinkPreset {
 }
 
 export const LAUNCHER_PRESETS: LauncherPreset[] = [
-  { id: 'standard', label: 'Halo Bubble', desc: 'Round with rotating halo & ping badge', emoji: '✨' },
+  { id: 'standard', label: 'Halo Bubble', desc: 'Round with rotating halo & ping badge', emoji: '🔘' },
   { id: 'minimal', label: 'Minimal', desc: 'Clean round button, no effects', emoji: '⚪' },
   { id: 'pill', label: 'Pill Chat', desc: 'Elongated with "Chat with us" text' },
   { id: 'chat', label: 'Chat Ring', desc: 'White button with brand ring & glow' },
@@ -23,7 +23,7 @@ export const LAUNCHER_PRESETS: LauncherPreset[] = [
   { id: 'emoji', label: 'Emoji Wave', desc: 'Big friendly 👋 emoji pop' },
   { id: 'square', label: 'Rounded Square', desc: 'Modern squircle, no circle' },
   { id: 'beacon', label: 'Beacon', desc: 'Minimal dot with radar pings' },
-  { id: 'text-button', label: 'Action Text', desc: '"Chat" text pill with sparkle' },
+  { id: 'text-button', label: 'Action Text', desc: '"Chat" text pill' },
 ];
 
 export const QUICK_LINK_PRESETS: QuickLinkPreset[] = [

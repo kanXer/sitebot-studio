@@ -2,45 +2,26 @@ import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { AdminUser } from '@/lib/models/AdminUser';
 import { MemoryDb } from '@/lib/memoryDb';
 
+export function getSuperAdminEmail(): string | null {
+  const raw = process.env.SUPER_ADMIN_EMAIL || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || '';
+  const clean = raw.replace(/["']/g, '').trim().toLowerCase();
+  if (clean && clean.includes('@')) {
+    const first = clean.split(/[,;\s]+/)[0]?.trim();
+    return first || null;
+  }
+  return null;
+}
+
 export function getSuperAdminEmails(): string[] {
-  const sources = [
-    process.env.SUPER_ADMIN_EMAILS,
-    process.env.SUPER_ADMIN_EMAIL,
-    process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
-    process.env.ADMIN_EMAIL,
-    process.env.ADMIN_EMAILS,
-    process.env.OWNER_EMAIL,
-  ];
-
-  const emails = new Set<string>();
-
-  for (const src of sources) {
-    if (!src || typeof src !== 'string') continue;
-    const split = src
-      .replace(/["']/g, '')
-      .split(/[,;\s]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    for (const e of split) {
-      if (e.includes('@')) {
-        emails.add(e);
-      }
-    }
-  }
-
-  if (emails.size === 0) {
-    emails.add('admin@sitebotstudio.com');
-    emails.add('superadmin@sitebotstudio.com');
-  }
-
-  return Array.from(emails);
+  const email = getSuperAdminEmail();
+  return email ? [email] : [];
 }
 
 export function isSuperAdminEmail(email?: string | null): boolean {
   if (!email) return false;
   const clean = email.trim().toLowerCase();
-  const superAdmins = getSuperAdminEmails();
-  return superAdmins.includes(clean);
+  const superAdmin = getSuperAdminEmail();
+  return Boolean(superAdmin && clean === superAdmin);
 }
 
 export async function isAdminEmail(email?: string | null): Promise<boolean> {

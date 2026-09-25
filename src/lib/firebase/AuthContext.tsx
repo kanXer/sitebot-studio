@@ -16,7 +16,6 @@ export interface AppUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  isDemo?: boolean;
 }
 
 interface AuthContextType {
@@ -28,14 +27,11 @@ interface AuthContextType {
   error: string | null;
   isFirebaseReady: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInAsDemoUser: (email?: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshRole: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const DEMO_USER_KEY = 'sitebot_demo_auth_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -50,13 +46,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanEmail = email.trim().toLowerCase();
 
     // Client-side instant check for configured super admin env variable
-    const envSuper = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || '')
+    const envSuper = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL || '')
       .replace(/["']/g, '')
-      .split(/[,;\s]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
+      .trim()
+      .toLowerCase()
+      .split(/[,;\s]+/)[0];
 
-    const fallbackRole: UserRole = envSuper.includes(cleanEmail) ? 'super_admin' : 'user';
+    const fallbackRole: UserRole = Boolean(envSuper && cleanEmail === envSuper) ? 'super_admin' : 'user';
 
     try {
       const res = await fetch(`/api/auth/me?email=${encodeURIComponent(cleanEmail)}`, {
@@ -80,21 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // 1. Check local storage for demo user
-    try {
-      const savedDemo = localStorage.getItem(DEMO_USER_KEY);
-      if (savedDemo) {
-        const parsed = JSON.parse(savedDemo);
-        setUser(parsed);
-        fetchUserRole(parsed.email).then((r) => {
-          setRole(r);
-          setLoading(false);
-        });
-        return;
-      }
-    } catch {}
-
-    // 2. Listen to real Firebase Auth
+    // Listen to real Firebase Auth
     if (auth) {
       const unsubscribe = onAuthStateChanged(
         auth,
@@ -105,18 +87,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: fbUser.email,
               displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
               photoURL: fbUser.photoURL,
-              isDemo: false,
             };
             setUser(mappedUser);
             const serverRole = await fetchUserRole(fbUser.email);
             setRole(serverRole);
           } else {
-            // Check if demo user was active
-            const savedDemo = localStorage.getItem(DEMO_USER_KEY);
-            if (!savedDemo) {
-              setUser(null);
-              setRole(null);
-            }
+            setUser(null);
+            setRole(null);
           }
           setLoading(false);
         },
@@ -136,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     if (!auth || !googleProvider) {
       throw new Error(
-        'Firebase is not yet configured with valid credentials in .env. You can use the Quick Demo Login below or add your Firebase keys.'
+        'Firebase is not yet configured with valid credentials in .env. Please add your Firebase keys to continue.'
       );
     }
 
@@ -148,13 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: fbUser.email,
         displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
         photoURL: fbUser.photoURL,
-        isDemo: false,
       };
-      // Clear demo storage if real login succeeded
-      try {
-        localStorage.removeItem(DEMO_USER_KEY);
-      } catch {}
-
       setUser(mappedUser);
       const serverRole = await fetchUserRole(fbUser.email);
       setRole(serverRole);
@@ -167,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         msg = 'Sign-in window was closed before completing.';
       } else if (code === 'auth/invalid-api-key' || code === 'auth/api-key-not-valid') {
         msg =
-          'Firebase API key in .env is dummy or invalid. Please update NEXT_PUBLIC_FIREBASE_* in .env with your real Firebase Project keys, or use Demo Login!';
+          'Firebase API key in .env is dummy or invalid. Please update NEXT_PUBLIC_FIREBASE_* in .env with your real Firebase Project keys.';
       } else if (code === 'auth/unauthorized-domain') {
         msg =
           'This domain is not authorized in your Firebase Console. Add localhost to Firebase Auth > Settings > Authorized domains.';
@@ -178,32 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInAsDemoUser = async (email?: string, name?: string) => {
-    setError(null);
-    const demoEmail = email || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || 'admin@sitebotstudio.com';
-    const demoName = name || (demoEmail.includes('admin') ? 'Super Admin (Demo)' : 'Demo Creator');
-    const demoUser: AppUser = {
-      uid: `demo-${Date.now()}`,
-      email: demoEmail,
-      displayName: demoName,
-      photoURL: `https://api.dicebear.com/7.x/bottts/svg?seed=${demoEmail}`,
-      isDemo: true,
-    };
-
-    try {
-      localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
-    } catch {}
-
-    setUser(demoUser);
-    const serverRole = await fetchUserRole(demoUser.email);
-    setRole(serverRole);
-  };
-
   const signOut = async () => {
-    try {
-      localStorage.removeItem(DEMO_USER_KEY);
-    } catch {}
-
     if (auth) {
       try {
         await firebaseSignOut(auth);
@@ -228,7 +174,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error,
         isFirebaseReady,
         signInWithGoogle,
-        signInAsDemoUser,
         signOut,
         refreshRole,
       }}

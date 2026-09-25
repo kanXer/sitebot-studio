@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   Bot,
-  Sparkles,
   Zap,
   ShieldCheck,
   Cpu,
@@ -194,7 +193,6 @@ export default function LandingHomePage() {
             <div className="max-w-3xl mx-auto text-center space-y-6">
               {/* Eyebrow badge */}
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-300 shadow-inner">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Next-Gen RAG AI Chatbot Platform</span>
               </div>
 

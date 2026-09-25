@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   HelpCircle,
-  Sparkles,
   Code2,
   Copy,
   Check,
@@ -466,7 +465,6 @@ export default function RootLayout({ children }) {
               href="/create"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-indigo-900 font-extrabold text-xs shadow-lg hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95 cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-indigo-600" />
               <span>Get Started &mdash; It&apos;s Free</span>
             </Link>
           </div>

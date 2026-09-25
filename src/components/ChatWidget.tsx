@@ -7,7 +7,7 @@ import {
   Bot,
   Send,
   X,
-  Sparkles,
+  Calendar,
   MessageCircle,
   Mail,
   Phone,
@@ -606,7 +606,7 @@ export function ChatWidget({
   const handleLeadSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!leadForm.email && !leadForm.phone) return;
+      if (!leadForm.name || !leadForm.email || !leadForm.phone) return;
       setLeadSubmitting(true);
       try {
         const sId = getSessionId();
@@ -1227,7 +1227,7 @@ export function ChatWidget({
           onClick={() => send("Book a Demo")}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-[12px] font-bold text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border-default)] active:scale-95 transition-all shadow-sm"
         >
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Book a Demo
+          <Calendar className="w-3.5 h-3.5 text-amber-500" /> Book a Demo
         </button>
       </div>
     </div>
@@ -1256,7 +1256,6 @@ export function ChatWidget({
             >
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
                 {HINT_MESSAGES[hintIndex]}
               </span>
               <span className="absolute -bottom-1.5 right-5 w-3 h-3 bg-slate-900 border-r border-b border-rose-500/20 rotate-45" />
@@ -1371,10 +1370,6 @@ export function ChatWidget({
                   ) : launcherId === "heart" ? (
                     <div className="relative flex items-center justify-center">
                       <span className="text-3xl leading-none">💗</span>
-                      <Sparkles
-                        className="absolute -top-1 -right-1 w-3.5 h-3.5 text-amber-300 animate-spin"
-                        style={{ animationDuration: "6s" }}
-                      />
                     </div>
                   ) : launcherId === "beacon" ? (
                     <span className="relative flex h-4 w-4">
@@ -1382,12 +1377,9 @@ export function ChatWidget({
                       <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white" />
                     </span>
                   ) : launcherId === "text-button" ? (
-                    <>
-                      <Sparkles className="w-4 h-4" style={{ color: primaryColor }} />
-                      <span className="text-sm font-extrabold" style={{ color: primaryColor }}>
-                        Chat
-                      </span>
-                    </>
+                    <span className="text-sm font-extrabold px-1" style={{ color: primaryColor }}>
+                      Chat
+                    </span>
                   ) : launcherId === "pill" ? (
                     <>
                       <Bot className="w-5 h-5 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]" />
@@ -1405,12 +1397,6 @@ export function ChatWidget({
                             : "#ffffff",
                         }}
                       />
-                      {!["minimal", "chat", "beacon"].includes(launcherId) && (
-                        <Sparkles
-                          className="absolute -top-1 -right-1 w-3.5 h-3.5 text-amber-300 animate-spin"
-                          style={{ animationDuration: "6s" }}
-                        />
-                      )}
                     </div>
                   )}
 
@@ -1513,7 +1499,6 @@ export function ChatWidget({
                       </span>
                     </div>
                     <p className="text-[10px] sm:text-[11px] chat-subtitle flex items-center gap-1 mt-0.5 truncate max-w-[210px]">
-                      <Sparkles className="w-2.5 h-2.5 text-rose-400 shrink-0" />
                       <span className="truncate">{firstName ? `Here to help you, ${firstName}` : activeRoleTitle}</span>
                     </p>
                   </div>
@@ -1680,7 +1665,6 @@ export function ChatWidget({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold flex items-center gap-1.5 text-indigo-300">
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                         Leave Contact Details
                       </span>
                       <button
@@ -1693,7 +1677,8 @@ export function ChatWidget({
                     <form onSubmit={handleLeadSubmit} className="flex flex-col gap-2">
                       <input
                         type="text"
-                        placeholder="Your Name (Optional)"
+                        required
+                        placeholder="Your Full Name *"
                         value={leadForm.name}
                         onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
                         className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-black/40 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
@@ -1708,7 +1693,8 @@ export function ChatWidget({
                       />
                       <input
                         type="tel"
-                        placeholder="Phone (Optional)"
+                        required
+                        placeholder="Phone Number *"
                         value={leadForm.phone}
                         onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
                         className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-black/40 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
@@ -1722,7 +1708,7 @@ export function ChatWidget({
                       />
                       <button
                         type="submit"
-                        disabled={leadSubmitting || (!leadForm.email && !leadForm.phone)}
+                        disabled={leadSubmitting || !leadForm.name || !leadForm.email || !leadForm.phone}
                         className="w-full py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors"
                       >
                         {leadSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}

@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   Bot,
-  Sparkles,
   ShieldCheck,
   Zap,
   Layers,
@@ -114,7 +113,6 @@ export default function AboutPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="max-w-3xl mx-auto text-center space-y-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-xs font-bold shadow-sm">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Next-Generation Architecture</span>
               </div>
 
@@ -233,7 +231,6 @@ export default function AboutPage() {
         <section className="py-20 bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 text-white relative overflow-hidden">
           <div className="max-w-4xl mx-auto px-4 text-center space-y-6 relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-indigo-300 text-xs font-semibold border border-white/15">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
               <span>Ready in Under 60 Seconds</span>
             </div>
 

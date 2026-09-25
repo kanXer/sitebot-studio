@@ -326,17 +326,6 @@
         50% { transform: scale(1.06); }
       }
 
-      .sitebot-sparkle-icon {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        width: 14px;
-        height: 14px;
-        fill: #FDE047;
-        stroke: #FDE047;
-        animation: sitebotSpin 6s linear infinite;
-      }
-
       .sitebot-online-badge {
         position: absolute;
         top: 6px;
@@ -1316,9 +1305,6 @@
       .sitebot-style-minimal .sitebot-launcher {
         box-shadow: 0 6px 20px ${brandColor}55;
       }
-      .sitebot-style-minimal .sitebot-sparkle-icon {
-        display: none;
-      }
       .sitebot-style-minimal .sitebot-bot-icon {
         animation: none;
       }
@@ -1342,9 +1328,6 @@
       }
       .sitebot-style-pill .sitebot-launcher-text {
         display: block;
-      }
-      .sitebot-style-pill .sitebot-sparkle-icon {
-        display: none;
       }
       .sitebot-style-pill .sitebot-online-badge {
         display: none;
@@ -1370,10 +1353,6 @@
       .sitebot-style-chat .sitebot-bot-icon {
         stroke: ${brandColor};
         filter: none;
-      }
-      .sitebot-style-chat .sitebot-sparkle-icon {
-        fill: ${brandColor};
-        stroke: ${brandColor};
       }
       .sitebot-style-chat .sitebot-online-core {
         background-color: ${brandColor};
@@ -1780,9 +1759,6 @@
               <path d="M10 16h4"></path>
             </svg>
             <span class="sitebot-launcher-text" id="launcherText">Chat with us</span>
-            <svg class="sitebot-sparkle-icon" viewBox="0 0 24 24">
-              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"></path>
-            </svg>
             <span class="sitebot-online-badge">
               <span class="sitebot-online-ping"></span>
               <span class="sitebot-online-core"></span>

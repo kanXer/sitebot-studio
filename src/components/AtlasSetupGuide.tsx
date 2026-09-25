@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Database, Copy, Check, Info, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Database, Copy, Check, Info, CheckCircle2 } from 'lucide-react';
 
 const INDEX_JSON = `{
   "fields": [

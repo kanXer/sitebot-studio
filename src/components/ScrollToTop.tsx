@@ -3,10 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronUp } from 'lucide-react';
+import { useAuth } from '@/lib/firebase/AuthContext';
 
 export function ScrollToTop() {
   const [progress, setProgress] = useState(0);
   const pathname = usePathname();
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,7 +43,7 @@ export function ScrollToTop() {
   const dashOffset = circumference * (1 - progress / 100);
 
   return (
-    <div className="fixed right-4 sm:right-7 z-40 pointer-events-auto animate-in fade-in slide-in-from-bottom-2 bottom-[96px] md:bottom-6">
+    <div className={`fixed right-4 sm:right-7 z-40 pointer-events-auto animate-in fade-in slide-in-from-bottom-2 ${user ? 'bottom-[96px]' : 'bottom-6'} md:bottom-6`}>
       <button
         onClick={scrollToTop}
         aria-label={`Scroll to top of page (${progress}%)`}

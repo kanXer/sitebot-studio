@@ -11,7 +11,6 @@ import {
   X,
   Trash2,
   Menu,
-  Sparkles,
   Loader2,
   Globe,
   ArrowRight,
@@ -387,11 +386,6 @@ export function Navbar() {
                             ? 'Admin'
                             : 'Creator'}
                         </span>
-                        {user.isDemo && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                            Demo
-                          </span>
-                        )}
                       </div>
                     </div>
 
@@ -691,7 +685,7 @@ export function Navbar() {
                   }`}
                 >
                   <span className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <Bot className="w-4 h-4 text-amber-500" />
                     <span>About SiteBot</span>
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
@@ -837,74 +831,77 @@ export function Navbar() {
 
       {/* ========================================================
           UNIQUE MOBILE BOTTOM NAVIGATION DOCK (App-Like Bar)
+          Only displayed when user is logged in
           ======================================================== */}
-      <div className="md:hidden fixed bottom-4 inset-x-3 z-40 mx-auto max-w-sm">
-        <div className="rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.25)] px-3 py-2 flex items-center justify-around text-slate-500 dark:text-slate-400">
-          {/* 1. Home */}
-          <Link
-            href="/"
-            className={`flex flex-col items-center gap-0.5 p-1 transition-colors ${
-              pathname === '/'
-                ? 'text-indigo-600 dark:text-indigo-400 font-bold'
-                : 'hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] leading-none">Home</span>
-          </Link>
+      {user && (
+        <div className="md:hidden fixed bottom-4 inset-x-3 z-40 mx-auto max-w-sm">
+          <div className="rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.25)] px-3 py-2 flex items-center justify-around text-slate-500 dark:text-slate-400">
+            {/* 1. Home */}
+            <Link
+              href="/"
+              className={`flex flex-col items-center gap-0.5 p-1 transition-colors ${
+                pathname === '/'
+                  ? 'text-indigo-600 dark:text-indigo-400 font-bold'
+                  : 'hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-[10px] leading-none">Home</span>
+            </Link>
 
-          {/* 2. Dashboard */}
-          <Link
-            href="/dashboard"
-            className={`flex flex-col items-center gap-0.5 p-1 transition-colors ${
-              pathname === '/dashboard'
-                ? 'text-indigo-600 dark:text-indigo-400 font-bold'
-                : 'hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[10px] leading-none">Dashboard</span>
-          </Link>
+            {/* 2. Dashboard */}
+            <Link
+              href="/dashboard"
+              className={`flex flex-col items-center gap-0.5 p-1 transition-colors ${
+                pathname === '/dashboard'
+                  ? 'text-indigo-600 dark:text-indigo-400 font-bold'
+                  : 'hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <LayoutDashboard className="w-5 h-5" />
+              <span className="text-[10px] leading-none">Dashboard</span>
+            </Link>
 
-          {/* 3. Center Elevated Action: Create Bot */}
-          <Link
-            href="/create"
-            className="-mt-6 w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-rose-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 ring-4 ring-white dark:ring-slate-950 active:scale-95 transition-all hover:scale-105"
-            aria-label="Create Bot"
-            title="Create New Chatbot"
-          >
-            <Plus className="w-6 h-6 stroke-[3]" />
-          </Link>
+            {/* 3. Center Elevated Action: Create Bot */}
+            <Link
+              href="/create"
+              className="-mt-6 w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-rose-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 ring-4 ring-white dark:ring-slate-950 active:scale-95 transition-all hover:scale-105"
+              aria-label="Create Bot"
+              title="Create New Chatbot"
+            >
+              <Plus className="w-6 h-6 stroke-[3]" />
+            </Link>
 
-          {/* 4. My Bots */}
-          <button
-            type="button"
-            onClick={() => {
-              fetchBots();
-              setShowModal(true);
-            }}
-            className="flex flex-col items-center gap-0.5 p-1 hover:text-slate-900 dark:hover:text-white transition-colors relative cursor-pointer"
-          >
-            <FolderHeart className="w-5 h-5" />
-            <span className="text-[10px] leading-none">Bots</span>
-            {savedBots.length > 0 && (
-              <span className="absolute -top-1 right-1 px-1 rounded-full bg-indigo-600 text-white text-[8px] font-black leading-tight">
-                {savedBots.length}
-              </span>
-            )}
-          </button>
+            {/* 4. My Bots */}
+            <button
+              type="button"
+              onClick={() => {
+                fetchBots();
+                setShowModal(true);
+              }}
+              className="flex flex-col items-center gap-0.5 p-1 hover:text-slate-900 dark:hover:text-white transition-colors relative cursor-pointer"
+            >
+              <FolderHeart className="w-5 h-5" />
+              <span className="text-[10px] leading-none">Bots</span>
+              {savedBots.length > 0 && (
+                <span className="absolute -top-1 right-1 px-1 rounded-full bg-indigo-600 text-white text-[8px] font-black leading-tight">
+                  {savedBots.length}
+                </span>
+              )}
+            </button>
 
-          {/* 5. Menu Trigger */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-0.5 p-1 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-          >
-            <Menu className="w-5 h-5" />
-            <span className="text-[10px] leading-none">Menu</span>
-          </button>
+            {/* 5. Menu Trigger */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex flex-col items-center gap-0.5 p-1 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+              <span className="text-[10px] leading-none">Menu</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ========================================================
           AUTH MODAL

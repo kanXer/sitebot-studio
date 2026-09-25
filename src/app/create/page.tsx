@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bot,
-  Sparkles,
   Globe,
   Palette,
   Key,
@@ -55,7 +54,7 @@ const COLOR_PRESETS = [
 
 export default function CreateBotPage() {
   const router = useRouter();
-  const { user, loading: authLoading, signInWithGoogle, signInAsDemoUser } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
   // Wizard Step: 1 = Initial (URL + Name), 2 = Crawling, 3 = Autofilled Form
@@ -545,23 +544,6 @@ PRIMARY INSTRUCTIONS:
                 <span>Continue with Google</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => signInAsDemoUser('creator@example.com', 'Creator')}
-                  className="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200/80 transition-colors cursor-pointer"
-                >
-                  Demo Creator
-                </button>
-                <button
-                  type="button"
-                  onClick={() => signInAsDemoUser('admin@sitebotstudio.com', 'Super Admin')}
-                  className="py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200/80 transition-colors cursor-pointer"
-                >
-                  Demo Super Admin
-                </button>
-              </div>
             </div>
           </div>
         ) : (
@@ -655,7 +637,6 @@ PRIMARY INSTRUCTIONS:
               <div className="space-y-3">
                 <div className="text-center sm:text-left">
                   <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 justify-center sm:justify-start">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Choose Your Chatbot Plan Tier</span>
                   </label>
                   <p className="text-[11px] text-slate-500 mt-0.5">
@@ -946,7 +927,6 @@ PRIMARY INSTRUCTIONS:
               <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 rounded-3xl p-7 sm:p-8 text-white border border-indigo-500/20 shadow-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
-                    <Sparkles className="w-3.5 h-3.5" />
                     <span>AI Meta-Analysis Derived Identity &amp; Guardrails</span>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
@@ -1268,7 +1248,7 @@ PRIMARY INSTRUCTIONS:
             {/* 3. AI Behavior & Persona Card (Autofilled!) */}
             <div className="bg-white rounded-3xl p-7 sm:p-9 border border-slate-200/80 shadow-sm space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
+                <Bot className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
                   AI Persona &amp; Greeting (Crafted from Knowledge)
                 </h3>

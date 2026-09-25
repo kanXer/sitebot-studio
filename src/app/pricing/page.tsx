@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Check, Sparkles, Rocket } from 'lucide-react';
+import { Check, Bot, Rocket } from 'lucide-react';
 import { PLANS, formatMoney } from '@/lib/plans';
 import { CTALeadForm } from '@/components/CTALeadForm';
 import { Navbar } from '@/components/Navbar';
@@ -49,7 +49,7 @@ export default function PricingPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-indigo-50 dark:from-indigo-950/30 to-transparent pointer-events-none" />
         <div className="relative max-w-3xl mx-auto">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold mb-5">
-            <Sparkles className="w-3.5 h-3.5" /> Simple, transparent pricing
+            Simple, transparent pricing
           </span>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight">
             AI chatbots that{' '}
@@ -88,7 +88,7 @@ export default function PricingPage() {
                   {isPro ? (
                     <Rocket className="w-5 h-5 text-white" />
                   ) : (
-                    <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   )}
                   <h2 className={`text-lg font-extrabold font-heading ${isPro ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
                     {plan.label}
@@ -160,7 +160,7 @@ export default function PricingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
               <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-600" /> Free plan help
+                <Bot className="w-4 h-4 text-indigo-600" /> Free plan help
               </p>
               <p className="text-[11px] text-slate-400 mb-4">Getting started with your first bot</p>
               <ContactCTAForm plan="Free" />

@@ -5,7 +5,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Lock,
-  Sparkles,
   AlertTriangle,
   Sliders,
   Check,
@@ -90,7 +89,7 @@ export function BotGuardrailsTab({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                      <Sparkles className="w-4 h-4" />
+                      <ShieldCheck className="w-4 h-4" />
                     </div>
                     <h4 className="text-xs font-bold text-slate-900">Strict RAG Grounding</h4>
                   </div>

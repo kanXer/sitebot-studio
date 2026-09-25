@@ -41,9 +41,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       data = {},
     } = body;
 
-    if (!email && !phone && !message) {
+    if (!name || !email || !phone) {
       return NextResponse.json(
-        { error: 'At least an email, phone number, or message is required to submit a lead.' },
+        { error: 'Name, email address, and phone number are all required to submit a lead.' },
         { status: 400, headers: CORS_HEADERS }
       );
     }

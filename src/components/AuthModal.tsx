@@ -4,9 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/firebase/AuthContext';
 import {
   X,
-  Shield,
   Bot,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -27,7 +25,7 @@ export function AuthModal({
   title = 'Sign In to SiteBot Studio',
   subtitle = 'Sign in with your Google account to create, train, and manage your AI chatbots.',
 }: AuthModalProps) {
-  const { user, signInWithGoogle, signInAsDemoUser, isFirebaseReady } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -41,23 +39,6 @@ export function AuthModal({
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to sign in with Google');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async (asAdmin: boolean) => {
-    setLoading(true);
-    setErrorMsg(null);
-    try {
-      if (asAdmin) {
-        await signInAsDemoUser('admin@sitebotstudio.com', 'Super Administrator');
-      } else {
-        await signInAsDemoUser('creator@example.com', 'Alex Rivera');
-      }
-      onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -148,43 +129,6 @@ export function AuthModal({
           )}
           <span>Continue with Google</span>
         </button>
-
-        {/* Demo Fast-Login Section (for development or before adding real Firebase keys) */}
-        <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              {isFirebaseReady ? 'Quick Testing Access' : 'Demo Mode (Dummy Env)'}
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold">
-              Instant
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleDemoLogin(true)}
-              disabled={loading}
-              className="px-3 py-2 text-xs font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800 transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Super Admin</span>
-            </button>
-
-            <button
-              onClick={() => handleDemoLogin(false)}
-              disabled={loading}
-              className="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Creator User</span>
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 text-center">
-            {isFirebaseReady
-              ? 'Real Firebase Auth is configured and active.'
-              : 'Add real Firebase credentials to .env to enable production Google Auth.'}
-          </p>
-        </div>
       </div>
     </div>
   );

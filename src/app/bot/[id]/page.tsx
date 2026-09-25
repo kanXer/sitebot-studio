@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bot,
-  Sparkles,
   Globe,
   Code2,
   Copy,
@@ -133,7 +132,7 @@ export default function BotDashboardPage() {
   const params = useParams();
   const router = useRouter();
   const botId = params?.id as string;
-  const { user, loading: authLoading, signInWithGoogle, signInAsDemoUser } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
 
   const [bot, setBot] = useState<BotDetail | null>(null);
   const [stats, setStats] = useState({ totalPages: 0, indexedPages: 0, totalChunks: 0 });
@@ -813,12 +812,6 @@ export default function BotDashboardPage() {
               <LogIn className="w-4 h-4" />
               <span>Sign In with Google</span>
             </button>
-            <button
-              onClick={() => signInAsDemoUser().then(() => fetchBot()).catch(console.error)}
-              className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all border border-slate-200 cursor-pointer"
-            >
-              <span>Continue as Demo User</span>
-            </button>
           </div>
           <div className="pt-2">
             <Link
@@ -1252,7 +1245,6 @@ export default function BotDashboardPage() {
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                        <Sparkles className="w-3 h-3 text-rose-500" />
                         AI Growth Strategist &bull; RAG Active
                       </span>
                     </div>
@@ -1787,13 +1779,12 @@ export default function BotDashboardPage() {
                       {
                         id: 'standard',
                         label: 'Standard',
-                        desc: 'Round with halo glow & sparkle',
+                        desc: 'Round with halo glow',
                         preview: (
                           <div className="relative flex items-center justify-center">
                             <div className="absolute inset-0 rounded-full opacity-50" style={{ background: `conic-gradient(${formData.primaryColor}, #F43F5E, #F59E0B, ${formData.primaryColor})`, filter: 'blur(4px)' }} />
                             <div className="relative w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${formData.primaryColor}, #E11D48 50%, #F59E0B)` }}>
                               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 8V4m0 0H8m4 0h4m-7 4h6a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4v-5a4 4 0 0 1 4-4Z"/><circle cx="9" cy="13" r="1" fill="currentColor"/><circle cx="15" cy="13" r="1" fill="currentColor"/></svg>
-                              <span className="absolute top-1 right-1 text-[7px]">✦</span>
                             </div>
                           </div>
                         ),
@@ -1866,7 +1857,6 @@ export default function BotDashboardPage() {
               <div className="pt-2 border-t border-slate-100">
                 <div className="mb-4">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-rose-500" />
                     Contact &amp; Action Links
                   </h4>
                   <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">

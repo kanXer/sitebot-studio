@@ -18,7 +18,7 @@ import {
   CreditCard,
   Loader2,
   ExternalLink,
-  Sparkles,
+  Cpu,
   Phone,
   ChevronRight,
   CheckCircle2,
@@ -116,7 +116,7 @@ const EMPTY_NOTIFS = {
 };
 
 function DashboardContent() {
-  const { user, isAdmin, isSuperAdmin, loading, signInWithGoogle, signInAsDemoUser } = useAuth();
+  const { user, isAdmin, isSuperAdmin, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -342,13 +342,6 @@ function DashboardContent() {
               >
                 <span>Continue with Google</span>
                 <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => signInAsDemoUser('creator@example.com', 'Creator')}
-                className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
-              >
-                Try Demo Creator Login
               </button>
             </div>
           </div>
@@ -686,7 +679,7 @@ function OverviewTab({
       value: `${stats.tokens.toLocaleString()}`,
       sub: `of ${(profile?.tokenQuota || 0).toLocaleString()} (${stats.tokenPct}%)`,
       color: 'from-purple-500 to-violet-600',
-      icon: Sparkles,
+      icon: Cpu,
       pct: stats.tokenPct,
     },
   ];
@@ -968,7 +961,7 @@ function OverviewTab({
             <div className="absolute top-10 right-6 w-20 h-20 rounded-full bg-white/10" />
             <div className="relative space-y-4">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-300" />
+                <Crown className="w-5 h-5 text-amber-300" />
                 <span className="text-[11px] font-black uppercase tracking-widest text-white/90">
                   Current Membership
                 </span>

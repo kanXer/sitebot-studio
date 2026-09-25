@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Bot, Sparkles, Shield, Zap, ExternalLink, Heart, Globe, ArrowUpRight } from 'lucide-react';
+import { Bot, Shield, Zap, ExternalLink, Heart, Globe, ArrowUpRight } from 'lucide-react';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -134,7 +134,7 @@ export function Footer() {
             </h3>
             <div className="space-y-2 text-[11px] text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <Bot className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                 <span>Multi-Model (Gemini 2.5, GPT-4o, Llama 3.3)</span>
               </div>
               <div className="flex items-center gap-2">

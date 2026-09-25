@@ -23,7 +23,7 @@ import {
   Download,
   Lock,
   ArrowRight,
-  Sparkles,
+  MousePointerClick,
   Sliders,
   ChevronRight,
   UserCheck,
@@ -481,7 +481,7 @@ export default function AdminPanelPage() {
             <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 text-left text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
               <p className="font-semibold text-slate-900 dark:text-white">How to get access?</p>
               <p className="text-[11px] leading-relaxed">
-                • Add this email to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">SUPER_ADMIN_EMAILS</code> in your <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">.env</code> file.
+                • Add this email to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">SUPER_ADMIN_EMAIL</code> in your <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">.env</code> file.
               </p>
               <p className="text-[11px] leading-relaxed">
                 • Or ask an existing Super Admin to add you through the Admin Management tab.
@@ -573,7 +573,7 @@ export default function AdminPanelPage() {
             { id: 'overview', label: 'Overview & Health', icon: Activity },
             { id: 'bots', label: `Chatbots (${bots.length})`, icon: Bot },
             { id: 'submissions', label: `Captured Leads (${submissions.length})`, icon: Inbox },
-            { id: 'ctas', label: `CTA Leads (${ctas.length})`, icon: Sparkles },
+            { id: 'ctas', label: `CTA Leads (${ctas.length})`, icon: MousePointerClick },
             { id: 'users', label: `Users & Quotas (${users.length})`, icon: Users },
             { id: 'forms', label: `Detected Forms (${forms.length})`, icon: FileText },
             { id: 'admins', label: `Admins & RBAC (${adminsList.length})`, icon: UserCheck },
@@ -729,7 +729,7 @@ export default function AdminPanelPage() {
 
                 <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
                   <p className="leading-relaxed">
-                    Chatbot creation and studio access are strictly restricted to authenticated users. Only administrators designated in <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">SUPER_ADMIN_EMAILS</code> or added by Super Admins can access this panel.
+                    Chatbot creation and studio access are strictly restricted to authenticated users. Only administrators designated in <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">SUPER_ADMIN_EMAIL</code> or added by Super Admins can access this panel.
                   </p>
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 space-y-2">
                     <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
@@ -967,7 +967,7 @@ export default function AdminPanelPage() {
                 </div>
               ) : ctas.length === 0 ? (
                 <div className="py-16 text-center text-xs text-slate-400">
-                  <Sparkles className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                  <MousePointerClick className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                   No CTA submissions yet. They appear here whenever a visitor submits a lead form.
                 </div>
               ) : (
@@ -1405,7 +1405,7 @@ export default function AdminPanelPage() {
               <div className="space-y-1">
                 <h4 className="font-bold">Admin Panel Access Control Architecture</h4>
                 <p className="text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
-                  • <strong>Super Admins:</strong> Configured via <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono">SUPER_ADMIN_EMAILS</code> in your <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono">.env</code>. Permanent and cannot be revoked through the UI.
+                  • <strong>Super Admins:</strong> Configured via <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono">SUPER_ADMIN_EMAIL</code> in your <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono">.env</code>. Permanent and cannot be revoked through the UI.
                 </p>
                 <p className="text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
                   • <strong>Admins:</strong> Added by Super Admins only. Have full access to telemetry, chatbot monitoring, and captured leads, but cannot add other admins.
