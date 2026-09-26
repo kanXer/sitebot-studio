@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -622,14 +623,13 @@ export default function WhatsAppAdminPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                      Recipient Phone (with country code)
+                      Recipient Phone
                     </label>
-                    <input
-                      type="text"
-                      placeholder="+919876543210"
+                    <PhoneInputWithCountry
+                      theme="dark"
+                      placeholder="9876543210"
                       value={testPhone}
-                      onChange={(e) => setTestPhone(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      onChange={setTestPhone}
                     />
                   </div>
                   <div>

@@ -119,3 +119,67 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+/**
+ * Delete CTA submissions (leads captured from call-to-action buttons).
+ * Supports a single id, a botId scope, or ?all=1 to clear the lot.
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const adminEmail = req.headers.get('x-user-email') || searchParams.get('email');
+    const isAuthorized = await isAdminEmail(adminEmail);
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required.' },
+        { status: 403 }
+      );
+    }
+
+    await connectToDatabase();
+
+    const id = searchParams.get('id');
+    const botId = (searchParams.get('botId') || '').trim();
+    const wantsAll = searchParams.get('all') === '1' || searchParams.get('all') === 'true';
+
+    if (!id && !wantsAll && !botId) {
+      return NextResponse.json({ error: 'Provide id, botId, or all=1' }, { status: 400 });
+    }
+
+    if (isUsingMemoryDb()) {
+      if (id) {
+        const deleted = MemoryDb.deleteCtaSubmissionById(id);
+        if (!deleted) {
+          return NextResponse.json({ error: 'CTA submission not found' }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, deleted: 1, message: 'CTA submission deleted' });
+      }
+      const deleted = MemoryDb.deleteAllCtaSubmissions(botId || undefined);
+      return NextResponse.json({ success: true, deleted, message: `Deleted ${deleted} CTA submission(s).` });
+    }
+
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return NextResponse.json({ error: 'Invalid CTA submission ID' }, { status: 400 });
+      }
+      const res = await CtaSubmission.findByIdAndDelete(id);
+      if (!res) {
+        return NextResponse.json({ error: 'CTA submission not found' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, deleted: 1, message: 'CTA submission deleted' });
+    }
+
+    const query = botId ? { botId } : {};
+    const res = await CtaSubmission.deleteMany(query);
+    return NextResponse.json({
+      success: true,
+      deleted: res.deletedCount || 0,
+      message: `Deleted ${res.deletedCount || 0} CTA submission(s).`,
+    });
+  } catch (error) {
+    console.error('Error deleting CTA submissions:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to delete CTA submissions' },
+      { status: 500 }
+    );
+  }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import {
   Bell,
   Smartphone,
@@ -176,20 +177,18 @@ export function BotNotificationsTab({
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">
                 Target WhatsApp Phone Number
               </label>
-              <input
-                type="tel"
+              <PhoneInputWithCountry
                 value={formData.notificationsWhatsappNumber || ''}
-                onChange={(e) =>
+                onChange={(fullNumber) =>
                   setFormData((prev: any) => ({
                     ...prev,
-                    notificationsWhatsappNumber: e.target.value,
+                    notificationsWhatsappNumber: fullNumber,
                   }))
                 }
-                placeholder="+919876543210 (with country code)"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-sm"
+                placeholder="9876543210"
               />
               <span className="block mt-1 text-[11px] text-slate-400">
-                Include country code (e.g. +919876543210 for India, +1 for US/Canada).
+                Select your country code from the dropdown and enter your local WhatsApp number.
               </span>
             </div>
 
@@ -267,20 +266,18 @@ export function BotNotificationsTab({
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">
                 Support Agent WhatsApp Number
               </label>
-              <input
-                type="tel"
+              <PhoneInputWithCountry
                 value={formData.handoffWhatsappNumber || ''}
-                onChange={(e) =>
+                onChange={(fullNumber) =>
                   setFormData((prev: any) => ({
                     ...prev,
-                    handoffWhatsappNumber: e.target.value,
+                    handoffWhatsappNumber: fullNumber,
                   }))
                 }
-                placeholder="+919876543210 (with country code)"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 shadow-sm"
+                placeholder="9876543210"
               />
               <span className="block mt-1 text-[11px] text-slate-400">
-                Leave empty to fallback to the Lead Alert number or connected platform admin WhatsApp.
+                Select your country code from the dropdown and enter your WhatsApp number. Leave empty to fallback to connected platform admin WhatsApp.
               </span>
             </div>
 

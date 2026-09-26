@@ -1977,6 +1977,49 @@
     return widgetSessionId;
   }
 
+  // ── Chat-closed WhatsApp notification ──────────────────────────────────────
+  // When the visitor closes the chat we ping the business on WhatsApp with a
+  // summary of the session. Guarded so it fires at most once per session and
+  // never for a session where nothing was actually said.
+  let sessionStartedAt = Date.now();
+  let sessionEndReported = false;
+
+  function resetSessionClock() {
+    sessionStartedAt = Date.now();
+    sessionEndReported = false;
+  }
+
+  async function notifySessionEnded() {
+    if (sessionEndReported) return;
+    sessionEndReported = true;
+
+    const transcript = messageHistory
+      .filter((m) => m && typeof m.content === 'string' && m.content.trim())
+      .slice(-8)
+      .map((m) => ({ role: m.role, content: String(m.content).trim().slice(0, 300) }));
+
+    // Nothing was said — don't spam the business.
+    if (transcript.length === 0) return;
+
+    const payload = {
+      sessionId: getSessionId(),
+      durationSec: Math.round((Date.now() - sessionStartedAt) / 1000),
+      transcript,
+    };
+
+    try {
+      await fetch(`${apiHost}/api/chat/${botId}/session-end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      });
+    } catch (err) {
+      // Notification is best-effort; never surface an error to the visitor.
+      console.warn('[SiteBot] Session-end notification failed:', err);
+    }
+  }
+
   // Live Agent & Handoff State
   let handoffPollingInterval = null;
   let currentHandoffStatus = 'bot';
@@ -2292,8 +2335,12 @@
         typewriteWelcome();
       }
 
-      setTimeout(() => messageInput.focus(), 160);
+      // Do NOT focus the input here. On mobile this popped the keyboard open
+      // the instant the widget appeared; the visitor must tap the field first.
     } else {
+      // Tell the business on WhatsApp that this chat just ended.
+      notifySessionEnded();
+
       chatWindow.classList.remove('open');
       launcherIconOpen.style.display = 'flex';
       launcherIconClose.style.display = 'none';
@@ -2592,6 +2639,8 @@
     currentHandoffStatus = 'bot';
     if (handoffBanner) handoffBanner.style.display = 'none';
     messageHistory.length = 0;
+    // Starting a fresh conversation: allow a new "chat ended" ping for it.
+    resetSessionClock();
     hasTypedWelcome = false;
     typewriteWelcome();
 
@@ -2756,29 +2805,65 @@
       const decoder = new TextDecoder();
       let buffer = '';
 
-      // Prepare assistant bubble
-      clearInterval(loadingInterval);
-      loadingCardWrap.remove();
+      // The assistant bubble is created LAZILY.
+      //
+      // It used to be appended as soon as the response headers arrived, which
+      // left an empty bubble on screen for the whole time-to-first-token (often
+      // several seconds) while the shimmer card was already removed. Now the
+      // loading card stays visible and is only swapped for a bubble once real
+      // text has arrived, so an empty bubble is never rendered.
+      let assistantBubble = null;
+      let handoffTriggered = false;
 
-      const assistantBubble = document.createElement('div');
-      assistantBubble.className = 'sitebot-bubble';
-      loadingRow.appendChild(assistantBubble);
+      const hasRenderableText = () => typeDisplay.trim().length > 0;
+
+      function ensureBubble() {
+        if (assistantBubble) return assistantBubble;
+        clearInterval(loadingInterval);
+        if (loadingCardWrap && loadingCardWrap.parentNode) loadingCardWrap.remove();
+        assistantBubble = document.createElement('div');
+        assistantBubble.className = 'sitebot-bubble';
+        loadingRow.appendChild(assistantBubble);
+        return assistantBubble;
+      }
 
       function startTypeWriter() {
         if (typeTimer) return;
+        // Adaptive reveal: the old fixed 2-6 chars every 18ms meant a 300-char
+        // reply spent ~1s being typed out long after the model had already
+        // finished, which read as "the bot is slow". Now the backlog drains in
+        // proportion to how much text is waiting, so a short answer appears
+        // almost instantly and a long one still animates but never lags.
+        const startedAt = Date.now();
         typeTimer = setInterval(() => {
           if (typeQueue.length > 0) {
-            const n = Math.min(2 + Math.floor(Math.random() * 4), typeQueue.length);
+            const elapsed = Date.now() - startedAt;
+            // Aim to have everything on screen within ~700ms.
+            const perTick = Math.max(2, Math.ceil(typeQueue.length / 6));
+            const n = Math.min(perTick, typeQueue.length);
             typeDisplay += typeQueue.slice(0, n);
             typeQueue = typeQueue.slice(n);
-            assistantBubble.innerHTML = escapeHtml(typeDisplay);
-            updateScrollDownBtn();
+            // Only materialise the bubble once there is something to show.
+            if (hasRenderableText()) {
+              ensureBubble().innerHTML = escapeHtml(typeDisplay);
+              updateScrollDownBtn();
+            }
+            // If we are falling behind, drop the animation and show the rest.
+            if (elapsed > 900) {
+              typeDisplay += typeQueue;
+              typeQueue = '';
+              ensureBubble().innerHTML = escapeHtml(typeDisplay);
+              updateScrollDownBtn();
+              clearInterval(typeTimer);
+              typeTimer = null;
+              finishStream();
+            }
           } else if (streamDone) {
             clearInterval(typeTimer);
             typeTimer = null;
             finishStream();
           }
-        }, 18);
+        }, 16);
       }
 
       function finishStream() {
@@ -2787,10 +2872,12 @@
         const leadMatch = accumulatedText.match(/\[\[LEAD_CAPTURED:\s*([^\]]+)\]\]/i);
 
         if (handoffMatch) {
+          handoffTriggered = true;
           currentHandoffStatus = 'waiting_agent';
           showHandoffBanner('waiting_agent');
           startHandoffPolling();
         } else if (activeMatch) {
+          handoffTriggered = true;
           currentHandoffStatus = activeMatch[1].trim();
           showHandoffBanner(currentHandoffStatus);
           startHandoffPolling();
@@ -2802,11 +2889,23 @@
           .trim();
 
         if (!cleanText) {
-          loadingRow.remove();
+          // A handoff intentionally streams no text (the banner does the
+          // talking), so don't print a "no response" message in that case.
+          if (handoffTriggered) {
+            loadingRow.remove();
+            return;
+          }
+          // Otherwise don't delete the row and leave the visitor with nothing
+          // after the animation finished — say something useful instead.
+          const fb = ensureBubble();
+          fb.innerHTML = renderMarkdown(
+            "I didn't get a response just now. Please try rephrasing your question, or use the button below to talk to a human."
+          );
           return;
         }
 
-        assistantBubble.innerHTML = renderMarkdown(cleanText);
+        const bubble = ensureBubble();
+        bubble.innerHTML = renderMarkdown(cleanText);
         playBeep('receive');
 
         if (leadMatch) {
@@ -2815,7 +2914,7 @@
           leadBadge.style.color = '#10b981';
           leadBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
           leadBadge.textContent = '✓ Contact details registered';
-          assistantBubble.appendChild(leadBadge);
+          bubble.appendChild(leadBadge);
         }
 
         if (sourcesList && sourcesList.length > 0) {
@@ -2830,7 +2929,7 @@
           `
             )
             .join('');
-          assistantBubble.appendChild(sourcesContainer);
+          bubble.appendChild(sourcesContainer);
         }
 
         messageHistory.push({ role: 'assistant', content: cleanText });
@@ -2875,6 +2974,7 @@
           } else if (eventType === 'handoff') {
             try {
               const hData = JSON.parse(dataStr);
+              handoffTriggered = true;
               currentHandoffStatus = hData.status;
               showHandoffBanner(hData.status, hData.assignedAgent);
               startHandoffPolling();

@@ -126,18 +126,47 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    await connectToDatabase();
+
+    // Bulk clear, optionally scoped to one bot.
+    const botIdFilter = (searchParams.get('botId') || '').trim();
+
+    if (searchParams.get('all') === '1' || searchParams.get('all') === 'true') {
+      let removed = 0;
+      if (isUsingMemoryDb()) {
+        removed = MemoryDb.deleteAllConversations(botIdFilter || undefined);
+      } else {
+        const query = botIdFilter ? { botId: botIdFilter } : {};
+        const res = await Conversation.deleteMany(query);
+        removed = res.deletedCount || 0;
+      }
+      return NextResponse.json({
+        success: true,
+        message: `Deleted ${removed} conversation(s).`,
+        deleted: removed,
+      });
+    }
+
     const convId = searchParams.get('id');
     if (!convId) {
       return NextResponse.json({ error: 'Conversation ID is required' }, { status: 400 });
     }
 
-    await connectToDatabase();
-
-    if (!isUsingMemoryDb()) {
-      await Conversation.findByIdAndDelete(convId);
+    let deleted = false;
+    if (isUsingMemoryDb()) {
+      // This used to be a silent no-op in memory mode: the API replied
+      // "Conversation deleted" while the record stayed in the store.
+      deleted = MemoryDb.deleteConversationById(convId);
+    } else {
+      const res = await Conversation.findByIdAndDelete(convId);
+      deleted = Boolean(res);
     }
 
-    return NextResponse.json({ success: true, message: 'Conversation deleted' });
+    if (!deleted) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Conversation deleted', deleted: 1 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete conversation' }, { status: 500 });
   }

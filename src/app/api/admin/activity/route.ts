@@ -281,3 +281,74 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+/**
+ * Clear the audit stream.
+ *
+ * The activity feed is not a stored log: it is projected from live collections
+ * (bots, users, submissions, CTAs, conversations, staff). So there is no
+ * per-row audit record to delete -- deleting a row here means deleting the
+ * record it was derived from. This endpoint therefore clears those sources and
+ * reports exactly what was removed, so the action is not a silent black hole.
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const adminEmail = req.headers.get('x-user-email') || searchParams.get('email');
+    const isAuthorized = await isAdminEmail(adminEmail);
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
+    }
+
+    // Guard against a stray click wiping the audit trail.
+    if (searchParams.get('confirm') !== 'CLEAR_AUDIT_SOURCE_DATA') {
+      return NextResponse.json(
+        {
+          error:
+            'This clears live data because the audit stream is derived from it. ' +
+            'Resend with confirm=CLEAR_AUDIT_SOURCE_DATA to proceed.',
+        },
+        { status: 400 }
+      );
+    }
+
+    await connectToDatabase();
+
+    if (isUsingMemoryDb()) {
+      const counts = MemoryDb.clearAllActivitySourceData();
+      return NextResponse.json({
+        success: true,
+        cleared: counts,
+        message: 'Cleared audit source records (memory mode).',
+      });
+    }
+
+    const [conversations, ctaSubmissions, formSubmissions, userProfiles] = await Promise.all([
+      Conversation.deleteMany({}),
+      CtaSubmission.deleteMany({}),
+      FormSubmission.deleteMany({}),
+      UserProfile.deleteMany({}),
+    ]);
+
+    const cleared = {
+      conversations: conversations.deletedCount || 0,
+      ctaSubmissions: ctaSubmissions.deletedCount || 0,
+      formSubmissions: formSubmissions.deletedCount || 0,
+      userProfiles: userProfiles.deletedCount || 0,
+    };
+
+    return NextResponse.json({
+      success: true,
+      cleared,
+      message:
+        'Cleared conversations, CTA leads, form submissions and user profiles. ' +
+        'Chatbots, staff and settings were left untouched.',
+    });
+  } catch (error) {
+    console.error('Error clearing audit source data:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to clear audit stream' },
+      { status: 500 }
+    );
+  }
+}

@@ -274,20 +274,47 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
     }
 
+    await connectToDatabase();
+
+    if (searchParams.get('all') === '1' || searchParams.get('all') === 'true') {
+      let removed = 0;
+      if (isUsingMemoryDb()) {
+        removed = MemoryDb.findAllUserProfiles().filter(
+          (u) => MemoryDb.deleteUserProfileByEmail(u.email)
+        ).length;
+      } else {
+        const res = await UserProfile.deleteMany({});
+        removed = res.deletedCount || 0;
+      }
+      return NextResponse.json({
+        success: true,
+        message: `Removed ${removed} user(s).`,
+        deleted: removed,
+      });
+    }
+
     const targetEmail = (searchParams.get('email') || '').toLowerCase().trim();
     if (!targetEmail) {
       return NextResponse.json({ error: 'Target email is required' }, { status: 400 });
     }
 
-    await connectToDatabase();
+    let deleted = 0;
+    if (isUsingMemoryDb()) {
+      // Previously a silent no-op in memory mode.
+      deleted = MemoryDb.deleteUserProfileByEmail(targetEmail) ? 1 : 0;
+    } else {
+      const res = await UserProfile.deleteOne({ email: targetEmail });
+      deleted = res.deletedCount || 0;
+    }
 
-    if (!isUsingMemoryDb()) {
-      await UserProfile.deleteOne({ email: targetEmail });
+    if (deleted === 0) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
       message: `User ${targetEmail} removed from platform.`,
+      deleted,
     });
   } catch (error) {
     console.error('Error deleting user:', error);

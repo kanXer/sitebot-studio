@@ -1178,6 +1178,117 @@ export const MemoryDb = {
     );
   },
 
+  // ---------------------------------------------------------------------
+  // Admin delete helpers
+  //
+  // The admin panel's delete actions previously reported success while doing
+  // nothing in memory-DB mode, because only the Mongo branches were wired up.
+  // These give every admin DELETE route a working memory-mode counterpart.
+  // ---------------------------------------------------------------------
+
+  findConversationBySession(botId: string, sessionId: string): MemoryConversation | null {
+    return (
+      Array.from(memoryStore.conversations.values()).find(
+        (c) => c.botId === botId && c.sessionId === sessionId
+      ) || null
+    );
+  },
+
+  deleteConversationById(id: string): boolean {
+    let deleted = memoryStore.conversations.delete(id);
+    if (!deleted) {
+      for (const [key, conv] of memoryStore.conversations.entries()) {
+        if (conv._id === id) {
+          memoryStore.conversations.delete(key);
+          deleted = true;
+          break;
+        }
+      }
+    }
+    persistMemoryDb();
+    return deleted;
+  },
+
+  deleteAllConversations(botId?: string): number {
+    let count = 0;
+    for (const [key, conv] of memoryStore.conversations.entries()) {
+      if (botId && conv.botId !== botId) continue;
+      memoryStore.conversations.delete(key);
+      count++;
+    }
+    persistMemoryDb();
+    return count;
+  },
+
+  deleteUserProfileByEmail(email: string): boolean {
+    const target = (email || '').toLowerCase().trim();
+    let deleted = false;
+    for (const [key, profile] of memoryStore.userProfiles.entries()) {
+      if ((profile.email || '').toLowerCase().trim() === target) {
+        memoryStore.userProfiles.delete(key);
+        deleted = true;
+      }
+    }
+    persistMemoryDb();
+    return deleted;
+  },
+
+  deleteCtaSubmissionById(id: string): boolean {
+    const res = memoryStore.ctaSubmissions.delete(id);
+    persistMemoryDb();
+    return res;
+  },
+
+  deleteAllCtaSubmissions(botId?: string): number {
+    let count = 0;
+    for (const [key, cta] of memoryStore.ctaSubmissions.entries()) {
+      if (botId && cta.botId !== botId) continue;
+      memoryStore.ctaSubmissions.delete(key);
+      count++;
+    }
+    persistMemoryDb();
+    return count;
+  },
+
+  deleteAllFormSubmissions(botId?: string): number {
+    const formIdsForBot = botId
+      ? new Set(
+          Array.from(memoryStore.botForms.values())
+            .filter((f) => f.botId === botId)
+            .map((f) => f._id)
+        )
+      : null;
+
+    let count = 0;
+    for (const [key, sub] of memoryStore.formSubmissions.entries()) {
+      if (formIdsForBot && !formIdsForBot.has(sub.formId)) continue;
+      memoryStore.formSubmissions.delete(key);
+      count++;
+    }
+    persistMemoryDb();
+    return count;
+  },
+
+  /**
+   * Wipes every record the admin audit stream is derived from. The activity
+   * feed is a projection over live collections rather than a stored log, so
+   * "clearing the audit stream" means clearing its source data.
+   */
+  clearAllActivitySourceData(): Record<string, number> {
+    const counts = {
+      conversations: memoryStore.conversations.size,
+      ctaSubmissions: memoryStore.ctaSubmissions.size,
+      formSubmissions: memoryStore.formSubmissions.size,
+      userProfiles: memoryStore.userProfiles.size,
+    };
+    memoryStore.conversations.clear();
+    memoryStore.ctaSubmissions.clear();
+    memoryStore.formSubmissions.clear();
+    memoryStore.userProfiles.clear();
+    persistMemoryDb();
+    return counts;
+  },
+
   // Usage Records
   upsertUsageRecord(
     email: string,

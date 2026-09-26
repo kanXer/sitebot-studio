@@ -282,16 +282,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Append system escalation notice
-    await appendConversationMessage(resolvedBotId, sessionId, {
-      role: 'system',
-      content: `Live handoff requested (${reason}). A human support representative has been alerted.`,
-    });
-
     // Create or locate ChatTicket for Two-Way WhatsApp Relay
     let ticketId = '';
-    try {
-      if (!isUsingMemoryDb()) {
+    if (!isUsingMemoryDb()) {
+      try {
         let ticket = await ChatTicket.findOne({
           sessionId,
           status: { $in: ['open', 'waiting_admin', 'admin_replied'] },
@@ -338,40 +332,79 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             await ticket.save();
           }
         }
-
-        // Determine target WhatsApp number (handoff-specific first, then notifications.whatsapp, then admin)
-        const targetNumber =
-          (bot as any)?.handoff?.whatsappEnabled && (bot as any)?.handoff?.whatsappNumber
-            ? (bot as any).handoff.whatsappNumber
-            : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
-            ? (bot as any).notifications.whatsapp.number
-            : undefined;
-
-        // Trigger WhatsApp alert to Agent/Admin via Baileys
-        const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
-        sendTicketAlertToAdmin({
-          ticketId,
-          botName: (bot as any)?.name || 'Rivafy Assistant',
-          visitorName: visitorName || 'Visitor',
-          visitorEmail,
-          visitorPhone,
-          userMessage: message?.trim() || 'Visitor requested human support',
-          targetNumber,
-        }).catch((err) => {
-          console.warn('[Handoff] WhatsApp alert dispatch failed:', err);
-        });
+      } catch (ticketErr) {
+        console.warn('[Handoff] Ticket initialization warning:', ticketErr);
       }
-    } catch (ticketErr) {
-      console.warn('[Handoff] Ticket initialization warning:', ticketErr);
+    } else {
+      // Memory mode has no ChatTicket collection, but the visitor still needs
+      // a reference id and the WhatsApp alert must still be delivered.
+      ticketId = `TICK-${String(sessionId || '').slice(0, 6).toUpperCase()}`;
     }
+
+    // Determine target WhatsApp number (handoff-specific first, then
+    // notifications.whatsapp, then the admin fallback)
+    const targetNumber =
+      (bot as any)?.handoff?.whatsappEnabled && (bot as any)?.handoff?.whatsappNumber
+        ? (bot as any).handoff.whatsappNumber
+        : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
+        ? (bot as any).notifications.whatsapp.number
+        : undefined;
+
+    // Trigger the WhatsApp alert to the agent/admin via Baileys.
+    //
+    // This is AWAITED and its result is reported back to the caller. It used to
+    // be fire-and-forget inside a `!isUsingMemoryDb()` block while the API still
+    // replied "a representative has been alerted" — so a disconnected WhatsApp
+    // session was indistinguishable from a successful alert.
+    let notified = false;
+    let notifyError: string | undefined;
+    try {
+      const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
+      const result = await sendTicketAlertToAdmin({
+        ticketId: ticketId || 'PENDING',
+        botName: (bot as any)?.name || 'Rivafy Assistant',
+        visitorName: visitorName || 'Visitor',
+        visitorEmail,
+        visitorPhone,
+        userMessage: message?.trim() || 'Visitor requested human support',
+        targetNumber,
+      });
+      notified = Boolean(result?.ok);
+      if (!notified) {
+        notifyError = result?.error || 'WhatsApp alert was not delivered';
+        console.error(
+          `[Handoff] WhatsApp alert NOT delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'}): ${notifyError}`
+        );
+      } else {
+        console.log(
+          `[Handoff] WhatsApp alert delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'})`
+        );
+      }
+    } catch (alertErr) {
+      notifyError = alertErr instanceof Error ? alertErr.message : 'Unknown WhatsApp error';
+      console.error('[Handoff] WhatsApp alert dispatch failed:', alertErr);
+    }
+
+    // Append system escalation notice AFTER the send attempt, so the transcript
+    // never claims an agent was alerted when the WhatsApp send actually failed.
+    await appendConversationMessage(resolvedBotId, sessionId, {
+      role: 'system',
+      content: notified
+        ? `Live handoff requested (${reason}). A human support representative has been alerted on WhatsApp.`
+        : `Live handoff requested (${reason}). You are in the live agent queue. WhatsApp alerting is currently unavailable, so a representative may take a little longer to reach you.`,
+    });
 
     return NextResponse.json(
       {
         success: true,
         status: 'waiting_agent',
         ticketId: ticketId || undefined,
-        message:
-          'You are now connected to the live agent queue. A representative will be with you shortly.',
+        notified,
+        notifiedChannels: notified ? ['whatsapp'] : [],
+        notifyError,
+        message: notified
+          ? 'You are now connected to the live agent queue. Our team has been alerted on WhatsApp and a representative will be with you shortly.'
+          : 'You are in the live agent queue and a representative will be with you shortly. If we do not respond right away, please use the contact options on this site to reach us directly.',
         conversationId: conv?._id,
       },
       { headers: CORS_HEADERS }

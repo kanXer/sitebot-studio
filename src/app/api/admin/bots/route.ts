@@ -24,6 +24,38 @@ interface AdminBotSummary {
   updatedAt: Date;
 }
 
+interface CallerIdentity {
+  callerEmail: string;
+  callerId: string;
+}
+
+function getCallerIdentity(req: NextRequest): CallerIdentity {
+  const { searchParams } = new URL(req.url);
+  const callerEmail = (
+    req.headers.get('x-user-email') || searchParams.get('email') || ''
+  )
+    .toLowerCase()
+    .trim();
+  const callerId = (req.headers.get('x-user-id') || '').trim();
+  return { callerEmail, callerId };
+}
+
+/**
+ * Owner match used for both the "My Bots" list and for every mutating action on
+ * this route, so a caller cannot act on a bot they do not own.
+ */
+function isOwnedByCaller(
+  bot: { ownerEmail?: string; ownerId?: string },
+  identity: CallerIdentity
+): boolean {
+  const { callerEmail, callerId } = identity;
+  const ownerEmail = (bot.ownerEmail || '').toLowerCase().trim();
+  const ownerId = (bot.ownerId || '').trim();
+  if (ownerEmail && callerEmail && ownerEmail === callerEmail) return true;
+  if (ownerId && callerId && ownerId === callerId) return true;
+  return false;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -40,10 +72,16 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
+    // "My Bots" is scoped to the logged-in admin. Authorization (isAdminEmail)
+    // only proves the caller may open /admin; it must not be used to list every
+    // bot in the system, which is what this route used to do.
+    const identity = getCallerIdentity(req);
+    const { callerEmail, callerId } = identity;
+
     let bots: AdminBotSummary[] = [];
     if (isUsingMemoryDb()) {
-      bots = MemoryDb.findChatbots();
-      bots = bots.map((b) => ({
+      const owned = MemoryDb.findChatbots().filter((b) => isOwnedByCaller(b, identity));
+      bots = owned.map((b) => ({
         id: b._id.toString(),
         name: b.name,
         siteUrl: b.siteUrl,
@@ -60,7 +98,14 @@ export async function GET(req: NextRequest) {
         updatedAt: b.updatedAt,
       }));
     } else {
-      const allBots = await Chatbot.find().sort({ createdAt: -1 }).lean();
+      const orConditions: Record<string, string>[] = [];
+      if (callerEmail) orConditions.push({ ownerEmail: callerEmail });
+      if (callerId) orConditions.push({ ownerId: callerId });
+
+      // A caller with no identity at all must not fall back to "everyone".
+      const ownerQuery = orConditions.length > 0 ? { $or: orConditions } : { _id: null };
+
+      const allBots = await Chatbot.find(ownerQuery).sort({ createdAt: -1 }).lean();
 
       // Aggregate page and chunk counts for all bots
       const botIds = allBots.map((b) => b._id);
@@ -130,10 +175,13 @@ export async function PATCH(req: NextRequest) {
     }
 
     await connectToDatabase();
+    const identity = getCallerIdentity(req);
+    const { callerEmail, callerId } = identity;
     const body = (await req.json()) as Record<string, unknown>;
     const botIdValue = body.botId;
     const botId = botIdValue == null ? '' : String(botIdValue);
     const { status, ownerEmail } = body;
+
 
     if (!botId) {
       return NextResponse.json({ error: 'botId is required' }, { status: 400 });
@@ -151,21 +199,35 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (isUsingMemoryDb()) {
-      const updated = MemoryDb.updateChatbot(botId, updateFields);
-      if (!updated) {
+      const existing = MemoryDb.findChatbotById(botId);
+      if (!existing) {
         return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
       }
+      if (!isOwnedByCaller(existing, identity)) {
+        return NextResponse.json({ error: 'Forbidden: this bot belongs to another user' }, { status: 403 });
+      }
+      const updated = MemoryDb.updateChatbot(botId, updateFields);
       return NextResponse.json({ success: true, bot: updated });
     } else {
       if (!mongoose.Types.ObjectId.isValid(botId)) {
         return NextResponse.json({ error: 'Invalid bot ID' }, { status: 400 });
       }
-      const updated = await Chatbot.findByIdAndUpdate(botId, updateFields, {
-        returnDocument: 'after',
-      }).lean();
+      const orConditions: Record<string, string>[] = [];
+      if (callerEmail) orConditions.push({ ownerEmail: callerEmail });
+      if (callerId) orConditions.push({ ownerId: callerId });
+      const ownerQuery = orConditions.length > 0 ? { $or: orConditions } : { _id: null };
+
+      const updated = await Chatbot.findOneAndUpdate(
+        { _id: botId, ...ownerQuery },
+        updateFields,
+        { returnDocument: 'after' }
+      ).lean();
 
       if (!updated) {
-        return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'Chatbot not found or not owned by you' },
+          { status: 404 }
+        );
       }
       return NextResponse.json({ success: true, bot: updated });
     }
@@ -192,6 +254,8 @@ export async function DELETE(req: NextRequest) {
     await connectToDatabase();
     const { searchParams } = new URL(req.url);
     const botId = searchParams.get('botId');
+    const identity = getCallerIdentity(req);
+    const { callerEmail, callerId } = identity;
 
     if (!botId) {
       return NextResponse.json({ error: 'botId is required' }, { status: 400 });
@@ -201,6 +265,9 @@ export async function DELETE(req: NextRequest) {
       const bot = MemoryDb.findChatbotById(botId);
       if (!bot) {
         return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
+      }
+      if (!isOwnedByCaller(bot, identity)) {
+        return NextResponse.json({ error: 'Forbidden: this bot belongs to another user' }, { status: 403 });
       }
       const qdrantConfig = bot.customVectorDb?.enabled ? bot.customVectorDb : undefined;
       if (isQdrantConfigured(qdrantConfig)) {
@@ -213,9 +280,17 @@ export async function DELETE(req: NextRequest) {
       }
 
       const botObjectId = new mongoose.Types.ObjectId(botId);
-      const bot = await Chatbot.findById(botObjectId).lean();
+      const orConditions: Record<string, string>[] = [];
+      if (callerEmail) orConditions.push({ ownerEmail: callerEmail });
+      if (callerId) orConditions.push({ ownerId: callerId });
+      const ownerQuery = orConditions.length > 0 ? { $or: orConditions } : { _id: null };
+
+      const bot = await Chatbot.findOne({ _id: botObjectId, ...ownerQuery }).lean();
       if (!bot) {
-        return NextResponse.json({ error: 'Chatbot not found' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'Chatbot not found or not owned by you' },
+          { status: 404 }
+        );
       }
 
       const qdrantConfig = bot.customVectorDb?.enabled ? bot.customVectorDb : undefined;

@@ -36,6 +36,20 @@ interface GlobalBaileysContainer {
   jid: string;
   isInitializing: boolean;
   sessionId: string;
+  /**
+   * True only between "we deliberately end this socket" and the resulting
+   * connection.update close event. Without this guard, ending a socket
+   * re-enters this handler, which ended it again -> an endless reconnect loop.
+   */
+  suppressNextClose: boolean;
+  /** Consecutive failed reconnect attempts, used for backoff. */
+  reconnectAttempts: number;
+  /** Interval that keeps the socket alive so WhatsApp does not drop it. */
+  keepAliveTimer: ReturnType<typeof setInterval> | null;
+  /** Last disconnect code, surfaced for diagnostics. */
+  lastDisconnectCode: number | null;
+  /** True once a 401/loggedOut close happened, so status can explain itself. */
+  requiresReauth: boolean;
 }
 
 declare global {
@@ -53,7 +67,26 @@ const container: GlobalBaileysContainer = global.__baileysContainer || {
   jid: '',
   isInitializing: false,
   sessionId: DEFAULT_SESSION_ID,
+  suppressNextClose: false,
+  reconnectAttempts: 0,
+  keepAliveTimer: null,
+  lastDisconnectCode: null,
+  requiresReauth: false,
 };
+
+/**
+ * Older hot-reloaded containers predate the reconnect fields. Backfill them on a
+ * function parameter so TypeScript does not narrow the module-level binding.
+ */
+function backfillContainerFields(c: GlobalBaileysContainer): void {
+  if (typeof c.suppressNextClose !== 'boolean') c.suppressNextClose = false;
+  if (typeof c.reconnectAttempts !== 'number') c.reconnectAttempts = 0;
+  if (c.keepAliveTimer === undefined) c.keepAliveTimer = null;
+  if (c.lastDisconnectCode === undefined) c.lastDisconnectCode = null;
+  if (typeof c.requiresReauth !== 'boolean') c.requiresReauth = false;
+}
+
+backfillContainerFields(container);
 
 if (!global.__baileysContainer) {
   global.__baileysContainer = container;
@@ -103,6 +136,20 @@ export async function getWhatsAppStatus(
   if (container.qrCode && meta.status !== 'connected') {
     meta.qrCode = container.qrCode;
   }
+
+  // Auto-resume: a saved session that is merely disconnected (server restart,
+  // dropped network) should reattach on its own instead of showing the admin a
+  // dead "disconnected" panel that looks like a logout.
+  const hasSavedSession = meta.status === 'connected' || Boolean(meta.phoneNumber);
+  if (hasSavedSession && !container.requiresReauth && !container.isInitializing) {
+    container.status = 'connecting';
+    meta.status = 'connecting';
+    // Fire and forget: report "connecting" immediately, the UI polls again.
+    initializeWhatsApp({ sessionId }).catch(() => {
+      container.status = 'disconnected';
+    });
+  }
+
   return meta;
 }
 
@@ -341,6 +388,78 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
 }
 
 /**
+ * Keeps the socket warm.
+ *
+ * WhatsApp silently drops connections that go idle. A presence ping every ~25s
+ * is cheap and is what stops the "connected for a while, then suddenly
+ * disconnected" behaviour. Errors are ignored on purpose: a failed ping means
+ * the socket is already closing and connection.update/close will handle it.
+ */
+function startKeepAlive(sock: WASocket) {
+  stopKeepAlive();
+  container.keepAliveTimer = setInterval(() => {
+    if (container.socket !== sock) return;
+    try {
+      sock.sendPresenceUpdate('available').catch(() => {});
+    } catch {
+      // Socket already gone; close handler takes over.
+    }
+  }, 25_000);
+
+  // Do not hold the Node process open just for the keepalive.
+  if (typeof container.keepAliveTimer.unref === 'function') {
+    container.keepAliveTimer.unref();
+  }
+}
+
+function stopKeepAlive() {
+  if (container.keepAliveTimer) {
+    clearInterval(container.keepAliveTimer);
+    container.keepAliveTimer = null;
+  }
+}
+
+/**
+ * Schedules a single reconnect attempt with capped exponential backoff.
+ *
+ * The previous code fired a bare `setTimeout(initializeWhatsApp({ forceNew:
+ * true }))` on every close. forceNew ends the socket, which emits another
+ * close, which schedules another reconnect -- so one network blip could cascade
+ * into repeated socket resets, and those resets are what the admin was
+ * perceiving as WhatsApp logging itself out.
+ *
+ * This guard makes at most one attempt in flight at a time.
+ */
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleReconnect(sessionId: string) {
+  if (reconnectTimer) return; // an attempt is already pending
+
+  container.reconnectAttempts += 1;
+  const attempt = container.reconnectAttempts;
+  const delay = Math.min(3000 * Math.pow(2, attempt - 1), 60_000);
+
+  console.log(
+    `[Baileys] Scheduling reconnect attempt ${attempt} for session ${sessionId} in ${Math.round(delay / 1000)}s`
+  );
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    // No forceNew: reuse the persisted credentials so this is a silent
+    // reconnect and cannot self-trigger another close.
+    initializeWhatsApp({ sessionId }).catch((err) => {
+      console.warn(`[Baileys] Reconnect attempt ${attempt} failed:`, err);
+      container.status = 'disconnected';
+      scheduleReconnect(sessionId);
+    });
+  }, delay);
+
+  if (typeof reconnectTimer.unref === 'function') {
+    reconnectTimer.unref();
+  }
+}
+
+/**
  * Initialize WhatsApp Baileys connection
  */
 export async function initializeWhatsApp(options?: {
@@ -364,6 +483,9 @@ export async function initializeWhatsApp(options?: {
   }
 
   if (options?.forceNew && container.socket) {
+    // Mark before ending: `end()` synchronously emits connection.update/close,
+    // and the close handler must not treat our own shutdown as a new drop.
+    container.suppressNextClose = true;
     try {
       container.socket.end(new Error('Resetting socket for fresh QR'));
     } catch {}
@@ -448,6 +570,11 @@ export async function initializeWhatsApp(options?: {
           lastConnectedAt: new Date().toISOString(),
         });
 
+        container.reconnectAttempts = 0;
+        container.requiresReauth = false;
+        container.lastDisconnectCode = null;
+        startKeepAlive(sock);
+
         console.log(`[Baileys] WhatsApp connected successfully as: ${phone} (${pushName})`);
       }
 
@@ -455,30 +582,50 @@ export async function initializeWhatsApp(options?: {
         const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
         const loggedOut = statusCode === DisconnectReason.loggedOut;
 
+        stopKeepAlive();
+        container.lastDisconnectCode = statusCode ?? null;
+
         console.log(`[Baileys] Connection closed. Reason code: ${statusCode}, loggedOut: ${loggedOut}`);
 
+        // Our own socket.end() (forceNew / logout) lands here. Swallow it so it
+        // does not schedule another reconnect.
+        if (container.suppressNextClose) {
+          container.suppressNextClose = false;
+          console.log('[Baileys] Close was self-initiated; skipping reconnect.');
+          return;
+        }
+
         if (loggedOut) {
+          // Previously this deleted the saved credentials from Mongo, which is
+          // why the admin was silently kicked back to the QR screen after a
+          // short while. A 401 often means a transient re-registration or a
+          // competing session, so we keep the credentials and try to recover.
+          // Credentials are only destroyed by logoutWhatsApp(), which is the
+          // explicit "Disconnect" button.
           container.status = 'disconnected';
           container.qrCode = '';
-          container.phoneNumber = '';
-          container.pushName = '';
-          container.jid = '';
           container.socket = null;
           container.isInitializing = false;
+          container.requiresReauth = true;
 
-          await clearWhatsAppSession(sessionId);
           await saveSessionMeta(sessionId, {
             status: 'disconnected',
             qrCode: '',
-            phoneNumber: '',
           });
+
+          console.warn(
+            '[Baileys] Session reported loggedOut (401). Credentials kept; attempting silent reconnect. ' +
+              'Re-scan the QR from Admin > WhatsApp if it does not recover.'
+          );
+
+          scheduleReconnect(sessionId);
         } else {
-          // Reconnect automatically if network dropped or container restarted
+          // Reconnect automatically if the network dropped or the container
+          // restarted. Reuse the saved credentials (no forceNew) so we do not
+          // need a fresh QR and do not trigger another close event.
           container.status = 'connecting';
           container.isInitializing = false;
-          setTimeout(() => {
-            initializeWhatsApp({ sessionId, forceNew: true }).catch(() => {});
-          }, 3000);
+          scheduleReconnect(sessionId);
         }
       }
     });
@@ -495,7 +642,10 @@ export async function initializeWhatsApp(options?: {
     });
 
     // Await first QR code or connection event (max 4.5 seconds)
-    if (!container.qrCode && container.status !== 'connected') {
+    const isLive = (): boolean =>
+      Boolean(container.qrCode) || container.status === 'connected';
+
+    if (!isLive()) {
       await new Promise<void>((resolve) => {
         let done = false;
         const finish = () => {
@@ -506,7 +656,7 @@ export async function initializeWhatsApp(options?: {
         };
 
         const checkInterval = setInterval(() => {
-          if (container.qrCode || container.status === 'connected') {
+          if (isLive()) {
             clearInterval(checkInterval);
             finish();
           }
@@ -540,7 +690,16 @@ export async function logoutWhatsApp(
   sessionId = DEFAULT_SESSION_ID
 ): Promise<{ success: boolean }> {
   try {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    stopKeepAlive();
+
     if (container.socket) {
+      // An explicit logout must not be undone by the auto-reconnect logic, and
+      // its close event must not schedule another reconnect.
+      container.suppressNextClose = true;
       try {
         await container.socket.logout();
       } catch {
@@ -549,6 +708,9 @@ export async function logoutWhatsApp(
       container.socket = null;
     }
 
+    container.reconnectAttempts = 0;
+    container.requiresReauth = false;
+    container.lastDisconnectCode = null;
     container.status = 'disconnected';
     container.qrCode = '';
     container.phoneNumber = '';

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { isAdminEmail } from '@/lib/auth/adminAuth';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
@@ -161,6 +162,78 @@ export async function POST(req: NextRequest) {
     console.error('Error handling ticket action:', error);
     return NextResponse.json(
       { error: error?.message || 'Failed to perform ticket action' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Delete WhatsApp relay tickets and close out their conversations.
+ * Supports a single id/ticketId, or ?all=1 to clear every ticket.
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const userEmail = req.headers.get('x-user-email');
+    const isAuthorized = await isAdminEmail(userEmail);
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin privileges required' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = (searchParams.get('id') || '').trim();
+    const ticketId = (searchParams.get('ticketId') || '').trim();
+    const wantsAll = searchParams.get('all') === '1' || searchParams.get('all') === 'true';
+
+    if (!id && !ticketId && !wantsAll) {
+      return NextResponse.json({ error: 'Provide id, ticketId, or all=1' }, { status: 400 });
+    }
+
+    await connectToDatabase();
+
+    if (isUsingMemoryDb()) {
+      return NextResponse.json({ success: true, deleted: 0, message: 'No stored tickets in memory mode.' });
+    }
+
+    const query: Record<string, any> = {};
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
+      }
+      query._id = new mongoose.Types.ObjectId(id);
+    } else if (ticketId) {
+      query.ticketId = ticketId.toUpperCase();
+    }
+
+    const targets = await ChatTicket.find(query).select('_id sessionId').lean();
+
+    if (targets.length === 0) {
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    }
+
+    const ticketObjectIds = targets.map((t: any) => t._id);
+    await ChatTicket.deleteMany({ _id: { $in: ticketObjectIds } });
+
+    // Keep the visitor-facing conversation in step with the deleted ticket.
+    const sessionIds = targets.map((t: any) => t.sessionId).filter(Boolean);
+    if (sessionIds.length > 0) {
+      await Conversation.updateMany(
+        { sessionId: { $in: sessionIds } },
+        { $set: { status: 'resolved' } }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      deleted: targets.length,
+      message: `Deleted ${targets.length} ticket(s).`,
+    });
+  } catch (error: any) {
+    console.error('Error deleting tickets:', error);
+    return NextResponse.json(
+      { error: error?.message || 'Failed to delete tickets' },
       { status: 500 }
     );
   }

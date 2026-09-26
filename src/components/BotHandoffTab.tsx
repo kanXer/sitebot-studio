@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import {
   Headphones,
   UserCheck,
@@ -292,20 +293,18 @@ export function BotHandoffTab({
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">
                 Agent WhatsApp Phone Number
               </label>
-              <input
-                type="tel"
+              <PhoneInputWithCountry
                 value={formData.handoffWhatsappNumber || ''}
-                onChange={(e) =>
+                onChange={(fullNumber) =>
                   setFormData((prev: any) => ({
                     ...prev,
-                    handoffWhatsappNumber: e.target.value,
+                    handoffWhatsappNumber: fullNumber,
                   }))
                 }
-                placeholder="+919876543210 (with country code)"
-                className="w-full px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-sm"
+                placeholder="9876543210"
               />
               <span className="block mt-1 text-[11px] text-slate-400">
-                Include country code (e.g. +91 for India, +1 for US). Leave empty to use admin WhatsApp account.
+                Select your country code from the dropdown and enter your local number. Leave empty to use admin WhatsApp account.
               </span>
             </div>
 
