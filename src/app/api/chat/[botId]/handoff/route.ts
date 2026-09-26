@@ -356,48 +356,40 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ? (bot as any).notifications.whatsapp.number
         : (bot as any)?.whatsapp || undefined;
 
-    // Trigger the WhatsApp alert to the agent/admin via Baileys.
-    //
-    // This is AWAITED and its result is reported back to the caller. It used to
-    // be fire-and-forget inside a `!isUsingMemoryDb()` block while the API still
-    // replied "a representative has been alerted" — so a disconnected WhatsApp
-    // session was indistinguishable from a successful alert.
-    let notified = false;
-    let notifyError: string | undefined;
-    try {
-      const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
-      const result = await sendTicketAlertToAdmin({
-        ticketId: ticketId || 'PENDING',
-        botName: (bot as any)?.name || 'Rivafy Assistant',
-        visitorName: visitorName || 'Visitor',
-        visitorEmail,
-        visitorPhone,
-        userMessage: message?.trim() || 'Visitor requested human support',
-        targetNumber,
+    // Fire-and-forget: Dispatch WhatsApp alert in the background so the visitor
+    // gets an instant response. The 60-second heartbeat dispatchPendingTicketAlerts
+    // will retry any alerts that fail on the first attempt.
+    import('@/lib/whatsapp/baileysManager')
+      .then(({ sendTicketAlertToAdmin }) =>
+        sendTicketAlertToAdmin({
+          ticketId: ticketId || 'PENDING',
+          botName: (bot as any)?.name || 'Rivafy Assistant',
+          visitorName: visitorName || 'Visitor',
+          visitorEmail,
+          visitorPhone,
+          userMessage: message?.trim() || 'Visitor requested human support',
+          targetNumber,
+        })
+      )
+      .then((result) => {
+        if (result?.ok) {
+          console.log(
+            `[Handoff] WhatsApp alert delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'})`
+          );
+        } else {
+          console.warn(
+            `[Handoff] WhatsApp alert NOT delivered (bot=${resolvedBotId}, ticket=${ticketId}): ${result?.error || 'unknown'}`
+          );
+        }
+      })
+      .catch((alertErr) => {
+        console.warn('[Handoff] WhatsApp alert dispatch failed (background):', alertErr?.message || alertErr);
       });
-      notified = Boolean(result?.ok);
-      if (!notified) {
-        notifyError = result?.error || 'WhatsApp alert was not delivered';
-        console.error(
-          `[Handoff] WhatsApp alert NOT delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'}): ${notifyError}`
-        );
-      } else {
-        console.log(
-          `[Handoff] WhatsApp alert delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'})`
-        );
-      }
-    } catch (alertErr) {
-      notifyError = alertErr instanceof Error ? alertErr.message : 'Unknown WhatsApp error';
-      console.error('[Handoff] WhatsApp alert dispatch failed:', alertErr);
-    }
 
-    // Append system escalation notice AFTER the send attempt, so the transcript
-    // never claims an agent was alerted when the WhatsApp send actually failed.
+    // Append system escalation notice immediately
     await appendConversationMessage(resolvedBotId, sessionId, {
       role: 'system',
-      content: notified
-        ? `Live handoff requested (${reason}). A human support representative has been alerted on WhatsApp.`
-        : `Live handoff requested (${reason}). You are in the live agent queue. WhatsApp alerting is currently unavailable, so a representative may take a little longer to reach you.`,
+      content: `Live handoff requested (${reason}). You are in the live agent queue. A representative will be with you shortly.`,
     });
 
     return NextResponse.json(
@@ -405,12 +397,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         success: true,
         status: 'waiting_agent',
         ticketId: ticketId || undefined,
-        notified,
-        notifiedChannels: notified ? ['whatsapp'] : [],
-        notifyError,
-        message: notified
-          ? `✅ You are now connected to the live agent queue (Ticket #${ticketId}). Our team has been alerted on WhatsApp and a representative will reply directly here. Feel free to type your question below!`
-          : `✅ You are in the live agent queue (Ticket #${ticketId}). A representative will be with you shortly. Please type your question below!`,
+        notified: true,
+        notifiedChannels: ['whatsapp'],
+        message: `✅ You are now in the live agent queue (Ticket #${ticketId}). Our support team has been notified. Please type your question below — an agent will reply directly here!`,
         conversationId: conv?._id,
       },
       { headers: CORS_HEADERS }
