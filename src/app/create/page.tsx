@@ -60,6 +60,7 @@ function CreateBotContent() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [profileCompleted, setProfileCompleted] = useState<boolean | null>(null);
 
   // Wizard Step: 1 = Initial (URL + Name), 2 = Crawling, 3 = Autofilled Form
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -208,7 +209,10 @@ function CreateBotContent() {
 
   // Check if logged in user has completed onboarding profile setup
   useEffect(() => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      setProfileCompleted(null);
+      return;
+    }
     fetch(`/api/profile?email=${encodeURIComponent(user.email)}`, {
       headers: {
         'x-user-email': user.email,
@@ -218,8 +222,12 @@ function CreateBotContent() {
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.profile && data.profile.profileCompleted === false) {
-          setOnboardingOpen(true);
+        if (data?.profile) {
+          const isDone = data.profile.profileCompleted !== false;
+          setProfileCompleted(isDone);
+          if (!isDone) {
+            setOnboardingOpen(true);
+          }
         }
       })
       .catch(() => {});
@@ -257,6 +265,17 @@ function CreateBotContent() {
     if (!siteUrl.trim()) {
       setError('Please enter a target website URL.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!user?.email) {
+      setAuthModalOpen(true);
+      return;
+    }
+
+    if (profileCompleted === false) {
+      setOnboardingOpen(true);
+      setError('Please complete your profile & workspace setup before building a chatbot.');
       return;
     }
 
@@ -1617,12 +1636,16 @@ PRIMARY INSTRUCTIONS:
       <OnboardingModal
         isOpen={onboardingOpen}
         onClose={() => setOnboardingOpen(false)}
-        onComplete={() => setOnboardingOpen(false)}
+        onComplete={() => {
+          setProfileCompleted(true);
+          setOnboardingOpen(false);
+        }}
       />
 
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+        onLoginSuccess={() => setOnboardingOpen(true)}
         title="Sign In to Create Bot"
         subtitle="Sign in with your Google account to create and manage your website chatbots."
       />

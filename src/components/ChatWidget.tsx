@@ -450,6 +450,7 @@ function UserAvatar({
           alt={displayName || "You"}
           className="w-7 h-7 rounded-full object-cover border border-white/20 shadow-sm"
           referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
           onError={() => setImgFailed(true)}
         />
       ) : initials ? (
@@ -510,25 +511,14 @@ export function ChatWidget({
   const followRef = useRef(true);
   const leadCapturedRef = useRef(false);
 
-  // Stable conversation identity so backend conversational form slot-filling
-  // can persist in-progress submissions across turns (and page reloads).
+  // Conversation identity: fresh per page load so page refresh starts clean
   const sessionIdRef = useRef<string | null>(null);
   const getSessionId = useCallback((): string => {
-    let id = sessionIdRef.current;
-    if (id) return id;
-    const key = `sitebot_session_${botId || "default"}`;
-    try {
-      id = window.sessionStorage.getItem(key) || "";
-      if (!id) {
-        id = `sess-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-        window.sessionStorage.setItem(key, id);
-      }
-    } catch {
-      id = `sess-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-    }
+    if (sessionIdRef.current) return sessionIdRef.current;
+    const id = `sess-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
     sessionIdRef.current = id;
     return id;
-  }, [botId]);
+  }, []);
 
   // Quick links the visitor has hidden via the little "X" on each chip.
   // Persisted per bot so removals survive reloads. Adding/editing happens in
@@ -679,7 +669,60 @@ export function ChatWidget({
     };
   }, [botId, apiHost]);
 
-  // Polling for live handoff state & agent messages when handoff is active
+  // Check on open or mount whether this visitor session already has an active live handoff or pending agent reply
+  useEffect(() => {
+    if (!botId) return;
+    let cancelled = false;
+    const checkActiveSession = async () => {
+      try {
+        const sId = getSessionId();
+        const res = await fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${sId}`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          const isHandoff =
+            data.status === 'waiting_agent' ||
+            data.status === 'agent_active' ||
+            data.status === 'admin_replied';
+          if (isHandoff) {
+            setHandoffState({
+              active: true,
+              status: data.status === 'admin_replied' ? 'agent_active' : data.status,
+              agentName: data.assignedAgent?.name,
+            });
+            if (Array.isArray(data.messages) && data.messages.length > 0) {
+              const agentOrSys = data.messages.filter(
+                (m: any) => m.role === 'agent' || m.role === 'system'
+              );
+              if (agentOrSys.length > 0) {
+                setMessages((prev) => {
+                  const known = new Set(prev.map((p) => `${p.role}:${p.content}`));
+                  const fresh = agentOrSys
+                    .filter((m: any) => !known.has(`${m.role}:${m.content}`))
+                    .map((m: any) => ({
+                      role: m.role as any,
+                      content: m.content,
+                      senderName: m.senderName,
+                    }));
+                  if (fresh.length > 0) return [...prev, ...fresh];
+                  return prev;
+                });
+              }
+            }
+          } else {
+            setHandoffState({ active: false, status: 'bot' });
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+    };
+    checkActiveSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [botId, apiHost, getSessionId, open]);
+
+  // Polling for live handoff state & agent messages from WhatsApp / Agent Console
   useEffect(() => {
     if (!handoffState.active || !botId) return;
     const interval = setInterval(async () => {
@@ -688,10 +731,20 @@ export function ChatWidget({
         const res = await fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${sId}`);
         if (res.ok) {
           const data = await res.json();
+          const isStillHandoff =
+            data.status === 'waiting_agent' ||
+            data.status === 'agent_active' ||
+            data.status === 'admin_replied';
+
+          if (!isStillHandoff) {
+            setHandoffState({ active: false, status: 'bot' });
+            return;
+          }
+
           if (data.status && data.status !== handoffState.status) {
             setHandoffState({
-              active: data.status === 'waiting_agent' || data.status === 'agent_active',
-              status: data.status,
+              active: isStillHandoff,
+              status: data.status === 'admin_replied' ? 'agent_active' : data.status,
               agentName: data.assignedAgent?.name,
             });
           }
@@ -700,15 +753,25 @@ export function ChatWidget({
               (m: any) => m.role === 'agent' || m.role === 'system'
             );
             setMessages((prev) => {
-              const known = new Set(prev.map((p) => p.content));
+              const known = new Set(prev.map((p) => `${p.role}:${p.content}`));
               const fresh = agentOrSys
-                .filter((m: any) => !known.has(m.content))
+                .filter((m: any) => !known.has(`${m.role}:${m.content}`))
                 .map((m: any) => ({
                   role: m.role as any,
                   content: m.content,
                   senderName: m.senderName,
                 }));
-              if (fresh.length > 0) return [...prev, ...fresh];
+              if (fresh.length > 0) {
+                requestAnimationFrame(() => {
+                  if (scrollRef.current) {
+                    scrollRef.current.scrollTo({
+                      top: scrollRef.current.scrollHeight,
+                      behavior: 'smooth',
+                    });
+                  }
+                });
+                return [...prev, ...fresh];
+              }
               return prev;
             });
           }
@@ -716,7 +779,7 @@ export function ChatWidget({
       } catch (e) {
         // non-fatal
       }
-    }, 3500);
+    }, 2000);
     return () => clearInterval(interval);
   }, [handoffState.active, handoffState.status, botId, apiHost, getSessionId]);
 
@@ -798,7 +861,7 @@ export function ChatWidget({
 
     const startDelay = setTimeout(() => {
       const typeStep = () => {
-        idx += 1;
+        idx = Math.min(chars.length, idx + 2);
         setMessages([{ role: "assistant", content: chars.slice(0, idx).join("") }]);
         if (idx >= chars.length) {
           typingRef.current = null;
@@ -808,11 +871,11 @@ export function ChatWidget({
           return;
         }
         const ch = chars[idx];
-        const pause = ch === "\n" ? 240 : /[.?,!;:।]/.test(ch) ? 190 : /\s/.test(ch) ? 90 : 26;
+        const pause = ch === "\n" ? 40 : /[.?,!;:।]/.test(ch) ? 25 : 12;
         typingRef.current = setTimeout(typeStep, pause);
       };
-      typingRef.current = setTimeout(typeStep, 26);
-    }, 180);
+      typingRef.current = setTimeout(typeStep, 15);
+    }, 60);
 
     return () => {
       clearTimeout(startDelay);
@@ -916,6 +979,14 @@ export function ChatWidget({
 
   const clearHistory = () => {
     followRef.current = true;
+    const oldSessionId = sessionIdRef.current;
+    const newSessionId = `sess-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    sessionIdRef.current = newSessionId;
+    try {
+      window.sessionStorage.removeItem(`sitebot_session_${botId || "default"}`);
+    } catch {}
+
+    setHandoffState({ active: false, status: 'bot' });
     setMessages([buildWelcome()]);
     setEnquiry({ active: false, step: 0, data: {} });
     setEnquiryOptions([]);
@@ -926,6 +997,12 @@ export function ChatWidget({
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ top: 0 });
     });
+
+    if (oldSessionId && botId) {
+      fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${oldSessionId}`, {
+        method: 'DELETE',
+      }).catch(() => {});
+    }
   };
 
   // Never auto-scroll when messages/loading change: keep the viewport stable
@@ -998,8 +1075,33 @@ export function ChatWidget({
     const next: ChatMsg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setInput("");
-    setLoading(true);
     setLastAction("chat");
+
+    // If live handoff is active, deliver message directly to human agent without creating any AI bubble
+    if (handoffState.active) {
+      setLoading(false);
+      try {
+        const endpoint = botId ? `${apiHost}/api/chat/${botId}` : `${apiHost}/api/chat`;
+        fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Rivafy-Preview": "true",
+            "X-SiteBot-Preview": "true",
+          },
+          body: JSON.stringify({
+            message: text,
+            history: next.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+            sessionId: getSessionId(),
+          }),
+        }).catch(() => {});
+      } catch {
+        // non-fatal
+      }
+      return;
+    }
+
+    setLoading(true);
 
     // Casual lead extraction
     const lead = extractLead(next);
@@ -1020,6 +1122,7 @@ export function ChatWidget({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Rivafy-Preview": "true",
           "X-SiteBot-Preview": "true",
         },
         body: JSON.stringify({
@@ -1038,8 +1141,6 @@ export function ChatWidget({
         let fullText = "";
         let sourcesList: any[] = [];
         let buffer = "";
-
-        setMessages((m) => [...m, { role: "assistant", content: "", sources: [] }]);
         let responseStarted = false;
 
         while (true) {
@@ -1079,39 +1180,49 @@ export function ChatWidget({
               } else if (eventType === "token") {
                 try {
                   const { token } = JSON.parse(dataStr);
-                  if (!responseStarted && token) {
+                  if (!token) continue;
+                  if (!responseStarted) {
                     responseStarted = true;
                     setLoading(false);
+                    fullText += token;
+                    setMessages((m) => [...m, { role: "assistant", content: fullText, sources: sourcesList }]);
+                  } else {
+                    fullText += token;
+                    setMessages((m) => {
+                      const copy = [...m];
+                      const last = copy[copy.length - 1];
+                      if (last && last.role === "assistant") {
+                        last.content = fullText;
+                        last.sources = sourcesList;
+                      }
+                      return copy;
+                    });
                   }
-                  fullText += token;
-                  setMessages((m) => {
-                    const copy = [...m];
-                    const last = copy[copy.length - 1];
-                    if (last && last.role === "assistant") {
-                      last.content = fullText;
-                      last.sources = sourcesList;
-                    }
-                    return copy;
-                  });
                 } catch {
                   /* noop */
                 }
               }
             }
           } else {
-            if (!responseStarted && value.length > 0) {
-              responseStarted = true;
-              setLoading(false);
-            }
-            fullText += decoder.decode(value, { stream: true });
-            setMessages((m) => {
-              const copy = [...m];
-              const last = copy[copy.length - 1];
-              if (last && last.role === "assistant") {
-                last.content = fullText;
+            const chunk = decoder.decode(value, { stream: true });
+            if (chunk) {
+              if (!responseStarted) {
+                responseStarted = true;
+                setLoading(false);
+                fullText += chunk;
+                setMessages((m) => [...m, { role: "assistant", content: fullText, sources: [] }]);
+              } else {
+                fullText += chunk;
+                setMessages((m) => {
+                  const copy = [...m];
+                  const last = copy[copy.length - 1];
+                  if (last && last.role === "assistant") {
+                    last.content = fullText;
+                  }
+                  return copy;
+                });
               }
-              return copy;
-            });
+            }
           }
         }
 
@@ -1122,15 +1233,17 @@ export function ChatWidget({
             status: (parsed.handoffActive as any) || 'waiting_agent',
           });
         }
-        setMessages((m) => {
-          const copy = [...m];
-          const last = copy[copy.length - 1];
-          if (last && last.role === "assistant") {
-            last.content = parsed.cleanText;
-            last.sources = sourcesList;
-          }
-          return copy;
-        });
+        if (responseStarted && parsed.cleanText.trim()) {
+          setMessages((m) => {
+            const copy = [...m];
+            const last = copy[copy.length - 1];
+            if (last && last.role === "assistant") {
+              last.content = parsed.cleanText;
+              last.sources = sourcesList;
+            }
+            return copy;
+          });
+        }
         setLoading(false);
         return;
       }
@@ -1138,18 +1251,22 @@ export function ChatWidget({
       // JSON response fallback
       const data = await res.json();
       setLoading(false);
-      const rawContent = data.response || data.reply || data.content || "Thanks for your message!";
-      const parsed = parseRuntimeTags(rawContent);
-      if (parsed.handoffReason || parsed.handoffActive) {
-        setHandoffState({
-          active: true,
-          status: (parsed.handoffActive as any) || 'waiting_agent',
-        });
+      const rawContent = data.response || data.reply || data.content || "";
+      if (rawContent) {
+        const parsed = parseRuntimeTags(rawContent);
+        if (parsed.handoffReason || parsed.handoffActive) {
+          setHandoffState({
+            active: true,
+            status: (parsed.handoffActive as any) || 'waiting_agent',
+          });
+        }
+        if (parsed.cleanText.trim()) {
+          setMessages((m) => [
+            ...m,
+            { role: "assistant", content: parsed.cleanText, sources: data.sources || [] },
+          ]);
+        }
       }
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: parsed.cleanText, sources: data.sources || [] },
-      ]);
     } catch {
       setLoading(false);
       setMessages((m) => [
@@ -1978,7 +2095,7 @@ export function ChatWidget({
                       rel="noopener noreferrer"
                       className="text-rose-400 hover:text-rose-300 font-semibold transition-colors"
                     >
-                      SiteBot Studio
+                      Rivafy Studio
                     </a>
                   </p>
                 </div>

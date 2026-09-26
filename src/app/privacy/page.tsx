@@ -19,9 +19,9 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — SiteBot Studio',
+  title: 'Privacy Policy — Rivafy Studio',
   description:
-    'Learn how SiteBot Studio collects, processes, and protects your personal data, scraped website content, vector embeddings, and customer leads.',
+    'Learn how Rivafy Studio collects, processes, and protects your personal data, scraped website content, vector embeddings, and customer leads.',
 };
 
 export default function PrivacyPage() {
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
       content: (
         <>
           <p className="leading-relaxed">
-            At SiteBot Studio (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), we take your privacy and the security of
+            At Rivafy Studio (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), we take your privacy and the security of
             your data seriously. This Privacy Policy describes how we collect, use, store, and disclose information
             when you use our website, developer APIs, web crawling tools, user dashboard, and embedded chatbot widgets
             (collectively, the &ldquo;Platform&rdquo;).
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
       content: (
         <>
           <p className="leading-relaxed">
-            SiteBot Studio supports Bring Your Own Key (BYOK) for OpenAI, NVIDIA NIM, Google Gemini, and OpenRouter:
+            Rivafy Studio supports Bring Your Own Key (BYOK) for OpenAI, NVIDIA NIM, Google Gemini, and OpenRouter:
           </p>
           <ul className="mt-3 space-y-2 pl-5 list-disc text-slate-600 dark:text-slate-300">
             <li>Customer API keys are encrypted at rest using AES-256 standard encryption before storage.</li>
@@ -162,7 +162,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Account Removal:</strong> You may request the full closure of your user account and removal of all associated
-              records by contacting <span className="break-all">support@sitebotstudio.com</span>.
+              records by contacting <span className="break-all">support@rivafy.com</span>.
             </li>
           </ul>
         </>
@@ -197,9 +197,9 @@ export default function PrivacyPage() {
             Data Protection Officer:
           </p>
           <div className="min-w-0 mt-4 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs">
-            <p className="font-bold text-slate-900 dark:text-white">SiteBot Studio Privacy Office</p>
-            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: <span className="break-all">privacy@sitebotstudio.com</span></p>
-            <p className="text-slate-600 dark:text-slate-300">Support: <span className="break-all">support@sitebotstudio.com</span></p>
+            <p className="font-bold text-slate-900 dark:text-white">Rivafy Studio Privacy Office</p>
+            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: <span className="break-all">privacy@rivafy.com</span></p>
+            <p className="text-slate-600 dark:text-slate-300">Support: <span className="break-all">support@rivafy.com</span></p>
           </div>
         </>
       ),

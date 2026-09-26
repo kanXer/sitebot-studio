@@ -1,10 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
-  }
+  },
+  serverExternalPackages: [
+    '@whiskeysockets/baileys',
+    'pino',
+    'jimp',
+    'qrcode',
+  ],
 };
 
 export default nextConfig;

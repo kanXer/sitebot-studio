@@ -17,11 +17,26 @@ export interface HandoffDetectionResult {
 
 // Phrases indicating visitor specifically wants human interaction
 const EXPLICIT_HUMAN_TRIGGERS: RegExp[] = [
-  /\b(talk|speak)\s+to\s+(a\s+)?(live\s+|real\s+)?(human|person|agent|representative|operator|someone\s+else)\b/i,
-  /\b(transfer|connect)\s+(me\s+)?to\s+(a\s+)?(live\s+|real\s+)?(human|agent|person|representative|support)\b/i,
-  /\b(i\s+want|need|get\s+me)\s+(to\s+talk\s+to\s+)?(a\s+)?(live\s+|real\s+)?(human|real\s+person|live\s+agent|support\s+person|representative)\b/i,
-  /\b(live\s+agent|human\s+support|human\s+help|real\s+human|live\s+human)\b/i,
-  /\b(call\s+an\s+agent|operator\s+please)\b/i,
+  // Connect/transfer/speak/talk/chat to/with human/agent/person/representative
+  /\b(connect|transfer|talk|speak|chat|reach|get)\s+(me\s+)?(to|with|into)?\s*(a\s+)?(live\s+|real\s+)?(human|person|agent|representative|rep|operator|expert|specialist|someone|somebody|support|team)\b/i,
+
+  // Want / need / get human/agent
+  /\b(i\s+want|want|need|get\s+me|give\s+me|find\s+me)\s+(to\s+)?(talk|speak|chat|connect)?\s*(with|to)?\s*(a\s+)?(live\s+|real\s+)?(human|person|agent|representative|rep|operator|support|real\s+person|live\s+agent)\b/i,
+
+  // Direct keywords / phrases
+  /\b(human\s+representative|human\s+support|human\s+agent|human\s+help|real\s+human|live\s+human|live\s+agent|live\s+support|real\s+person|support\s+agent|customer\s+care|customer\s+support|human\s+assistance|talk\s+to\s+someone|speak\s+with\s+someone)\b/i,
+
+  // "Can you connect..." or "Is there a human..."
+  /\b(can\s+you|could\s+you|please|is\s+there)\s+.*(connect|speak|talk|transfer).*(\b(human|agent|representative|person|operator)\b)/i,
+  /\b(capability\s+to\s+connect|connect.*directly.*chat|connect.*human)\b/i,
+
+  // Standalone requests
+  /^(human|agent|representative|rep|operator|live support|live agent|person|real person)[.?!]?$/i,
+  /\b(call\s+an\s+agent|operator\s+please|human\s+please|agent\s+please)\b/i,
+
+  // Hindi / Hinglish triggers
+  /\b(baat\s+kar(ao|na|ni|wao)|insan|bande|kisi\s+se\s+baat|agent\s+se|human\s+se|sir\s+se\s+baat)\b/i,
+  /\b(human\s+chahiye|agent\s+chahiye|support\s+chahiye|insan\s+chahiye)\b/i,
 ];
 
 // Phrases indicating user frustration or dissatisfaction with AI

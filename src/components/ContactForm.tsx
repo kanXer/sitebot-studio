@@ -165,7 +165,7 @@ export function ContactForm() {
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                <span>Send Message to SiteBot Team</span>
+                <span>Send Message to Rivafy Team</span>
               </>
             )}
           </button>

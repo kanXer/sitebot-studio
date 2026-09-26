@@ -19,6 +19,7 @@ import {
   Loader2,
   FolderPlus,
   HelpCircle,
+  X,
 } from 'lucide-react';
 
 interface OnboardingModalProps {
@@ -205,6 +206,15 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
               </h2>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+            title="Close Setup"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {errorMsg && (
@@ -281,7 +291,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
             {/* Primary Goal / Use Case */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                What is your main goal with SiteBot Studio?
+                What is your main goal with Rivafy Studio?
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {USE_CASES.map((uc) => {
@@ -332,7 +342,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                 <span>Creating Project for: {name || user?.displayName || 'User'} ({selectedRole})</span>
               </div>
               <p className="text-[11px] text-indigo-700 dark:text-indigo-300 mt-1 leading-relaxed">
-                Give your chatbot project a name and enter your target website URL. SiteBot will crawl your pages, extract knowledge chunks, and set up your interactive AI widget.
+                Give your chatbot project a name and enter your target website URL. Rivafy will crawl your pages, extract knowledge chunks, and set up your interactive AI widget.
               </p>
             </div>
 

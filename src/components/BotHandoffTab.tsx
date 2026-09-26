@@ -15,6 +15,8 @@ import {
   AlertCircle,
   MessageSquare,
   Shield,
+  Smartphone,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/lib/firebase/AuthContext';
 
@@ -27,6 +29,8 @@ interface BotHandoffTabProps {
     handoffAgentName: string;
     handoffNotifyEmail: string;
     handoffOfflineMessage: string;
+    handoffWhatsappEnabled?: boolean;
+    handoffWhatsappNumber?: string;
   };
   setFormData: React.Dispatch<React.SetStateAction<any>>;
   onSave: (e: React.FormEvent) => void;
@@ -246,6 +250,80 @@ export function BotHandoffTab({
             placeholder="Our human support agents are currently offline..."
             className="w-full min-w-0 max-w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-600 shadow-sm"
           />
+        </div>
+
+        {/* WhatsApp Real-Time Notification & Live Two-Way Relay */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                <Smartphone className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                  WhatsApp Instant Escalation Alerts
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    Two-Way Relay
+                  </span>
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Receive WhatsApp alerts on your phone whenever a visitor requests human support, and reply directly from WhatsApp.
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex shrink-0 items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(formData.handoffWhatsappEnabled)}
+                onChange={(e) =>
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    handoffWhatsappEnabled: e.target.checked,
+                  }))
+                }
+                className="sr-only peer"
+              />
+              <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Agent WhatsApp Phone Number
+              </label>
+              <input
+                type="tel"
+                value={formData.handoffWhatsappNumber || ''}
+                onChange={(e) =>
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    handoffWhatsappNumber: e.target.value,
+                  }))
+                }
+                placeholder="+919876543210 (with country code)"
+                className="w-full px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-sm"
+              />
+              <span className="block mt-1 text-[11px] text-slate-400">
+                Include country code (e.g. +91 for India, +1 for US). Leave empty to use admin WhatsApp account.
+              </span>
+            </div>
+
+            <div className="rounded-xl bg-slate-900 text-slate-300 p-3 text-[11px] space-y-1.5 border border-slate-800">
+              <span className="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+                <Bell className="w-3.5 h-3.5" /> Two-Way WhatsApp Instructions:
+              </span>
+              <p>
+                1. When a visitor triggers handoff, you receive: <code className="text-white bg-slate-800 px-1 rounded font-mono">🔴 New Support Request [#TICK-XXXX]</code>
+              </p>
+              <p>
+                2. Reply directly on WhatsApp: <code className="text-emerald-300 bg-slate-800 px-1 rounded font-mono">#TICK-XXXX your message</code>. Your message will instantly appear in the visitor&apos;s live chat!
+              </p>
+              <p>
+                3. End session: send <code className="text-amber-300 bg-slate-800 px-1 rounded font-mono">#TICK-XXXX /close</code> to restore AI assistant.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

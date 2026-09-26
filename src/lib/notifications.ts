@@ -119,7 +119,7 @@ export async function sendEmail(options: {
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const from = process.env.SMTP_FROM || user;
-  const fromName = process.env.SMTP_FROM_NAME || 'SiteBot Studio';
+  const fromName = process.env.SMTP_FROM_NAME || 'Rivafy Studio';
 
   if (!host || !user || !pass) {
     return { ok: false, error: 'SMTP is not configured. Add SMTP_HOST/SMTP_USER/SMTP_PASS to .env' };
@@ -225,20 +225,34 @@ export async function sendTelegram(
 
 // ============================================================
 // WhatsApp
-// Supports a generic HTTP gateway (WHATSAPP_API_URL + WHATSAPP_TOKEN)
+// Supports Baileys Web Client + generic HTTP gateway (WHATSAPP_API_URL)
 // ============================================================
 
 export function isWhatsAppConfigured(): boolean {
-  return Boolean(process.env.WHATSAPP_API_URL);
+  return Boolean(process.env.WHATSAPP_API_URL || process.env.NOTIFY_WHATSAPP);
 }
 
 export async function sendWhatsApp(
   message: string,
   toNumber?: string
 ): Promise<{ ok: boolean; error?: string }> {
+  // 1. Try Baileys connected client first
+  if (toNumber) {
+    try {
+      const { sendWhatsAppMessage } = await import('@/lib/whatsapp/baileysManager');
+      const baileysResult = await sendWhatsAppMessage(toNumber, message);
+      if (baileysResult.ok) {
+        return { ok: true };
+      }
+    } catch {
+      // Fall through to HTTP gateway
+    }
+  }
+
+  // 2. Fall back to WHATSAPP_API_URL gateway if configured
   const gateway = process.env.WHATSAPP_API_URL;
   if (!gateway) {
-    return { ok: false, error: 'WhatsApp gateway not configured (WHATSAPP_API_URL)' };
+    return { ok: false, error: 'No active WhatsApp connection or WHATSAPP_API_URL configured' };
   }
   const token = process.env.WHATSAPP_TOKEN || '';
   const from = process.env.WHATSAPP_FROM || toNumber || '';
@@ -361,7 +375,7 @@ export async function sendLeadNotifications(config: {
   }
 
   // 2. WhatsApp
-  if (waNumber && (isWhatsAppConfigured())) {
+  if (waNumber) {
     const waMessage = `*[${projectName}]* New lead\n📌 ${lead.campaign || 'Inquiry'}\n\n${lead.name ? `👤 ${lead.name}\n` : ''}${lead.email ? `✉️ ${lead.email}\n` : ''}${lead.phone ? `📞 ${lead.phone}\n` : ''}\n💬 ${summary}`;
     const waResult = await sendWhatsApp(waMessage, waNumber);
     if (waResult.ok) results.whatsapp = true;
@@ -378,7 +392,7 @@ export async function sendLeadNotifications(config: {
 }
 
 function projectNameOf(url?: string): string {
-  if (!url) return 'SiteBot';
+  if (!url) return 'Rivafy';
   try {
     const host = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
     return host.replace(/^www\./, '');

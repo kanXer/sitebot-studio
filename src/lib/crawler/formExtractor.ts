@@ -247,7 +247,7 @@ export async function extractFormsFromUrl(
 
     const context = await browser.newContext({
       userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 SiteBotBot/1.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 RivafyBot/1.0',
       viewport: { width: 1366, height: 768 },
       locale: 'en-US',
     });

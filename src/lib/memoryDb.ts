@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * In-Memory Database Fallback for SiteBot Studio
+ * In-Memory Database Fallback for Rivafy Studio
  * Provides seamless local operation when MongoDB Atlas credentials are not yet configured.
  */
 
@@ -884,6 +884,12 @@ export const MemoryDb = {
         return true;
       })
       .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+  },
+
+  findAllConversations(limit = 100): MemoryConversation[] {
+    return Array.from(memoryStore.conversations.values())
+      .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
+      .slice(0, limit);
   },
 
   createConversation(data: {

@@ -20,20 +20,20 @@ import { ContactForm } from '@/components/ContactForm';
 export const metadata: Metadata = {
   title: 'Contact Us — Enterprise AI Sales & Support',
   description:
-    'Get in touch with the SiteBot Studio team for enterprise deployments, custom AI integrations, technical support, or partnership inquiries.',
+    'Get in touch with the Rivafy Studio team for enterprise deployments, custom AI integrations, technical support, or partnership inquiries.',
   keywords: [
-    'Contact SiteBot Studio',
+    'Contact Rivafy Studio',
     'AI Chatbot Support',
     'Enterprise AI Integrations',
-    'SiteBot Customer Service',
+    'Rivafy Customer Service',
     'AI Website Widget Help',
   ],
   openGraph: {
-    title: 'Contact SiteBot Studio — Enterprise AI Sales & Support',
+    title: 'Contact Rivafy Studio — Enterprise AI Sales & Support',
     description:
-      'Have questions about enterprise deployment or embedding SiteBot on complex platforms? Contact our engineering team.',
-    url: 'https://sitebotstudio.com/contact',
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'Contact SiteBot Studio' }],
+      'Have questions about enterprise deployment or embedding Rivafy on complex platforms? Contact our engineering team.',
+    url: 'https://rivafy.com/contact',
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'Contact Rivafy Studio' }],
   },
 };
 
@@ -41,30 +41,30 @@ export default function ContactPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ContactPage',
-    name: 'Contact SiteBot Studio',
+    name: 'Contact Rivafy Studio',
     description: 'Contact our engineering and enterprise AI sales team.',
     publisher: {
       '@type': 'Organization',
-      name: 'SiteBot Studio',
-      logo: 'https://sitebotstudio.com/logo.png',
+      name: 'Rivafy Studio',
+      logo: 'https://rivafy.com/logo.png',
     },
   };
 
   const FAQS = [
     {
-      q: 'Will SiteBot conflict with my existing website CSS?',
-      a: 'Never. SiteBot is encapsulated inside a native Shadow DOM root. Host site styles from Tailwind, Bootstrap, or custom CSS cannot penetrate into the widget, and widget styles will never alter your host layout.',
+      q: 'Will Rivafy conflict with my existing website CSS?',
+      a: 'Never. Rivafy is encapsulated inside a native Shadow DOM root. Host site styles from Tailwind, Bootstrap, or custom CSS cannot penetrate into the widget, and widget styles will never alter your host layout.',
     },
     {
       q: 'Can I bring my own OpenAI or NVIDIA API keys?',
-      a: 'Yes. SiteBot Studio features full BYOK (Bring Your Own Key) support with client-side key masking and AES server encryption. You can also use our built-in test sandbox credentials.',
+      a: 'Yes. Rivafy Studio features full BYOK (Bring Your Own Key) support with client-side key masking and AES server encryption. You can also use our built-in test sandbox credentials.',
     },
     {
       q: 'How long does it take to crawl and vectorize my website?',
       a: 'Most websites with 10–25 pages are scraped, cleaned, chunked, and vectorized into Qdrant within 30 to 60 seconds with live Server-Sent Events (SSE) progress tracking.',
     },
     {
-      q: 'What platforms can I embed SiteBot on?',
+      q: 'What platforms can I embed Rivafy on?',
       a: 'Any website with HTML access. We officially support WordPress, Shopify, Webflow, React, Next.js, Vue, Wix, Squarespace, and custom HTML/PHP sites with a single <script> tag.',
     },
   ];
@@ -88,12 +88,12 @@ export default function ContactPage() {
             <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-950 tracking-tight break-words">
               Get in Touch with{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
-                SiteBot Studio
+                Rivafy Studio
               </span>
             </h1>
 
             <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed break-words">
-              Have questions about integrating SiteBot on your platform, setting up custom Qdrant vector databases, or enterprise licensing? Our engineers are ready to assist you.
+              Have questions about integrating Rivafy on your platform, setting up custom Qdrant vector databases, or enterprise licensing? Our engineers are ready to assist you.
             </p>
           </div>
         </section>
@@ -117,7 +117,7 @@ export default function ContactPage() {
 
                 <div className="space-y-4">
                   <a
-                    href="mailto:support@sitebotstudio.com"
+                    href="mailto:support@rivafy.com"
                     className="flex min-w-0 items-start gap-3.5 p-3.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 transition-colors group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -126,7 +126,7 @@ export default function ContactPage() {
                     <div className="min-w-0">
                       <span className="text-[11px] font-bold text-slate-500 block uppercase">Technical Support</span>
                       <span className="min-w-0 text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors break-all">
-                        support@sitebotstudio.com
+                        support@rivafy.com
                       </span>
                       <p className="min-w-0 text-[11px] text-slate-500 mt-0.5 break-words">Assistance with embedding, crawling, and RAG configuration</p>
                     </div>

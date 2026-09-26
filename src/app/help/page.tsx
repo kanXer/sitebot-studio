@@ -33,7 +33,7 @@ export default function HelpPage() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  const sampleScript = `<script src="https://sitebotstudio.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`;
+  const sampleScript = `<script src="https://rivafy.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`;
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -47,7 +47,7 @@ export default function HelpPage() {
       name: 'HTML5 / Any Site',
       icon: '🌐',
       snippet: `<!-- Paste this right before the closing </body> tag -->
-<script src="https://sitebotstudio.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
+<script src="https://rivafy.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
       steps: [
         'Open your website’s HTML template file (index.html or footer file).',
         'Scroll down to the bottom and find the closing </body> tag.',
@@ -60,7 +60,7 @@ export default function HelpPage() {
       name: 'WordPress',
       icon: '📝',
       snippet: `<!-- Add via WPCode Plugin or Theme Footer (footer.php) -->
-<script src="https://sitebotstudio.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
+<script src="https://rivafy.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
       steps: [
         'Log in to your WordPress Admin Dashboard (wp-admin).',
         'Install the free plugin "WPCode" (Insert Headers and Footers).',
@@ -74,7 +74,7 @@ export default function HelpPage() {
       name: 'Shopify',
       icon: '🛍️',
       snippet: `<!-- Inside theme.liquid before </body> -->
-<script src="https://sitebotstudio.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
+<script src="https://rivafy.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
       steps: [
         'Log in to your Shopify Admin Panel.',
         'Navigate to Online Store → Themes.',
@@ -89,11 +89,11 @@ export default function HelpPage() {
       name: 'Webflow',
       icon: '🎨',
       snippet: `<!-- Project Settings -> Custom Code -> Footer Code -->
-<script src="https://sitebotstudio.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
+<script src="https://rivafy.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
       steps: [
         'Open your Webflow Dashboard and go to your Project Settings.',
         'Click the "Custom Code" tab.',
-        'Under "Footer Code" (Before </body> tag), paste your SiteBot script.',
+        'Under "Footer Code" (Before </body> tag), paste your Rivafy script.',
         'Click "Save Changes" and then "Publish" to your domains.',
       ],
     },
@@ -110,7 +110,7 @@ export default function RootLayout({ children }) {
       <body>
         {children}
         <Script
-          src="https://sitebotstudio.com/widget.js"
+          src="https://rivafy.com/widget.js"
           data-bot-id="YOUR_BOT_ID"
           strategy="lazyOnload"
         />
@@ -129,7 +129,7 @@ export default function RootLayout({ children }) {
       name: 'Wix / Squarespace',
       icon: '⚡',
       snippet: `<!-- Add under Settings -> Custom Code -> Body - End -->
-<script src="https://sitebotstudio.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
+<script src="https://rivafy.com/widget.js" data-bot-id="YOUR_BOT_ID" defer></script>`,
       steps: [
         'Go to your Wix Dashboard → Settings → Custom Code.',
         'Click "+ Add Custom Code" and paste your widget script.',
@@ -142,7 +142,7 @@ export default function RootLayout({ children }) {
   const faqs = [
     {
       q: 'Will this chatbot slow down or break my website CSS?',
-      a: 'Absolutely not! SiteBot Studio runs inside an isolated, encapsulated Shadow DOM root. It has zero external CSS stylesheets and zero dependencies, meaning it will never clash with your website fonts, colors, or Tailwind classes.',
+      a: 'Absolutely not! Rivafy Studio runs inside an isolated, encapsulated Shadow DOM root. It has zero external CSS stylesheets and zero dependencies, meaning it will never clash with your website fonts, colors, or Tailwind classes.',
     },
     {
       q: 'How does the automatic website crawler work?',
@@ -175,7 +175,7 @@ export default function RootLayout({ children }) {
         <section className="relative pt-12 pb-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center overflow-hidden">
           <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 text-indigo-700 dark:text-indigo-300 text-xs font-bold mb-5 animate-in fade-in slide-in-from-top-2 text-center leading-relaxed">
             <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span>SiteBot Studio Documentation &amp; Step-by-Step Guide</span>
+            <span>Rivafy Studio Documentation &amp; Step-by-Step Guide</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white max-w-3xl mx-auto leading-tight break-words">

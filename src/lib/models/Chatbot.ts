@@ -55,6 +55,8 @@ export interface IChatbot extends Document {
     notifyEmail?: string;
     agentName?: string;
     offlineMessage?: string;
+    whatsappEnabled?: boolean;
+    whatsappNumber?: string;
   };
   metaPrompt?: string;
   aiLimit?: {
@@ -225,6 +227,8 @@ const ChatbotSchema: Schema = new Schema(
         default:
           'Our human support agents are currently offline or busy. Please leave your contact details and message, and our team will get back to you shortly!',
       },
+      whatsappEnabled: { type: Boolean, default: false },
+      whatsappNumber: { type: String, default: '' },
     },
     metaPrompt: {
       type: String,

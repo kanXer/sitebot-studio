@@ -28,10 +28,13 @@ import { Footer } from '@/components/Footer';
 import { CTALeadForm } from '@/components/CTALeadForm';
 
 export const metadata: Metadata = {
-  title: 'SiteBot Studio — Multi-Tenant AI Chatbot Platform for Any Website',
+  title: 'Rivafy Studio — Build. Embed. Automate.',
   description:
-    'Build, train, and embed intelligent RAG AI chatbots on any website in 60 seconds with zero runtime dependencies and isolated Shadow DOM technology. Powered by Qdrant, NVIDIA NIM, and OpenAI.',
+    'Rivafy Studio — Build. Embed. Automate. Build, train, and embed intelligent RAG AI chatbots on any website in 60 seconds with zero runtime dependencies and isolated Shadow DOM technology. Powered by Qdrant, NVIDIA NIM, and OpenAI.',
   keywords: [
+    'Rivafy Studio',
+    'Rivafy',
+    'Build Embed Automate',
     'AI Chatbot Builder',
     'Website AI Chatbot',
     'RAG Chatbot Platform',
@@ -46,23 +49,23 @@ export const metadata: Metadata = {
     'Webflow AI Assistant',
   ],
   openGraph: {
-    title: 'SiteBot Studio — Multi-Tenant AI Chatbot Platform for Any Website',
+    title: 'Rivafy Studio — Build. Embed. Automate.',
     description:
-      'Train AI on your website knowledge and embed an isolated, customizable floating chatbot on WordPress, Webflow, Shopify, or React.',
-    url: 'https://sitebotstudio.com',
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'SiteBot Studio' }],
+      'Rivafy Studio — Build. Embed. Automate. Train AI on your website knowledge and embed an isolated, customizable floating chatbot on WordPress, Webflow, Shopify, or React.',
+    url: 'https://rivafy.com',
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'Rivafy Studio' }],
   },
 };
 
 export default function LandingHomePage() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sitebotstudio.com';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rivafy.com';
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'SoftwareApplication',
-        name: 'SiteBot Studio',
+        name: 'Rivafy Studio',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'All',
         offers: {
@@ -71,7 +74,7 @@ export default function LandingHomePage() {
           priceCurrency: 'USD',
         },
         description:
-          'Multi-Tenant AI Chatbot Platform providing shadow DOM encapsulated chat widgets, multi-model RAG, and automated website scraping.',
+          'Rivafy Studio — Build. Embed. Automate. Multi-tenant AI chatbot platform providing shadow DOM encapsulated chat widgets, multi-model RAG, and automated website scraping.',
         url: baseUrl,
         image: `${baseUrl}/logo.png`,
       },
@@ -80,10 +83,10 @@ export default function LandingHomePage() {
         mainEntity: [
           {
             '@type': 'Question',
-            name: 'How does SiteBot embed on websites without breaking styles?',
+            name: 'How does Rivafy Studio embed on websites without breaking styles?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'SiteBot Studio uses native Web Component Shadow DOM isolation. Styles from the host site cannot affect the chat widget, and widget styles will never alter host HTML.',
+              text: 'Rivafy Studio uses native Web Component Shadow DOM isolation. Styles from the host site cannot affect the chat widget, and widget styles will never alter host HTML.',
             },
           },
           {
@@ -91,7 +94,7 @@ export default function LandingHomePage() {
             name: 'Can I connect my own vector database or API keys?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Yes! SiteBot Studio supports BYOK (Bring Your Own Key) for OpenAI, NVIDIA NIM, Gemini, and OpenRouter, as well as custom cloud or self-hosted Qdrant instances.',
+              text: 'Yes! Rivafy Studio supports BYOK (Bring Your Own Key) for OpenAI, NVIDIA NIM, Gemini, and OpenRouter, as well as custom cloud or self-hosted Qdrant instances.',
             },
           },
         ],
@@ -193,12 +196,12 @@ export default function LandingHomePage() {
             <div className="max-w-3xl mx-auto min-w-0 text-center space-y-6">
               {/* Eyebrow badge */}
               <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-300 shadow-inner text-center leading-relaxed">
-                <span>Next-Gen RAG AI Chatbot Platform</span>
+                <span>Rivafy Studio • Build. Embed. Automate.</span>
               </div>
 
               {/* Primary SEO H1 */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] break-words">
-                Build, Train &amp; Embed Intelligent AI Chatbots on{' '}
+                Build, Embed &amp; Automate AI Chatbots on{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-rose-400">
                   Any Website in 60 Seconds
                 </span>
@@ -250,7 +253,7 @@ export default function LandingHomePage() {
               <div className="rounded-2xl min-w-0 max-w-full overflow-hidden shadow-inner border border-slate-800">
                 <img
                   src="/og-image.jpg"
-                  alt="SiteBot Studio Platform Dashboard &amp; Floating Chat Widget"
+                  alt="Rivafy Studio Platform Dashboard &amp; Floating Chat Widget"
                   className="w-full max-w-full h-auto object-cover"
                 />
               </div>
@@ -305,7 +308,7 @@ export default function LandingHomePage() {
               From URL to Live AI Chatbot in Under 60 Seconds
             </h2>
             <p className="text-sm text-slate-600">
-              No machine learning knowledge needed. SiteBot handles crawling, chunking, embedding, and streaming automatically.
+              No machine learning knowledge needed. Rivafy Studio handles crawling, chunking, embedding, and streaming automatically.
             </p>
           </div>
 
@@ -387,7 +390,7 @@ export default function LandingHomePage() {
                 </h2>
 
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  Unlike traditional widgets that require bundling heavy CSS stylesheets or complex React wrappers, SiteBot Studio encapsulates everything into a single lightweight Javascript file.
+                  Unlike traditional widgets that require bundling heavy CSS stylesheets or complex React wrappers, Rivafy Studio encapsulates everything into a single lightweight Javascript file.
                 </p>
 
                 <div className="space-y-2.5 text-xs text-slate-300">

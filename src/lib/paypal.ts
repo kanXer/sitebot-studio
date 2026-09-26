@@ -77,7 +77,7 @@ export async function createPayPalOrder(email: string): Promise<PayPalOrderRespo
     purchase_units: [
       {
         reference_id: `pro-${email}`,
-        description: `${PAYPAL_PLAN_LABEL} plan – SiteBot Studio subscription`,
+        description: `${PAYPAL_PLAN_LABEL} plan – Rivafy Studio subscription`,
         custom_id: email,
         amount: {
           currency_code: 'USD',
@@ -86,7 +86,7 @@ export async function createPayPalOrder(email: string): Promise<PayPalOrderRespo
       },
     ],
     application_context: {
-      brand_name: 'SiteBot Studio',
+      brand_name: 'Rivafy Studio',
       landing_page: 'BILLING',
       user_action: 'PAY_NOW',
       return_url: returnUrl,

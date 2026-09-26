@@ -451,7 +451,8 @@ PRIMARY INSTRUCTIONS:
       bot.name === 'Site AI Assistant' ||
       bot.name === 'My Chatbot' ||
       bot.name === 'Friday' ||
-      bot.name.startsWith('SiteBot');
+      bot.name.startsWith('SiteBot') ||
+      bot.name.startsWith('Rivafy');
     if (isGenericName && brandName) {
       botUpdates.name = `${brandName} Assistant`;
     }

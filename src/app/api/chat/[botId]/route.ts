@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { createHash } from 'crypto';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
-import { Chatbot, BotForm, FormSubmission } from '@/lib/models';
+import { Chatbot, BotForm, FormSubmission, ChatTicket } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
 import { generateEmbedding } from '@/lib/ai/embeddings';
 import { searchSimilarChunks } from '@/lib/ai/vectorSearch';
@@ -41,7 +41,7 @@ interface RouteParams {
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-SiteBot-Preview',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-SiteBot-Preview, X-Rivafy-Preview',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -68,7 +68,7 @@ function resolveSessionId(botId: string, body: any, message: string): string {
   return `sess-${digest}`;
 }
 
-function chunkString(text: string, size = 8): string[] {
+function chunkString(text: string, size = 28): string[] {
   const out: string[] = [];
   for (let i = 0; i < text.length; i += size) {
     out.push(text.slice(i, i + size));
@@ -89,7 +89,7 @@ function streamImmediateText(
       for (const evt of extraEvents) {
         controller.enqueue(sseEvent(evt.event, evt.data));
       }
-      const tokens = chunkString(text, 8);
+      const tokens = chunkString(text, 28);
       for (const token of tokens) {
         controller.enqueue(sseEvent('token', { token }));
       }
@@ -105,6 +105,83 @@ function streamImmediateText(
       ...CORS_HEADERS,
     },
   });
+}
+
+async function relayUserMessageToTicket(params: {
+  bot: any;
+  sessionId: string;
+  message: string;
+}) {
+  if (isUsingMemoryDb()) return;
+  try {
+    const { bot, sessionId, message } = params;
+    const resolvedBotId = bot._id.toString();
+
+    let ticket = await ChatTicket.findOne({
+      sessionId,
+      status: { $in: ['open', 'waiting_admin', 'admin_replied'] },
+    });
+
+    let ticketId = '';
+    if (!ticket) {
+      const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      ticketId = `TICK-${randSuffix}`;
+      ticket = await ChatTicket.create({
+        ticketId,
+        botId: resolvedBotId,
+        botName: bot.name || 'Rivafy Assistant',
+        sessionId,
+        visitor: {
+          name: 'Visitor',
+          email: '',
+          phone: '',
+        },
+        status: 'waiting_admin',
+        lastUserMessage: message.trim(),
+        messages: [
+          {
+            id: crypto.randomUUID(),
+            role: 'user',
+            senderName: 'Visitor',
+            content: message.trim(),
+            timestamp: new Date(),
+          },
+        ],
+      });
+    } else {
+      ticketId = ticket.ticketId;
+      ticket.lastUserMessage = message.trim();
+      ticket.status = 'waiting_admin';
+      ticket.messages.push({
+        id: crypto.randomUUID(),
+        role: 'user',
+        senderName: 'Visitor',
+        content: message.trim(),
+        timestamp: new Date(),
+      });
+      await ticket.save();
+    }
+
+    const targetNumber =
+      bot?.handoff?.whatsappEnabled && bot?.handoff?.whatsappNumber
+        ? bot.handoff.whatsappNumber
+        : bot?.notifications?.whatsapp?.enabled && bot?.notifications?.whatsapp?.number
+        ? bot.notifications.whatsapp.number
+        : undefined;
+
+    const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
+    sendTicketAlertToAdmin({
+      ticketId,
+      botName: bot.name || 'Rivafy Assistant',
+      visitorName: 'Visitor',
+      userMessage: message.trim(),
+      targetNumber,
+    }).catch((err) => {
+      console.warn('[Handoff Relay] WhatsApp alert dispatch failed:', err);
+    });
+  } catch (err) {
+    console.warn('[Handoff Relay] Error syncing ticket:', err);
+  }
 }
 
 
@@ -146,7 +223,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const previewHeader = req.headers.get('x-sitebot-preview');
+    const previewHeader = req.headers.get('x-rivafy-preview') || req.headers.get('x-sitebot-preview');
     const referer = req.headers.get('referer') || '';
     const origin = req.headers.get('origin') || '';
     const host = req.headers.get('host') || '';
@@ -243,7 +320,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const previewHeader = req.headers.get('x-sitebot-preview');
+    const previewHeader = req.headers.get('x-rivafy-preview') || req.headers.get('x-sitebot-preview');
     const referer = req.headers.get('referer') || '';
     const origin = req.headers.get('origin') || '';
     const host = req.headers.get('host') || '';
@@ -397,13 +474,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         content: message,
       });
 
-      const agentNotice =
-        conversation.status === 'agent_active'
-          ? `Your message has been delivered to ${conversation.assignedAgent?.name || 'the support agent'}. They will respond directly here.`
-          : 'You are in the queue for a live support representative. An agent has been alerted and will join shortly.';
+      // Relay message into ChatTicket and alert WhatsApp agent
+      relayUserMessageToTicket({ bot, sessionId, message }).catch((err) => {
+        console.warn('[Handoff Check 1] Ticket relay error:', err);
+      });
 
-      trackChat([agentNotice]);
-      return streamImmediateText(agentNotice, [
+      // Silent relay: Do not repeat bot disclaimers once connected with a human agent.
+      // The visitor's message is delivered to WhatsApp and the widget awaits the agent's reply.
+      return streamImmediateText('', [
         {
           event: 'handoff',
           data: {
@@ -427,6 +505,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       await appendConversationMessage(resolvedBotId, sessionId, {
         role: 'user',
         content: message,
+      });
+
+      // Relay handoff intent and user message into ChatTicket and alert WhatsApp
+      relayUserMessageToTicket({ bot, sessionId, message }).catch((err) => {
+        console.warn('[Handoff Check 2] Ticket relay error:', err);
       });
 
       const escalationMessage =
@@ -483,7 +566,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         {
           error:
-            'This chatbot is currently in preview mode. To embed this widget on a production website, please configure your own API key in SiteBot Studio settings.',
+            'This chatbot is currently in preview mode. To embed this widget on a production website, please configure your own API key in Rivafy Studio settings.',
         },
         { status: 403, headers: CORS_HEADERS }
       );
@@ -733,7 +816,7 @@ FINAL ENFORCEMENT POLICY (HIGHEST PRIORITY — OVERRIDE EVERYTHING ELSE):
               if (leadCaptureResult.captured && leadCaptureResult.type) {
                 cleanContent += ` [[LEAD_CAPTURED: ${leadCaptureResult.type}]]`;
               }
-              const tokens = chunkString(cleanContent, 8);
+              const tokens = chunkString(cleanContent, 28);
               for (const token of tokens) {
                 streamCallbacks.onToken(token);
               }
@@ -820,7 +903,7 @@ FINAL ENFORCEMENT POLICY (HIGHEST PRIORITY — OVERRIDE EVERYTHING ELSE):
                   `event: handoff\ndata: ${JSON.stringify({ status: 'waiting_agent', reason: 'bot_failure_fallback' })}\n\n`
                 )
               );
-              const tokens = chunkString(fallbackMsg, 8);
+              const tokens = chunkString(fallbackMsg, 28);
               for (const token of tokens) {
                 controller.enqueue(encoder.encode(`event: token\ndata: ${JSON.stringify({ token })}\n\n`));
               }

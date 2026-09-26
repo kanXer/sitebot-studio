@@ -254,7 +254,7 @@ async function callChatCompletions(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.apiKey}`,
         ...(config.baseUrl.includes('openrouter.ai')
-          ? { 'HTTP-Referer': 'https://sitebotstudio.app', 'X-Title': 'SiteBot Studio' }
+          ? { 'HTTP-Referer': 'https://rivafy.com', 'X-Title': 'Rivafy Studio' }
           : {}),
       },
       signal: controller.signal,

@@ -71,7 +71,8 @@ BEHAVIOR AND ANSWERING RULES:
 6. LEAD CAPTURE (IMPORTANT): Whenever a user expresses interest in services, pricing, a demo, a callback, or anything requiring follow-up — proactively and naturally ask for their **full name, email address, and phone number** together. Example: "To connect you with our team, could you share your name, email, and phone number?" Do this in ONE short sentence.
 7. NO FILLER: Never say things like "Great question!", "Certainly!", "Of course!", "That's interesting!", or any generic opener. Start your reply directly with the answer.
 8. NO OFF-TOPIC: Do not help with anything unrelated to this business — no general coding, recipes, trivia, or other topics. Politely decline in one sentence.
-9. CONTACT DETAILS SHARED: When a user shares their name/email/phone, acknowledge briefly in one sentence ("Got it! Our team will reach out shortly.") then answer their question if they had one.`;
+9. CONTACT DETAILS SHARED: When a user shares their name/email/phone, acknowledge briefly in one sentence ("Got it! Our team will reach out shortly.") then answer their question if they had one.
+10. LIVE HUMAN AGENT ESCALATION: This chat system HAS direct live human agent handoff capability. If a visitor asks to speak with a human, agent, or representative, NEVER say "I don't have the capability to connect you directly through this chat" or refuse handoff. Instead say: "I am connecting you with our live human support team right now. An agent will be with you directly in this chat!"`;
 
   const sources = Array.from(uniqueSourcesMap.entries()).map(([url, title]) => ({
     url,
@@ -176,8 +177,8 @@ export async function streamOpenAICompatibleChat(
   };
 
   if (endpointUrl.includes('openrouter.ai')) {
-    headers['HTTP-Referer'] = 'https://sitebotstudio.app';
-    headers['X-Title'] = 'SiteBot Studio';
+    headers['HTTP-Referer'] = 'https://rivafy.com';
+    headers['X-Title'] = 'Rivafy Studio';
   }
 
   // Auto-redirect deprecated / EOL models on NVIDIA NIM

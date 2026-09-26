@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Shield,
@@ -18,6 +19,9 @@ import {
   Trash2,
   PauseCircle,
   PlayCircle,
+  QrCode,
+  LogOut,
+  Headphones,
   Plus,
   RefreshCw,
   Download,
@@ -36,6 +40,23 @@ import {
   Filter,
   CreditCard,
   Sparkles,
+  MessageSquare,
+  Clock,
+  TrendingUp,
+  BarChart3,
+  PieChart,
+  Zap,
+  Check,
+  X,
+  Eye,
+  Server,
+  HardDrive,
+  DollarSign,
+  Workflow,
+  Send,
+  Phone,
+  Building2,
+  ArrowUpRight,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -47,8 +68,21 @@ export default function AdminPanelPage() {
   const { user, role, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'bots' | 'submissions' | 'forms' | 'admins' | 'users' | 'ctas' | 'settings'
+    | 'overview'
+    | 'analytics'
+    | 'conversations'
+    | 'bots'
+    | 'users'
+    | 'leads'
+    | 'whatsapp'
+    | 'activity'
+    | 'admins'
+    | 'settings'
   >('overview');
+
+  // Real-time clock & telemetry state
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [refreshingAll, setRefreshingAll] = useState(false);
 
   // Settings State (Plans, Models, Quotas)
   const [settings, setSettings] = useState<any>({
@@ -76,10 +110,12 @@ export default function AdminPanelPage() {
   const [togglingBotId, setTogglingBotId] = useState<string | null>(null);
   const [deletingBotId, setDeletingBotId] = useState<string | null>(null);
 
-  // Submissions State
+  // Leads State (Submissions + CTAs)
   const [submissions, setSubmissions] = useState<any[]>([]);
-  const [selectedBotFilter, setSelectedBotFilter] = useState<string>('all');
-  const [submissionSearch, setSubmissionSearch] = useState('');
+  const [ctas, setCtas] = useState<any[]>([]);
+  const [leadTypeFilter, setLeadTypeFilter] = useState<'all' | 'forms' | 'ctas'>('all');
+  const [leadSearch, setLeadSearch] = useState('');
+  const [leadsLoading, setLeadsLoading] = useState(false);
 
   // Forms State
   const [forms, setForms] = useState<any[]>([]);
@@ -92,17 +128,136 @@ export default function AdminPanelPage() {
   const [revokingAdminEmail, setRevokingAdminEmail] = useState<string | null>(null);
   const [adminActionMsg, setAdminActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Users (usage/quota) State
+  // Users State
   const [users, setUsers] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  const [userPlanFilter, setUserPlanFilter] = useState<'all' | 'free' | 'pro'>('all');
   const [usersLoading, setUsersLoading] = useState(false);
+  const [modifyingUserEmail, setModifyingUserEmail] = useState<string | null>(null);
 
-  // CTA submissions State
-  const [ctas, setCtas] = useState<any[]>([]);
-  const [ctaSearch, setCtaSearch] = useState('');
-  const [ctasLoading, setCtasLoading] = useState(false);
+  // Live Conversations State
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [convSearch, setConvSearch] = useState('');
+  const [convStatusFilter, setConvStatusFilter] = useState<string>('all');
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
+
+  // Live Activity & Audit Stream State
+  const [activityEvents, setActivityEvents] = useState<any[]>([]);
+  const [activityCategory, setActivityCategory] = useState<string>('all');
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityLoading, setActivityLoading] = useState(false);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  // WhatsApp Gateway & Live Relay State
+  const [waStatus, setWaStatus] = useState<any>({
+    status: 'disconnected',
+    qrCode: '',
+    phoneNumber: '',
+    pushName: '',
+    openTickets: 0,
+  });
+  const [waTickets, setWaTickets] = useState<any[]>([]);
+  const [waConnecting, setWaConnecting] = useState(false);
+  const [waLoggingOut, setWaLoggingOut] = useState(false);
+  const [waActionMsg, setWaActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const fetchWaStatus = async () => {
+    if (!user?.email) return;
+    try {
+      const res = await fetch('/api/admin/whatsapp/status', {
+        headers: { 'x-user-email': user.email },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWaStatus(data);
+      }
+    } catch {
+      // non-fatal
+    }
+  };
+
+  const fetchWaTickets = async () => {
+    if (!user?.email) return;
+    try {
+      const res = await fetch('/api/admin/whatsapp/tickets', {
+        headers: { 'x-user-email': user.email },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWaTickets(data.tickets || []);
+      }
+    } catch {
+      // non-fatal
+    }
+  };
+
+  const handleWaConnect = async (forceNew = false) => {
+    if (!user?.email) return;
+    setWaConnecting(true);
+    setWaActionMsg(null);
+    try {
+      const res = await fetch('/api/admin/whatsapp/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': user.email,
+        },
+        body: JSON.stringify({ forceNew }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to start WhatsApp pairing');
+      setWaStatus((prev: any) => ({
+        ...prev,
+        status: data.status,
+        qrCode: data.qrCode || prev.qrCode,
+        phoneNumber: data.phoneNumber || prev.phoneNumber,
+      }));
+      setWaActionMsg({ type: 'success', text: 'WhatsApp pairing started. Scan the QR code below.' });
+    } catch (err: any) {
+      setWaActionMsg({ type: 'error', text: err.message || 'Failed to connect' });
+    } finally {
+      setWaConnecting(false);
+    }
+  };
+
+  const handleWaLogout = async () => {
+    if (!user?.email) return;
+    if (!window.confirm('Disconnect WhatsApp and clear saved MongoDB auth session?')) return;
+    setWaLoggingOut(true);
+    setWaActionMsg(null);
+    try {
+      const res = await fetch('/api/admin/whatsapp/logout', {
+        method: 'POST',
+        headers: { 'x-user-email': user.email },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to logout');
+      setWaStatus({ status: 'disconnected', qrCode: '', phoneNumber: '', openTickets: 0 });
+      setWaActionMsg({ type: 'success', text: 'WhatsApp disconnected and session removed.' });
+    } catch (err: any) {
+      setWaActionMsg({ type: 'error', text: err.message || 'Logout failed' });
+    } finally {
+      setWaLoggingOut(false);
+    }
+  };
+
+  // Clock ticker
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(
+        now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) +
+          ' UTC ' +
+          (now.getTimezoneOffset() <= 0 ? '+' : '-') +
+          Math.abs(Math.floor(now.getTimezoneOffset() / 60))
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch admin dashboard stats
   const fetchStats = async () => {
@@ -210,7 +365,7 @@ export default function AdminPanelPage() {
   // Fetch CTA submissions
   const fetchCtas = async () => {
     if (!user?.email) return;
-    setCtasLoading(true);
+    setLeadsLoading(true);
     try {
       const res = await fetch(`/api/admin/ctas?email=${encodeURIComponent(user.email)}`, {
         headers: { 'x-user-email': user.email },
@@ -222,7 +377,45 @@ export default function AdminPanelPage() {
     } catch (err) {
       console.error('Failed to load CTAs:', err);
     } finally {
-      setCtasLoading(false);
+      setLeadsLoading(false);
+    }
+  };
+
+  // Fetch live conversations
+  const fetchConversations = async () => {
+    if (!user?.email) return;
+    setConversationsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/conversations?email=${encodeURIComponent(user.email)}&limit=100`, {
+        headers: { 'x-user-email': user.email },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConversations(data.conversations || []);
+      }
+    } catch (err) {
+      console.error('Failed to load conversations:', err);
+    } finally {
+      setConversationsLoading(false);
+    }
+  };
+
+  // Fetch real-time activity feed
+  const fetchActivity = async () => {
+    if (!user?.email) return;
+    setActivityLoading(true);
+    try {
+      const res = await fetch(`/api/admin/activity?email=${encodeURIComponent(user.email)}&limit=100`, {
+        headers: { 'x-user-email': user.email },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActivityEvents(data.events || []);
+      }
+    } catch (err) {
+      console.error('Failed to load activity stream:', err);
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -244,6 +437,26 @@ export default function AdminPanelPage() {
     } finally {
       setLoadingSettings(false);
     }
+  };
+
+  // Refresh All Telemetry
+  const refreshAll = async () => {
+    setRefreshingAll(true);
+    await Promise.all([
+      fetchStats(),
+      fetchBots(),
+      fetchSubmissions(),
+      fetchForms(),
+      fetchAdmins(),
+      fetchUsers(),
+      fetchCtas(),
+      fetchConversations(),
+      fetchActivity(),
+      fetchSettings(),
+      fetchWaStatus(),
+      fetchWaTickets(),
+    ]);
+    setRefreshingAll(false);
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -276,14 +489,7 @@ export default function AdminPanelPage() {
 
   useEffect(() => {
     if (isAdmin && user?.email) {
-      fetchStats();
-      fetchBots();
-      fetchSubmissions();
-      fetchForms();
-      fetchAdmins();
-      fetchUsers();
-      fetchCtas();
-      fetchSettings();
+      refreshAll();
     }
   }, [isAdmin, user?.email]);
 
@@ -314,6 +520,7 @@ export default function AdminPanelPage() {
         prev.map((b) => (b.id === botId ? { ...b, status: newStatus } : b))
       );
       fetchStats();
+      fetchActivity();
     } catch (err: any) {
       alert(err.message || 'Error updating status');
     } finally {
@@ -344,10 +551,73 @@ export default function AdminPanelPage() {
       }
       setBots((prev) => prev.filter((b) => b.id !== bot.id));
       fetchStats();
+      fetchActivity();
     } catch (err: any) {
       alert(err.message || 'Failed to delete bot');
     } finally {
       setDeletingBotId(null);
+    }
+  };
+
+  // Admin Change User Plan (Free <-> Pro)
+  const handleChangeUserPlan = async (targetEmail: string, newPlan: 'free' | 'pro') => {
+    if (!user?.email) return;
+    setModifyingUserEmail(targetEmail);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': user.email,
+        },
+        body: JSON.stringify({ email: targetEmail, plan: newPlan }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to change plan');
+      }
+      setUsers((prev) =>
+        prev.map((u) => (u.email === targetEmail ? { ...u, plan: newPlan } : u))
+      );
+      fetchStats();
+      fetchActivity();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update user plan');
+    } finally {
+      setModifyingUserEmail(null);
+    }
+  };
+
+  // Admin Reset User Usage
+  const handleResetUserUsage = async (targetEmail: string) => {
+    if (!user?.email) return;
+    if (!window.confirm(`Reset monthly token & message usage for ${targetEmail}?`)) return;
+    setModifyingUserEmail(targetEmail);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': user.email,
+        },
+        body: JSON.stringify({ email: targetEmail, resetUsage: true }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to reset usage');
+      }
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.email === targetEmail
+            ? { ...u, usage: { ...u.usage, inputTokens: 0, outputTokens: 0, chats: 0 } }
+            : u
+        )
+      );
+      fetchStats();
+    } catch (err: any) {
+      alert(err.message || 'Failed to reset usage');
+    } finally {
+      setModifyingUserEmail(null);
     }
   };
 
@@ -384,6 +654,7 @@ export default function AdminPanelPage() {
       setNewAdminName('');
       fetchAdmins();
       fetchStats();
+      fetchActivity();
     } catch (err: any) {
       setAdminActionMsg({
         type: 'error',
@@ -422,6 +693,7 @@ export default function AdminPanelPage() {
       });
       fetchAdmins();
       fetchStats();
+      fetchActivity();
     } catch (err: any) {
       setAdminActionMsg({
         type: 'error',
@@ -432,25 +704,56 @@ export default function AdminPanelPage() {
     }
   };
 
-  // Export submissions as CSV
-  const handleExportCSV = () => {
-    if (submissions.length === 0) return;
-    const headers = ['ID', 'Chatbot', 'Site URL', 'Form Type', 'Created At', 'Status', 'Data Payload'];
-    const rows = submissions.map((s) => [
-      s.id,
-      `"${s.botName.replace(/"/g, '""')}"`,
-      `"${s.siteUrl.replace(/"/g, '""')}"`,
-      s.formType,
-      new Date(s.createdAt).toISOString(),
-      s.status,
-      `"${JSON.stringify(s.data).replace(/"/g, '""')}"`,
+  // Unified Leads List (Form Submissions + CTAs)
+  const unifiedLeads = useMemo(() => {
+    const list: any[] = [];
+    for (const s of submissions) {
+      list.push({
+        id: s.id,
+        type: 'Form Submission',
+        sourceName: s.botName,
+        sourceUrl: s.siteUrl,
+        primaryContact: s.data?.email || s.data?.phone || s.data?.name || 'Visitor',
+        data: s.data,
+        createdAt: s.createdAt,
+        status: s.status,
+      });
+    }
+    for (const c of ctas) {
+      list.push({
+        id: c.id,
+        type: 'CTA Click / Action',
+        sourceName: c.botName || 'Chatbot CTA',
+        sourceUrl: c.siteUrl || c.campaign,
+        primaryContact: c.email || c.phone || c.name || 'Visitor',
+        data: { name: c.name, email: c.email, phone: c.phone, campaign: c.campaign },
+        createdAt: c.createdAt,
+        status: 'new',
+      });
+    }
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return list;
+  }, [submissions, ctas]);
+
+  // Export Unified Leads as CSV
+  const handleExportLeadsCSV = () => {
+    if (unifiedLeads.length === 0) return;
+    const headers = ['ID', 'Type', 'Chatbot', 'Site/Campaign', 'Primary Contact', 'Date', 'Full Payload'];
+    const rows = unifiedLeads.map((l) => [
+      l.id,
+      l.type,
+      `"${String(l.sourceName).replace(/"/g, '""')}"`,
+      `"${String(l.sourceUrl).replace(/"/g, '""')}"`,
+      `"${String(l.primaryContact).replace(/"/g, '""')}"`,
+      new Date(l.createdAt).toISOString(),
+      `"${JSON.stringify(l.data).replace(/"/g, '""')}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `sitebot-leads-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `sitebot-unified-leads-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -468,25 +771,55 @@ export default function AdminPanelPage() {
     return true;
   });
 
-  // Filtered Submissions
-  const filteredSubmissions = submissions.filter((s) => {
-    const matchesBot = selectedBotFilter === 'all' || s.botId === selectedBotFilter;
-    if (!matchesBot) return false;
-    if (!submissionSearch) return true;
-    const str = `${s.botName} ${s.formType} ${JSON.stringify(s.data)}`.toLowerCase();
-    return str.includes(submissionSearch.toLowerCase());
+  // Filtered Users
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      (u.name || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.companyName || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+      (u.occupation || '').toLowerCase().includes(userSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (userPlanFilter === 'free') return u.plan !== 'pro';
+    if (userPlanFilter === 'pro') return u.plan === 'pro';
+    return true;
+  });
+
+  // Filtered Conversations
+  const filteredConversations = conversations.filter((c) => {
+    const matchesSearch =
+      c.botName.toLowerCase().includes(convSearch.toLowerCase()) ||
+      (c.visitor?.name || '').toLowerCase().includes(convSearch.toLowerCase()) ||
+      (c.visitor?.email || '').toLowerCase().includes(convSearch.toLowerCase()) ||
+      (c.lastMessage?.content || '').toLowerCase().includes(convSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (convStatusFilter !== 'all' && c.status !== convStatusFilter) return false;
+    return true;
+  });
+
+  // Filtered Activity
+  const filteredActivity = activityEvents.filter((e) => {
+    if (activityCategory !== 'all' && e.category !== activityCategory) return false;
+    if (!activitySearch) return true;
+    const q = activitySearch.toLowerCase();
+    return (
+      e.title.toLowerCase().includes(q) ||
+      e.description.toLowerCase().includes(q) ||
+      e.actor.toLowerCase().includes(q)
+    );
   });
 
   // 1. Loading State
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col overflow-x-hidden">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400 mx-auto" />
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 break-words">
-              Verifying administrative security credentials...
+          <div className="text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+            <p className="text-xs font-semibold text-slate-400">
+              Authenticating privileged administrative environment...
             </p>
           </div>
         </div>
@@ -497,24 +830,24 @@ export default function AdminPanelPage() {
   // 2. Unauthenticated State
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col overflow-x-hidden">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full min-w-0 max-w-md p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5">
-            <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-100 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 mx-auto">
+          <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mx-auto">
               <Lock className="w-7 h-7" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white font-heading break-words">
-                Admin Panel Protected
+              <h2 className="text-xl font-black font-heading text-white">
+                Admin Center Protected
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed break-words">
-                Please sign in with your authorized Google Administrator account to access the SiteBot Studio management console.
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Please sign in with your authorized administrator account to access platform metrics, chatbots, and settings.
               </p>
             </div>
             <button
               onClick={() => setAuthModalOpen(true)}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs shadow-md shadow-indigo-600/25 hover:from-indigo-500 hover:to-purple-500 transition-all cursor-pointer whitespace-nowrap"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-extrabold text-xs shadow-lg shadow-indigo-600/30 hover:scale-[1.02] transition-all cursor-pointer"
             >
               Sign In with Google
             </button>
@@ -533,40 +866,40 @@ export default function AdminPanelPage() {
   // 3. Unauthorized State (Not an admin)
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col overflow-x-hidden">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full min-w-0 max-w-md p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5">
-            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-100 dark:border-amber-900 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
+          <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mx-auto">
               <Shield className="w-7 h-7" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white font-heading break-words">
-                403 — Administrator Access Required
+              <h2 className="text-xl font-black font-heading text-white">
+                403 — Unauthorized
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed break-words">
-                Your account (<strong className="text-slate-800 dark:text-slate-200 break-all">{user.email}</strong>) does not have administrator privileges.
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Your account (<span className="text-slate-200 font-mono font-bold">{user.email}</span>) does not have administrative rights.
               </p>
             </div>
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 text-left text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-              <p className="font-semibold text-slate-900 dark:text-white">How to get access?</p>
-              <p className="text-[11px] leading-relaxed break-words">
-                • Add this email to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono break-all">SUPER_ADMIN_EMAIL</code> in your <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono break-all">.env</code> file.
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left text-xs space-y-2 text-slate-400">
+              <p className="font-bold text-slate-200">How to grant access:</p>
+              <p className="text-[11px] leading-relaxed">
+                • Add this email to <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">SUPER_ADMIN_EMAIL</code> in your <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono">.env</code>.
               </p>
-              <p className="text-[11px] leading-relaxed break-words">
-                • Or ask an existing Super Admin to add you through the Admin Management tab.
+              <p className="text-[11px] leading-relaxed">
+                • Or ask an existing administrator to invite you via the Admin RBAC tab.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2.5">
               <Link
                 href="/"
-                className="flex-1 min-w-0 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs text-center transition-colors whitespace-nowrap"
+                className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs text-center transition-colors"
               >
                 Go Home
               </Link>
               <button
                 onClick={() => setAuthModalOpen(true)}
-                className="flex-1 min-w-0 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500 transition-colors cursor-pointer whitespace-nowrap"
+                className="flex-1 py-3 rounded-2xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500 transition-colors cursor-pointer"
               >
                 Switch Account
               </button>
@@ -582,75 +915,97 @@ export default function AdminPanelPage() {
     );
   }
 
-  // 4. Authorized Admin Panel View
+  // 4. Authorized Admin Panel View (PREMIUM COMMAND CENTER)
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden w-full max-w-full">
       <Navbar />
 
-      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Top Header */}
-        <div className="flex min-w-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-              <div className="w-9 h-9 shrink-0 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/30">
-                <Shield className="w-5 h-5" />
+      {/* Premium Glassmorphic Top Command Bar */}
+      <div className="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-xl sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 w-full sm:w-auto">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-rose-600 via-indigo-600 to-purple-600 p-[1px] shadow-lg shadow-indigo-600/20 shrink-0">
+              <div className="w-full h-full bg-slate-950 rounded-[15px] flex items-center justify-center text-white">
+                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
               </div>
-              <h1 className="text-xl sm:text-2xl min-w-0 break-words font-black tracking-tight text-slate-900 dark:text-white font-heading">
-                Admin Control Center
-              </h1>
-              <span
-                className={`shrink-0 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                  isSuperAdmin
-                    ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                    : 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
-                }`}
-              >
-                {isSuperAdmin ? 'Super Admin' : 'Admin'}
-              </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 break-words">
-              Platform-wide telemetry, chatbot protection, leads monitoring, and administrator access control.
-            </p>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-sm sm:text-lg font-black tracking-tight text-white font-heading truncate">
+                  Rivafy Studio Command Center
+                </h1>
+                <span
+                  className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap ${
+                    isSuperAdmin
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  }`}
+                >
+                  {isSuperAdmin ? 'Super Admin' : 'Admin'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-400">
+                <span className="flex items-center gap-1.5 text-emerald-400 font-semibold whitespace-nowrap">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  LIVE TELEMETRY
+                </span>
+                <span>•</span>
+                <span className="font-mono text-slate-400 truncate">{currentTime || 'ONLINE'}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 self-start sm:w-auto sm:self-auto">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800/80">
             <button
-              onClick={() => {
-                fetchStats();
-                fetchBots();
-                fetchSubmissions();
-                fetchForms();
-                fetchAdmins();
-                fetchUsers();
-                fetchCtas();
-                fetchSettings();
-              }}
-              title="Refresh Telemetry"
-              className="shrink-0 p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 transition-all shadow-sm cursor-pointer"
+              onClick={refreshAll}
+              disabled={refreshingAll}
+              title="Refresh All Telemetry"
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all shadow-sm cursor-pointer disabled:opacity-50 shrink-0"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${refreshingAll ? 'animate-spin text-indigo-400' : ''}`} />
             </button>
+
+            <button
+              onClick={handleExportLeadsCSV}
+              title="Export Full Leads Database"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Leads</span>
+            </button>
+
             <Link
               href="/create"
-              className="flex min-w-0 flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/25 transition-all whitespace-nowrap"
+              className="flex-1 sm:flex-initial text-center inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-extrabold rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 hover:scale-105 text-white shadow-lg shadow-indigo-600/25 transition-all"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>New Chatbot</span>
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Deploy Chatbot</span>
             </Link>
           </div>
         </div>
+      </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex w-full min-w-0 max-w-full items-center gap-1.5 p-1 rounded-2xl bg-slate-200/60 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 overflow-x-auto overscroll-x-contain pb-1 text-xs font-semibold">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-7 overflow-x-hidden">
+        {/* Navigation Tabs Bar */}
+        <div className="flex w-full items-center gap-1.5 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 overflow-x-auto text-xs font-semibold -mx-4 px-4 sm:mx-0 sm:px-1.5 touch-pan-x">
           {[
-            { id: 'overview', label: 'Overview & Health', icon: Activity },
+            { id: 'overview', label: 'Executive Overview', icon: Activity },
+            { id: 'analytics', label: 'Telemetry & Usage', icon: BarChart3 },
+            { id: 'conversations', label: `Live Chats (${conversations.length})`, icon: MessageSquare },
             { id: 'bots', label: `Chatbots (${bots.length})`, icon: Bot },
-            { id: 'submissions', label: `Captured Leads (${submissions.length})`, icon: Inbox },
-            { id: 'ctas', label: `CTA Leads (${ctas.length})`, icon: MousePointerClick },
             { id: 'users', label: `Users & Quotas (${users.length})`, icon: Users },
-            { id: 'forms', label: `Detected Forms (${forms.length})`, icon: FileText },
-            { id: 'admins', label: `Admins & RBAC (${adminsList.length})`, icon: UserCheck },
-            { id: 'settings', label: 'Plans & Models Settings', icon: Sliders },
+            { id: 'leads', label: `Leads & CRM (${unifiedLeads.length})`, icon: Inbox },
+            { id: 'activity', label: `Audit Stream (${activityEvents.length})`, icon: Clock },
+            { id: 'admins', label: `RBAC Staff (${adminsList.length})`, icon: UserCheck },
+            {
+              id: 'whatsapp',
+              label: `WhatsApp Live Hub ${waStatus.openTickets ? `(${waStatus.openTickets})` : ''}`,
+              icon: Phone,
+            },
+            { id: 'settings', label: 'Platform Engine Settings', icon: Sliders },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -658,476 +1013,576 @@ export default function AdminPanelPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex shrink-0 items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                   active
-                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-bold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* ================= TAB 1: OVERVIEW ================= */}
+        {/* ========================================================
+            TAB 1: EXECUTIVE OVERVIEW
+            ======================================================== */}
         {activeTab === 'overview' && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            {/* Metric Stat Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-              {[
-                {
-                  label: 'Total Bots',
-                  value: stats?.totalBots ?? '—',
-                  sub: `${stats?.activeBots ?? 0} active • ${stats?.disabledBots ?? 0} paused`,
-                  icon: Bot,
-                  color: 'indigo',
-                },
-                {
-                  label: 'Crawled Pages',
-                  value: stats?.totalPages ?? '—',
-                  sub: 'Across all websites',
-                  icon: Globe,
-                  color: 'emerald',
-                },
-                {
-                  label: 'Vector Chunks',
-                  value: stats?.totalChunks ?? '—',
-                  sub: 'Embeddings indexed',
-                  icon: Layers,
-                  color: 'cyan',
-                },
-                {
-                  label: 'Detected Forms',
-                  value: stats?.totalForms ?? '—',
-                  sub: 'Candidate actions',
-                  icon: FileText,
-                  color: 'amber',
-                },
-                {
-                  label: 'Captured Leads',
-                  value: stats?.totalSubmissions ?? '—',
-                  sub: 'Conversational slots',
-                  icon: Inbox,
-                  color: 'purple',
-                },
-                {
-                  label: 'Platform Admins',
-                  value: stats?.totalAdmins ?? '—',
-                  sub: isSuperAdmin ? 'Managed via RBAC' : 'Privileged accounts',
-                  icon: Shield,
-                  color: 'rose',
-                },
-              ].map((m, i) => {
-                const Icon = m.icon;
-                return (
-                  <div
-                    key={i}
-                    className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-1.5"
-                  >
-                    <div className="flex min-w-0 items-center justify-between gap-2 text-slate-400">
-                      <span className="min-w-0 break-words text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                        {m.label}
-                      </span>
-                      <Icon className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
-                    </div>
-                    <div className="min-w-0 truncate text-2xl font-black tracking-tight text-slate-900 dark:text-white font-heading">
-                      {m.value}
-                    </div>
-                    <p className="min-w-0 text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                      {m.sub}
-                    </p>
+          <div className="space-y-7 animate-in fade-in duration-200">
+            {/* Top Tier Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
+              {/* Users */}
+              <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 relative overflow-hidden group hover:border-indigo-500/40 transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">Total Users</span>
+                  <div className="w-7 h-7 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4" />
                   </div>
-                );
-              })}
-            </div>
-
-            {/* System Status & Architecture Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Database & Vector Status */}
-              <div className="min-w-0 p-4 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Database className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
-                    <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
-                      Database & Vector Infrastructure
-                    </h3>
-                  </div>
-                  <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800">
-                    Online
-                  </span>
                 </div>
-
-                <div className="space-y-3 text-xs">
-                  <div className="flex min-w-0 items-start justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Database Driver:</span>
-                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200">
-                      {systemHealth?.database || 'Loading...'}
-                    </span>
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-white font-heading truncate">
+                    {stats?.totalUsers ?? '—'}
                   </div>
-                  <div className="flex min-w-0 items-start justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Vector Search Engine:</span>
-                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200 font-mono">
-                      {systemHealth?.vectorDatabase || 'Qdrant Cloud'}
-                    </span>
-                  </div>
-                  <div className="flex min-w-0 items-start justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800/80">
-                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Default Chat Provider:</span>
-                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200 uppercase font-mono">
-                      {systemHealth?.chatProvider || 'nvidia'} ({systemHealth?.chatModel || 'muse'})
-                    </span>
-                  </div>
-                  <div className="flex min-w-0 items-start justify-between gap-3 py-2">
-                    <span className="shrink-0 text-slate-500 dark:text-slate-400">Super Admin Config:</span>
-                    <span className="min-w-0 text-right break-words font-semibold text-slate-800 dark:text-slate-200 font-mono">
-                      {systemHealth?.superAdminEmail || 'Configured via .env'}
-                    </span>
+                  <div className="text-[10px] font-semibold text-emerald-400 mt-1 flex flex-wrap items-center gap-1">
+                    <span>{stats?.proUsers ?? 0} Pro</span>
+                    <span className="text-slate-500">•</span>
+                    <span className="text-slate-400">{stats?.freeUsers ?? 0} Free</span>
                   </div>
                 </div>
               </div>
 
-              {/* Security & Access Overview */}
-              <div className="min-w-0 p-4 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Shield className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                    <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
-                      Security & Role-Based Access Control
-                    </h3>
+              {/* Chatbots */}
+              <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 relative overflow-hidden group hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">Chatbots</span>
+                  <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4" />
                   </div>
-                  <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800">
-                    Firebase Protected
-                  </span>
                 </div>
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-white font-heading truncate">
+                    {stats?.totalBots ?? '—'}
+                  </div>
+                  <div className="text-[10px] font-semibold text-slate-400 mt-1 flex flex-wrap items-center gap-1">
+                    <span className="text-emerald-400">{stats?.activeBots ?? 0} active</span>
+                    <span>• {stats?.disabledBots ?? 0} off</span>
+                  </div>
+                </div>
+              </div>
 
-                <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
-                  <p className="break-words leading-relaxed">
-                    Chatbot creation and studio access are strictly restricted to authenticated users. Only administrators designated in <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono break-all">SUPER_ADMIN_EMAIL</code> or added by Super Admins can access this panel.
-                  </p>
-                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 space-y-2">
-                    <div className="flex min-w-0 items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span className="min-w-0 break-all">Current User: <strong className="font-mono break-all">{user.email}</strong></span>
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span className="min-w-0 break-words">Role Level: <strong className="uppercase">{role}</strong></span>
-                    </div>
+              {/* Conversations */}
+              <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 relative overflow-hidden group hover:border-purple-500/40 transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">Conversations</span>
+                  <div className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-white font-heading truncate">
+                    {stats?.totalConversations ?? conversations.length}
+                  </div>
+                  <div className="text-[10px] font-semibold text-purple-400 mt-1 truncate">
+                    <span>{stats?.activeConversations ?? 0} active</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Tokens */}
+              <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 relative overflow-hidden group hover:border-cyan-500/40 transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">Tokens Processed</span>
+                  <div className="w-7 h-7 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-white font-heading truncate">
+                    {stats?.totalTokensUsed
+                      ? stats.totalTokensUsed > 1000000
+                        ? `${(stats.totalTokensUsed / 1000000).toFixed(1)}M`
+                        : `${(stats.totalTokensUsed / 1000).toFixed(0)}k`
+                      : '0'}
+                  </div>
+                  <div className="text-[10px] font-semibold text-cyan-400 mt-1 truncate">
+                    <span>Platform tokens</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Captured Leads */}
+              <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 relative overflow-hidden group hover:border-amber-500/40 transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">Captured Leads</span>
+                  <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                    <Inbox className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-white font-heading truncate">
+                    {unifiedLeads.length}
+                  </div>
+                  <div className="text-[10px] font-semibold text-amber-400 mt-1 truncate">
+                    <span>{submissions.length} forms • {ctas.length} CTAs</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* MRR / Revenue */}
+              <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/70 border border-slate-800/80 relative overflow-hidden group hover:border-rose-500/40 transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">Estimated MRR</span>
+                  <div className="w-7 h-7 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+                    <DollarSign className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-xl sm:text-2xl font-black text-emerald-400 font-heading truncate">
+                    ${stats?.financials?.estimatedMRR ?? 0}
+                  </div>
+                  <div className="text-[10px] font-semibold text-slate-400 mt-1 truncate">
+                    <span>ARR: ${(stats?.financials?.estimatedARR ?? 0).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions Bar */}
-            <div className="min-w-0 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-indigo-900/90 to-purple-900/90 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-indigo-950/20">
-              <div className="min-w-0 space-y-1 text-center sm:text-left">
-                <h4 className="break-words text-sm font-bold">Quick Administrative Tools</h4>
-                <p className="break-words text-xs text-indigo-200">
-                  Manage bot lifecycle, export collected customer leads, or invite new administrative staff.
-                </p>
+            {/* AI Providers & User Demographics Breakdown */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* AI Model Providers Breakdown */}
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                      <PieChart className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">AI Provider Distribution</h3>
+                      <p className="text-[11px] text-slate-400">Active engine powering chatbots</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20 whitespace-nowrap">
+                    {stats?.totalBots ?? bots.length} Bots
+                  </span>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  {[
+                    { label: 'OpenAI (GPT-4o & mini)', key: 'openai', color: 'bg-emerald-500' },
+                    { label: 'Google Gemini', key: 'gemini', color: 'bg-indigo-500' },
+                    { label: 'NVIDIA NIM', key: 'nvidia', color: 'bg-cyan-500' },
+                    { label: 'OpenRouter / Open Source', key: 'openrouter', color: 'bg-purple-500' },
+                  ].map((p) => {
+                    const count = stats?.providers?.[p.key] ?? bots.filter((b) => (b.chatProvider || '').toLowerCase() === p.key).length;
+                    const total = Math.max(1, stats?.totalBots ?? bots.length);
+                    const pct = Math.round((count / total) * 100);
+                    return (
+                      <div key={p.key} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-300 font-semibold truncate mr-2">{p.label}</span>
+                          <span className="text-slate-400 font-mono text-[11px] shrink-0">{count} ({pct}%)</span>
+                        </div>
+                        <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                          <div className={`h-full ${p.color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-slate-400">
+                  <span>BYOK (Custom Keys): <strong className="text-white">{stats?.byokBots ?? 0}</strong></span>
+                  <span>Studio Managed: <strong className="text-white">{stats?.systemBots ?? bots.length}</strong></span>
+                </div>
               </div>
-              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
-                <button
-                  onClick={() => setActiveTab('bots')}
-                  className="flex min-w-0 flex-1 sm:flex-none items-center justify-center px-3.5 py-2 rounded-xl bg-white text-indigo-950 font-bold text-xs text-center hover:bg-indigo-50 transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap"
-                >
-                  Manage Bots
-                </button>
-                <button
-                  onClick={() => setActiveTab('submissions')}
-                  className="flex min-w-0 flex-1 sm:flex-none items-center justify-center px-3.5 py-2 rounded-xl bg-indigo-700/80 hover:bg-indigo-700 text-white font-bold text-xs text-center border border-indigo-400/30 transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap"
-                >
-                  Export Leads
-                </button>
-                {isSuperAdmin && (
+
+              {/* User Roles & Occupation Breakdown */}
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
+                      <BarChart3 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">User Occupation &amp; Use-Cases</h3>
+                      <p className="text-[11px] text-slate-400">Onboarding survey results</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20 whitespace-nowrap">
+                    {stats?.onboardedUsers ?? 0} Profiled
+                  </span>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  {Object.entries(stats?.occupations || { Developer: 0, Student: 0, 'Business Owner': 0, 'Agency Owner': 0 }).map(
+                    ([roleName, count]: [string, any]) => {
+                      const total = Math.max(1, stats?.totalUsers ?? users.length);
+                      const pct = Math.round(((count || 0) / total) * 100);
+                      return (
+                        <div key={roleName} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-300 font-semibold truncate mr-2">{roleName}</span>
+                            <span className="text-slate-400 font-mono text-[11px] shrink-0">{count} ({pct}%)</span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-slate-400">
+                  <span>Free Tier: <strong className="text-white">{stats?.freeUsers ?? 0}</strong></span>
+                  <span>Pro Subscribers: <strong className="text-emerald-400">{stats?.proUsers ?? 0}</strong></span>
+                </div>
+              </div>
+
+              {/* Infrastructure & Health Card */}
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0">
+                      <Server className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">System Architecture</h3>
+                      <p className="text-[11px] text-slate-400">Health &amp; cloud services</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 whitespace-nowrap">
+                    OPERATIONAL
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 pt-1 text-xs">
+                  <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400">Primary Database</span>
+                    <span className="font-semibold text-slate-200">{systemHealth?.database || 'MongoDB Atlas'}</span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400">Vector Engine</span>
+                    <span className="font-semibold text-indigo-400">{systemHealth?.vectorDatabase || 'Qdrant Cloud'}</span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400">Default AI Model</span>
+                    <span className="font-mono text-slate-200">{systemHealth?.chatModel || 'gpt-4o-mini'}</span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400">PayPal Gateway</span>
+                    <span className={systemHealth?.hasPaypalConfig ? 'text-emerald-400 font-bold' : 'text-amber-400'}>
+                      {systemHealth?.hasPaypalConfig ? 'Configured (Live)' : 'Mock / Local'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
                   <button
-                    onClick={() => setActiveTab('admins')}
-                    className="flex min-w-0 flex-1 sm:flex-none items-center justify-center px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs text-center shadow-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap"
+                    onClick={() => setActiveTab('settings')}
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    Add Admin
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Manage Models &amp; Engine</span>
                   </button>
-                )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions & Live Stream Snippet */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Quick Jump Grid */}
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-purple-950/60 border border-indigo-500/20 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <span>Administrative Tools &amp; Actions</span>
+                    </h3>
+                    <p className="text-xs text-slate-400">Direct shortcuts to platform control operations</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 pt-2">
+                  <button
+                    onClick={() => setActiveTab('conversations')}
+                    className="p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/50 text-left transition-all group cursor-pointer"
+                  >
+                    <MessageSquare className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform mb-2" />
+                    <div className="text-xs font-bold text-white">Live Chats</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Inspect user dialogues</div>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('bots')}
+                    className="p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 text-left transition-all group cursor-pointer"
+                  >
+                    <Bot className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform mb-2" />
+                    <div className="text-xs font-bold text-white">Manage Fleet</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Pause, edit, or delete bots</div>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('users')}
+                    className="p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/50 text-left transition-all group cursor-pointer"
+                  >
+                    <Users className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform mb-2" />
+                    <div className="text-xs font-bold text-white">User Accounts</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Adjust plans &amp; quotas</div>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('leads')}
+                    className="p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-left transition-all group cursor-pointer"
+                  >
+                    <Inbox className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform mb-2" />
+                    <div className="text-xs font-bold text-white">CRM &amp; Leads</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Download customer data</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Recent Activity Teaser */}
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                    <h3 className="text-sm font-bold text-white">Recent Platform Activity</h3>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('activity')}
+                    className="text-xs font-bold text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>View All</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                  {activityEvents.slice(0, 5).map((e) => (
+                    <div
+                      key={e.id}
+                      className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3 text-xs"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-bold text-white truncate">{e.title}</h4>
+                          <span className="text-[10px] text-slate-500 shrink-0 font-mono">
+                            {new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate mt-0.5">{e.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {activityEvents.length === 0 && (
+                    <div className="text-center py-6 text-xs text-slate-500">
+                      No activity events recorded yet.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ================= TAB: USERS & QUOTAS ================= */}
-        {activeTab === 'users' && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full min-w-0 max-w-full sm:w-80">
-                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* ========================================================
+            TAB 2: TELEMETRY & ANALYTICS
+            ======================================================== */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-2">
+                <span className="text-xs font-bold text-slate-400">Total Platform Messages</span>
+                <div className="text-3xl font-black text-white font-heading">{stats?.totalChats || 0}</div>
+                <p className="text-xs text-slate-500">Queries resolved by chatbot engine</p>
+              </div>
+
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-2">
+                <span className="text-xs font-bold text-slate-400">Indexed Knowledge Pages</span>
+                <div className="text-3xl font-black text-emerald-400 font-heading">{stats?.totalPages || 0}</div>
+                <p className="text-xs text-slate-500">{stats?.totalChunks || 0} high-dimensional vector chunks</p>
+              </div>
+
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-2">
+                <span className="text-xs font-bold text-slate-400">Platform Admins</span>
+                <div className="text-3xl font-black text-purple-400 font-heading">{adminsList.length + (systemHealth?.superAdminConfigured ? 1 : 0)}</div>
+                <p className="text-xs text-slate-500">Privileged personnel with RBAC access</p>
+              </div>
+            </div>
+
+            {/* In-depth provider cards */}
+            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-5">
+              <h3 className="text-base font-extrabold text-white">AI Engine Health &amp; Model Credentials</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { name: 'Google Gemini', key: 'GEMINI_API_KEY', status: systemHealth?.hasGeminiKey, provider: 'gemini' },
+                  { name: 'OpenAI', key: 'OPENAI_API_KEY', status: systemHealth?.hasOpenaiKey, provider: 'openai' },
+                  { name: 'NVIDIA NIM', key: 'NVIDIA_API_KEY', status: systemHealth?.hasNvidiaKey, provider: 'nvidia' },
+                  { name: 'OpenRouter', key: 'OPENROUTER_API_KEY', status: systemHealth?.hasOpenrouterKey, provider: 'openrouter' },
+                ].map((item) => (
+                  <div key={item.name} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-white">{item.name}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.status ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                        {item.status ? 'Configured' : 'Missing Key'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-mono text-slate-500">{item.key}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 3: LIVE CHATS & DIALOGUES INSPECTOR
+            ======================================================== */}
+        {activeTab === 'conversations' && (
+          <div className="space-y-5 animate-in fade-in duration-150">
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search users by name, company, or email..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Search chats by bot, visitor or message..."
+                  value={convSearch}
+                  onChange={(e) => setConvSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
-                <span className="shrink-0 text-[11px] text-slate-400 font-semibold">{users.length} users</span>
-                <button
-                  onClick={() =>
-                    window.open(`/api/admin/users?email=${encodeURIComponent(user?.email || '')}&export=csv`, '_blank')
-                  }
-                  className="flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors cursor-pointer whitespace-nowrap"
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                <select
+                  value={convStatusFilter}
+                  onChange={(e) => setConvStatusFilter(e.target.value)}
+                  className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold text-white outline-none"
                 >
-                  <Download className="w-3.5 h-3.5" /> Export All Users (CSV)
+                  <option value="all">All Statuses</option>
+                  <option value="bot">Bot AI Active</option>
+                  <option value="waiting_agent">Waiting for Agent</option>
+                  <option value="agent_active">Agent Active</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+
+                <button
+                  onClick={fetchConversations}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
+                  title="Refresh chats"
+                >
+                  <RefreshCw className={`w-4 h-4 ${conversationsLoading ? 'animate-spin text-indigo-400' : ''}`} />
                 </button>
               </div>
             </div>
 
-            <div className="min-w-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <div className="min-w-0 p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800">
-                <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
-                  User-wise Analytics &amp; Quota Usage
-                </h3>
-                <p className="min-w-0 break-words text-[11px] text-slate-500 dark:text-slate-400">
-                  Token consumption, chat counts, leads, and remaining quota per account.
-                </p>
-              </div>
-
-              {usersLoading ? (
-                <div className="py-16 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto" />
-                </div>
-              ) : users.length === 0 ? (
-                <div className="py-16 text-center text-xs text-slate-400">
-                  <Users className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                  No user accounts yet. Profiles are auto-created on first sign-in or chat usage.
-                </div>
-              ) : (
-                <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain max-h-[70vh]">
-                  <table className="w-full min-w-[760px] text-left">
-                    <thead className="sticky top-0 bg-white dark:bg-slate-900">
-                      <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-200/80 dark:border-slate-800">
-                        <th className="px-4 py-3 font-bold">User</th>
-                        <th className="px-4 py-3 font-bold">Plan</th>
-                        <th className="px-4 py-3 font-bold">Quota Used</th>
-                        <th className="px-4 py-3 font-bold">Tokens (month)</th>
-                        <th className="px-4 py-3 font-bold">Chats</th>
-                        <th className="px-4 py-3 font-bold">Leads</th>
-                        <th className="px-4 py-3 font-bold">Joined</th>
+            {/* Conversations Table */}
+            <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[700px] text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="px-5 py-4">Chatbot</th>
+                      <th className="px-4 py-4">Visitor / Contact</th>
+                      <th className="px-4 py-4">Status</th>
+                      <th className="px-4 py-4">Messages</th>
+                      <th className="px-4 py-4">Latest Message</th>
+                      <th className="px-4 py-4">Time</th>
+                      <th className="px-5 py-4 text-right">Inspect</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {filteredConversations.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-slate-500 text-xs">
+                          {conversationsLoading ? 'Loading conversations...' : 'No conversations recorded yet.'}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {users
-                        .filter((u) => {
-                          const q = userSearch.toLowerCase();
-                          if (!q) return true;
-                          return (
-                            (u.email || '').toLowerCase().includes(q) ||
-                            (u.name || '').toLowerCase().includes(q) ||
-                            (u.companyName || '').toLowerCase().includes(q)
-                          );
-                        })
-                        .map((u) => {
-                          const qp = u.quotaPercent || { tokens: 0, chats: 0 };
-                          return (
-                            <tr key={u.email} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                              <td className="px-4 py-3">
-                                <p className="min-w-0 text-xs font-bold text-slate-900 dark:text-white truncate max-w-[180px]">
-                                  {u.name || '—'}
-                                </p>
-                                <p className="min-w-0 text-[10px] text-slate-400 truncate max-w-[180px]">{u.email}</p>
-                                {u.companyName && (
-                                  <p className="min-w-0 text-[10px] text-indigo-500 dark:text-indigo-400 truncate max-w-[180px]">{u.companyName}</p>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-[10px] px-2 py-1 rounded-full font-extrabold uppercase ${
-                                  u.plan === 'pro'
-                                    ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                                }`}>
-                                  {u.plan === 'pro' ? 'Pro' : 'Free'}
-                                </span>
-                                <p className="text-[10px] text-slate-400 mt-1">{u.botLimit ?? 1} bot limit</p>
-                              </td>
-                              <td className="px-4 py-3 relative">
-                                <div className="min-w-[120px]">
-                                  <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1">
-                                    <span>Tokens</span>
-                                    <span>{qp.tokens}%</span>
-                                  </div>
-                                  <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                    <div className={`h-full rounded-full ${qp.tokens >= 100 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${Math.min(100, qp.tokens)}%` }} />
-                                  </div>
-                                  <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 mb-1">
-                                    <span>Chats</span>
-                                    <span>{qp.chats}%</span>
-                                  </div>
-                                  <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                    <div className={`h-full rounded-full ${qp.chats >= 100 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, qp.chats)}%` }} />
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                                  {(u.usage?.monthTotalTokens ?? u.usage?.totalTokens ?? 0).toLocaleString()}
-                                </p>
-                                <p className="text-[10px] text-slate-400">/ {(u.tokenQuota ?? 0).toLocaleString()} quota</p>
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                                  {u.usage?.monthChats ?? u.usage?.chats ?? 0}
-                                </p>
-                                <p className="text-[10px] text-slate-400">this month</p>
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                                  {u.usage?.monthLeads ?? u.usage?.leads ?? 0}
-                                </p>
-                              </td>
-                              <td className="px-4 py-3">
-                                <p className="text-[11px] text-slate-400 whitespace-nowrap">
-                                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
-                                </p>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ) : (
+                      filteredConversations.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-2">
+                              <Bot className="w-4 h-4 text-indigo-400 shrink-0" />
+                              <span className="font-bold text-white truncate max-w-[150px]">{c.botName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="text-white font-semibold truncate max-w-[140px]">
+                              {c.visitor?.name || 'Anonymous Visitor'}
+                            </div>
+                            {(c.visitor?.email || c.visitor?.phone) && (
+                              <div className="text-[10px] text-slate-400 truncate max-w-[140px]">
+                                {c.visitor.email || c.visitor.phone}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span
+                              className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                c.status === 'waiting_agent'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  : c.status === 'agent_active'
+                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              }`}
+                            >
+                              {c.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 font-mono text-slate-400">{c.messagesCount} msgs</td>
+                          <td className="px-4 py-3.5 text-slate-300 max-w-xs truncate">
+                            {c.lastMessage?.content || '—'}
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                            {new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            <button
+                              onClick={() => setSelectedConversation(c)}
+                              className="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold text-xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
-        {/* ================= TAB: CTA SUBMISSIONS ================= */}
-        {activeTab === 'ctas' && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full min-w-0 max-w-full sm:w-80">
-                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search CTA leads by name, email, campaign..."
-                  value={ctaSearch}
-                  onChange={(e) => setCtaSearch(e.target.value)}
-                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
-                <span className="shrink-0 text-[11px] text-slate-400 font-semibold">{ctas.length} submissions</span>
-                <button
-                  onClick={() =>
-                    window.open(`/api/admin/ctas?email=${encodeURIComponent(user?.email || '')}&export=csv`, '_blank')
-                  }
-                  className="flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <Download className="w-3.5 h-3.5" /> Export CTAs (CSV)
-                </button>
-              </div>
-            </div>
-
-            <div className="min-w-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <div className="min-w-0 p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800">
-                <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
-                  Website CTA Form Submissions
-                </h3>
-                <p className="min-w-0 break-words text-[11px] text-slate-500 dark:text-slate-400">
-                  Leads captured through CTA lead-capture forms across the site, with campaign and source attribution.
-                </p>
-              </div>
-
-              {ctasLoading ? (
-                <div className="py-16 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto" />
-                </div>
-              ) : ctas.length === 0 ? (
-                <div className="py-16 text-center text-xs text-slate-400">
-                  <MousePointerClick className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                  No CTA submissions yet. They appear here whenever a visitor submits a lead form.
-                </div>
-              ) : (
-                <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain max-h-[70vh]">
-                  <table className="w-full min-w-[760px] text-left">
-                    <thead className="sticky top-0 bg-white dark:bg-slate-900">
-                      <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-200/80 dark:border-slate-800">
-                        <th className="px-4 py-3 font-bold">Name / Contact</th>
-                        <th className="px-4 py-3 font-bold">Campaign</th>
-                        <th className="px-4 py-3 font-bold">Page</th>
-                        <th className="px-4 py-3 font-bold">Message</th>
-                        <th className="px-4 py-3 font-bold">Owner</th>
-                        <th className="px-4 py-3 font-bold">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ctas
-                        .filter((c) => {
-                          const q = ctaSearch.toLowerCase();
-                          if (!q) return true;
-                          return (
-                            (c.name || '').toLowerCase().includes(q) ||
-                            (c.email || '').toLowerCase().includes(q) ||
-                            (c.campaign || '').toLowerCase().includes(q) ||
-                            (c.ownerEmail || '').toLowerCase().includes(q)
-                          );
-                        })
-                        .map((c) => (
-                          <tr key={c.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                            <td className="px-4 py-3">
-                              <p className="min-w-0 text-xs font-bold text-slate-900 dark:text-white truncate max-w-[180px]">{c.name || 'Anonymous'}</p>
-                              {c.email && <p className="flex min-w-0 items-center gap-1 text-[11px] text-slate-500 dark:text-slate-300"><Mail className="w-3 h-3 shrink-0 text-slate-400" /><span className="min-w-0 truncate max-w-[180px]">{c.email}</span></p>}
-                              {c.phone && <p className="min-w-0 text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[180px]">{c.phone}</p>}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="inline-block max-w-full break-words text-[10px] px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold">
-                                {c.campaign || 'default'}
-                              </span>
-                              <p className="min-w-0 break-words text-[10px] text-slate-400 mt-1">{c.source || 'website_cta'}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="min-w-0 text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[180px]">{c.page || c.botName || '—'}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="min-w-0 text-[11px] text-slate-500 dark:text-slate-300 truncate max-w-[220px]">{c.message || '—'}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="min-w-0 text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[160px]">{c.ownerEmail || '—'}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="text-[11px] text-slate-400 whitespace-nowrap">
-                                {new Date(c.createdAt).toLocaleString()}
-                              </p>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ================= TAB 2: CHATBOTS MANAGEMENT ================= */}
+        {/* ========================================================
+            TAB 4: CHATBOTS FLEET MANAGEMENT
+            ======================================================== */}
         {activeTab === 'bots' && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            {/* Search & Filter Bar */}
-            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full min-w-0 max-w-full sm:w-80">
-                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="space-y-5 animate-in fade-in duration-150">
+            {/* Filter and Search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search bots by name, domain, or owner..."
+                  placeholder="Search chatbots by name, URL, or owner..."
                   value={botSearch}
                   onChange={(e) => setBotSearch(e.target.value)}
-                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
-                <span className="text-xs text-slate-500 hidden sm:inline">Status:</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <select
                   value={botStatusFilter}
-                  onChange={(e: any) => setBotStatusFilter(e.target.value)}
-                  className="min-w-0 max-w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:outline-none"
+                  onChange={(e) => setBotStatusFilter(e.target.value as any)}
+                  className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold text-white outline-none"
                 >
                   <option value="all">All Chatbots ({bots.length})</option>
                   <option value="active">Active Only</option>
@@ -1137,141 +1592,93 @@ export default function AdminPanelPage() {
             </div>
 
             {/* Bots Table */}
-            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[900px] text-left text-xs">
-                  <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
+            <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[780px] text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                     <tr>
-                      <th className="px-5 py-3.5">Chatbot</th>
-                      <th className="px-4 py-3.5">Owner / Account</th>
-                      <th className="px-4 py-3.5">Knowledge</th>
-                      <th className="px-4 py-3.5">Model Engine</th>
-                      <th className="px-4 py-3.5">Status</th>
-                      <th className="px-4 py-3.5">Created</th>
-                      <th className="px-5 py-3.5 text-right">Actions</th>
+                      <th className="px-5 py-4">Chatbot</th>
+                      <th className="px-4 py-4">Target Website</th>
+                      <th className="px-4 py-4">AI Model &amp; Provider</th>
+                      <th className="px-4 py-4">Owner Account</th>
+                      <th className="px-4 py-4">Knowledge</th>
+                      <th className="px-4 py-4">Status</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
                     {filteredBots.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
-                          <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p>No chatbots found matching your criteria.</p>
+                        <td colSpan={7} className="px-6 py-12 text-center text-slate-500 text-xs">
+                          No chatbots matching your search filter.
                         </td>
                       </tr>
                     ) : (
                       filteredBots.map((b) => (
-                        <tr
-                          key={b.id}
-                          className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span
-                                className="w-3.5 h-3.5 rounded-full shrink-0 ring-2 ring-slate-200 dark:ring-slate-700"
-                                style={{ backgroundColor: b.primaryColor || '#6366f1' }}
-                              />
-                              <div className="min-w-0">
-                                <Link
-                                  href={`/bot/${b.id}`}
-                                  className="min-w-0 font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors truncate block max-w-[180px]"
-                                >
-                                  {b.name}
-                                </Link>
-                                <a
-                                  href={b.siteUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="min-w-0 text-[11px] text-slate-400 font-mono hover:underline truncate block max-w-[180px]"
-                                >
-                                  {b.siteUrl}
-                                </a>
+                        <tr key={b.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className="w-7 h-7 rounded-xl flex items-center justify-center text-white shrink-0"
+                                style={{ backgroundColor: b.primaryColor || '#4f46e5' }}
+                              >
+                                <Bot className="w-3.5 h-3.5" />
                               </div>
+                              <span className="font-bold text-white truncate max-w-[160px]">{b.name}</span>
                             </div>
                           </td>
-
-                          <td className="px-4 py-4 text-slate-600 dark:text-slate-300">
-                            <span className="block min-w-0 max-w-[200px] truncate font-mono text-[11px]">
-                              {b.ownerEmail || 'admin@sitebotstudio.com'}
+                          <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px] truncate max-w-[160px]">
+                            <a href={b.siteUrl} target="_blank" rel="noreferrer" className="hover:underline hover:text-indigo-400 flex items-center gap-1">
+                              <span>{b.siteUrl.replace(/^https?:\/\//, '')}</span>
+                              <ArrowUpRight className="w-3 h-3 shrink-0" />
+                            </a>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="font-semibold text-slate-300 uppercase text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                              {b.chatProvider}
                             </span>
+                            <span className="text-slate-400 font-mono text-[10px] ml-1.5">{b.chatModel}</span>
                           </td>
-
-                          <td className="px-4 py-4">
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold font-mono">
-                              {b.pagesCount}p • {b.chunksCount}ch
-                            </span>
+                          <td className="px-4 py-3.5 text-slate-400 truncate max-w-[140px]">{b.ownerEmail || 'Unassigned'}</td>
+                          <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px]">
+                            {b.pagesCount || 0} pgs • {b.chunksCount || 0} chunks
                           </td>
-
-                          <td className="px-4 py-4 text-[11px] font-mono text-slate-500">
-                            <span className="block min-w-0 max-w-[140px] truncate">{b.chatModel?.split('/')[1] || b.chatModel || 'gpt-4o-mini'}</span>
+                          <td className="px-4 py-3.5">
+                            <button
+                              onClick={() => handleToggleBotStatus(b.id, b.status)}
+                              disabled={togglingBotId === b.id}
+                              className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
+                                b.status === 'disabled'
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-emerald-500/20 hover:text-emerald-300'
+                                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-amber-500/20 hover:text-amber-300'
+                              }`}
+                            >
+                              {b.status === 'disabled' ? 'Paused (Click to Enable)' : 'Active (Click to Pause)'}
+                            </button>
                           </td>
-
-                          <td className="px-4 py-4">
-                            {b.status === 'disabled' ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] font-extrabold">
-                                Paused
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Active
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="px-4 py-4 text-[11px] text-slate-400 whitespace-nowrap">
-                            {new Date(b.createdAt).toLocaleDateString()}
-                          </td>
-
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex shrink-0 items-center justify-end gap-1.5">
-                              {/* Open in Studio */}
+                          <td className="px-5 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
                               <Link
                                 href={`/bot/${b.id}`}
-                                title="Open in Studio"
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors"
                               >
-                                <Sliders className="w-3.5 h-3.5" />
+                                Studio
                               </Link>
-
-                              {/* Open Sandbox Demo */}
                               <Link
                                 href={`/demo/${b.id}`}
                                 target="_blank"
-                                title="Live Sandbox Demo"
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                                title="Open Live Sandbox Demo"
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </Link>
-
-                              {/* Toggle Status (Pause / Resume) */}
-                              <button
-                                onClick={() => handleToggleBotStatus(b.id, b.status)}
-                                disabled={togglingBotId === b.id}
-                                title={b.status === 'disabled' ? 'Resume Bot' : 'Pause Bot'}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors disabled:opacity-50 cursor-pointer"
-                              >
-                                {togglingBotId === b.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                                ) : b.status === 'disabled' ? (
-                                  <PlayCircle className="w-3.5 h-3.5 text-emerald-600" />
-                                ) : (
-                                  <PauseCircle className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-
-                              {/* Delete Bot */}
                               <button
                                 onClick={() => handleDeleteBot(b)}
                                 disabled={deletingBotId === b.id}
-                                title="Permanently Delete Chatbot"
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors disabled:opacity-50 cursor-pointer"
+                                className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                                title="Delete bot"
                               >
-                                {deletingBotId === b.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" />
-                                ) : (
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                )}
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
@@ -1285,119 +1692,232 @@ export default function AdminPanelPage() {
           </div>
         )}
 
-        {/* ================= TAB 3: CAPTURED LEADS & SUBMISSIONS ================= */}
-        {activeTab === 'submissions' && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            {/* Filter and Export Bar */}
-            <div className="flex min-w-0 flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="relative w-full min-w-0 max-w-full sm:w-80">
-                <Search className="w-4 h-4 shrink-0 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* ========================================================
+            TAB 5: USERS & QUOTA MANAGEMENT
+            ======================================================== */}
+        {activeTab === 'users' && (
+          <div className="space-y-5 animate-in fade-in duration-150">
+            {/* Filter bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search leads by contact or field..."
-                  value={submissionSearch}
-                  onChange={(e) => setSubmissionSearch(e.target.value)}
-                  className="w-full min-w-0 max-w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Search users by name, email, company, role..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <select
-                  value={selectedBotFilter}
-                  onChange={(e) => setSelectedBotFilter(e.target.value)}
-                  className="min-w-0 max-w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:outline-none"
+                  value={userPlanFilter}
+                  onChange={(e) => setUserPlanFilter(e.target.value as any)}
+                  className="w-full sm:w-auto px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold text-white outline-none"
                 >
-                  <option value="all">All Chatbots ({submissions.length} leads)</option>
-                  {bots.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
+                  <option value="all">All Plans ({users.length})</option>
+                  <option value="free">Free Users</option>
+                  <option value="pro">Pro Subscribers</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Users Table */}
+            <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[750px] text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="px-5 py-4">User</th>
+                      <th className="px-4 py-4">Role / Occupation</th>
+                      <th className="px-4 py-4">Company</th>
+                      <th className="px-4 py-4">Plan</th>
+                      <th className="px-4 py-4">Token Quota &amp; Usage</th>
+                      <th className="px-4 py-4">Chats</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-slate-500 text-xs">
+                          {usersLoading ? 'Loading users...' : 'No users matching your search.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((u) => {
+                        const totalTokens = (u.usage?.inputTokens || 0) + (u.usage?.outputTokens || 0);
+                        const quota = u.tokenQuota || 25000;
+                        const pct = Math.min(100, Math.round((totalTokens / quota) * 100));
+
+                        return (
+                          <tr key={u.email} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="font-bold text-white">{u.name || u.email.split('@')[0]}</div>
+                              <div className="text-[11px] font-mono text-slate-400">{u.email}</div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700">
+                                {u.occupation || 'User'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-slate-300">{u.companyName || '—'}</td>
+                            <td className="px-4 py-3.5">
+                              <span
+                                className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                                  u.plan === 'pro'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                }`}
+                              >
+                                {u.plan || 'free'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <div className="space-y-1 w-36">
+                                <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                                  <span>{totalTokens.toLocaleString()}</span>
+                                  <span>{quota.toLocaleString()} ({pct}%)</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${pct > 90 ? 'bg-rose-500' : pct > 70 ? 'bg-amber-500' : 'bg-indigo-500'}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 font-mono text-slate-300">{u.usage?.chats || 0} chats</td>
+                            <td className="px-5 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() =>
+                                    handleChangeUserPlan(u.email, u.plan === 'pro' ? 'free' : 'pro')
+                                  }
+                                  disabled={modifyingUserEmail === u.email}
+                                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                                  title="Toggle Plan"
+                                >
+                                  {u.plan === 'pro' ? 'Downgrade' : 'Upgrade Pro'}
+                                </button>
+                                <button
+                                  onClick={() => handleResetUserUsage(u.email)}
+                                  disabled={modifyingUserEmail === u.email}
+                                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                                  title="Reset Quota Usage"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 6: UNIFIED LEADS & CRM HUB
+            ======================================================== */}
+        {activeTab === 'leads' && (
+          <div className="space-y-5 animate-in fade-in duration-150">
+            {/* Filter and Export Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search leads by contact info, campaign, bot..."
+                  value={leadSearch}
+                  onChange={(e) => setLeadSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                <select
+                  value={leadTypeFilter}
+                  onChange={(e) => setLeadTypeFilter(e.target.value as any)}
+                  className="flex-1 sm:flex-initial px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-semibold text-white outline-none"
+                >
+                  <option value="all">All Leads ({unifiedLeads.length})</option>
+                  <option value="forms">Form Leads ({submissions.length})</option>
+                  <option value="ctas">CTA Leads ({ctas.length})</option>
                 </select>
 
                 <button
-                  onClick={handleExportCSV}
-                  disabled={submissions.length === 0}
-                  className="flex max-w-full shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                  onClick={handleExportLeadsCSV}
+                  className="flex-1 sm:flex-initial justify-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
+                  <span>Download CSV</span>
                 </button>
               </div>
             </div>
 
-            {/* Submissions Table */}
-            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[760px] text-left text-xs">
-                  <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
+            {/* Leads Table */}
+            <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                     <tr>
-                      <th className="px-5 py-3.5">Chatbot</th>
-                      <th className="px-4 py-3.5">Intent / Type</th>
-                      <th className="px-4 py-3.5">Captured Data</th>
-                      <th className="px-4 py-3.5">Status</th>
-                      <th className="px-4 py-3.5">Timestamp</th>
+                      <th className="px-5 py-4">Source &amp; Type</th>
+                      <th className="px-4 py-4">Primary Contact</th>
+                      <th className="px-4 py-4">Captured Data Fields</th>
+                      <th className="px-4 py-4">Date</th>
+                      <th className="px-5 py-4 text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {filteredSubmissions.length === 0 ? (
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {unifiedLeads.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                          <Inbox className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p>No form submissions or leads captured yet.</p>
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500 text-xs">
+                          {leadsLoading ? 'Loading leads...' : 'No leads collected yet.'}
                         </td>
                       </tr>
                     ) : (
-                      filteredSubmissions.map((s) => (
-                        <tr
-                          key={s.id}
-                          className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                        >
-                          <td className="px-5 py-4">
-                            <span className="block min-w-0 max-w-[220px] truncate font-bold text-slate-900 dark:text-white">
-                              {s.botName}
-                            </span>
-                            <span className="block min-w-0 max-w-[240px] truncate text-[11px] text-slate-400 font-mono">
-                              {s.siteUrl}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <span className="inline-block max-w-full break-words px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold font-mono">
-                              {s.formType}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <div className="min-w-0 max-w-[280px] space-y-1 break-words">
-                              {Object.entries(s.data || {}).map(([key, val]: any) => (
-                                <div key={key} className="min-w-0 text-[11px] break-words">
-                                  <span className="break-words text-slate-400 font-medium">{key}: </span>
-                                  <span className="break-words font-semibold text-slate-800 dark:text-slate-200">
-                                    {String(val)}
+                      unifiedLeads
+                        .filter((l) => {
+                          if (leadTypeFilter === 'forms' && l.type !== 'Form Submission') return false;
+                          if (leadTypeFilter === 'ctas' && l.type !== 'CTA Click / Action') return false;
+                          if (!leadSearch) return true;
+                          const str = `${l.sourceName} ${l.primaryContact} ${JSON.stringify(l.data)}`.toLowerCase();
+                          return str.includes(leadSearch.toLowerCase());
+                        })
+                        .map((l) => (
+                          <tr key={l.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="font-bold text-white">{l.sourceName}</div>
+                              <div className="text-[10px] text-indigo-400 font-semibold">{l.type}</div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className="font-bold text-emerald-400">{l.primaryContact}</span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <div className="flex flex-wrap gap-1 max-w-md">
+                                {Object.entries(l.data || {}).map(([k, v]) => (
+                                  <span key={k} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+                                    <strong className="text-slate-400">{k}:</strong> {String(v)}
                                   </span>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <span
-                              className={`inline-block max-w-full break-words px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                s.status === 'completed'
-                                  ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                                  : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
-                              }`}
-                            >
-                              {s.status}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-4 text-[11px] text-slate-400 whitespace-nowrap">
-                            {new Date(s.createdAt).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                              {new Date(l.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                captured
+                              </span>
+                            </td>
+                          </tr>
+                        ))
                     )}
                   </tbody>
                 </table>
@@ -1406,239 +1926,201 @@ export default function AdminPanelPage() {
           </div>
         )}
 
-        {/* ================= TAB 4: DETECTED FORMS ================= */}
-        {activeTab === 'forms' && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[760px] text-left text-xs">
-                  <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
-                    <tr>
-                      <th className="px-5 py-3.5">Chatbot</th>
-                      <th className="px-4 py-3.5">Form Intent</th>
-                      <th className="px-4 py-3.5">Target Web Page</th>
-                      <th className="px-4 py-3.5">Fields Schema</th>
-                      <th className="px-4 py-3.5">Submit Method</th>
-                      <th className="px-4 py-3.5">Active</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {forms.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                          <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p>No forms detected across websites yet.</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      forms.map((f) => (
-                        <tr
-                          key={f.id}
-                          className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                        >
-                          <td className="px-5 py-4 font-bold text-slate-900 dark:text-white">
-                            <span className="block min-w-0 max-w-[180px] truncate">{f.botName}</span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="inline-block max-w-full break-words px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[10px] font-bold font-mono">
-                              {f.formType}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 text-[11px] font-mono text-slate-500">
-                            <span className="block min-w-0 max-w-[200px] truncate">{f.targetUrl}</span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-slate-600 dark:text-slate-300 font-semibold">
-                              {f.fieldsSchema?.length || 0} fields
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 text-[11px] font-mono text-slate-500 whitespace-nowrap">
-                            {f.submitMethod || 'POST'}
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
-                              {f.isActive ? 'Active' : 'Disabled'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+        {/* ========================================================
+            TAB 7: LIVE ACTIVITY & AUDIT STREAM
+            ======================================================== */}
+        {activeTab === 'activity' && (
+          <div className="space-y-5 animate-in fade-in duration-150">
+            {/* Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter activity by keyword or actor..."
+                  value={activitySearch}
+                  onChange={(e) => setActivitySearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* ================= TAB 5: ADMINS & RBAC ACCESS ================= */}
-        {activeTab === 'admins' && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            {/* RBAC Rules Banner */}
-            <div className="min-w-0 p-4 sm:p-5 rounded-3xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900 flex items-start gap-3.5 text-xs text-indigo-900 dark:text-indigo-200">
-              <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1 space-y-1">
-                <h4 className="break-words font-bold">Admin Panel Access Control Architecture</h4>
-                <p className="break-words text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
-                  • <strong>Super Admins:</strong> Configured via <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono break-all">SUPER_ADMIN_EMAIL</code> in your <code className="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.2 rounded font-mono break-all">.env</code>. Permanent and cannot be revoked through the UI.
-                </p>
-                <p className="break-words text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300">
-                  • <strong>Admins:</strong> Added by Super Admins only. Have full access to telemetry, chatbot monitoring, and captured leads, but cannot add other admins.
-                </p>
-              </div>
-            </div>
-
-            {/* Super Admin Add New Admin Form */}
-            {isSuperAdmin ? (
-              <div className="min-w-0 p-4 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex min-w-0 items-center gap-2">
-                  <UserCheck className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                  <h3 className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white font-heading">
-                    Add New Administrator
-                  </h3>
-                </div>
-
-                {adminActionMsg && (
-                  <div
-                    className={`p-3 rounded-2xl text-xs flex min-w-0 items-center gap-2 ${
-                      adminActionMsg.type === 'success'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                        : 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {['all', 'bot', 'user', 'lead', 'billing', 'chat', 'admin'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActivityCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
+                      activityCategory === cat
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
-                    {adminActionMsg.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                    )}
-                    <span className="min-w-0 break-words">{adminActionMsg.text}</span>
-                  </div>
-                )}
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                <form onSubmit={handleAddAdmin} className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="min-w-0">
-                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                      Admin Email *
-                    </label>
+            {/* Events Timeline */}
+            <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-indigo-400" />
+                  <span>Real-time Event Audit Feed ({filteredActivity.length})</span>
+                </h3>
+                <button
+                  onClick={fetchActivity}
+                  className="text-xs font-bold text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh Stream</span>
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {filteredActivity.length === 0 ? (
+                  <div className="text-center py-12 text-xs text-slate-500">
+                    No activity events matching your current filter.
+                  </div>
+                ) : (
+                  filteredActivity.map((e) => (
+                    <div
+                      key={e.id}
+                      className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-start gap-4 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 text-indigo-400 mt-0.5">
+                        {e.category === 'bot' && <Bot className="w-4 h-4 text-emerald-400" />}
+                        {e.category === 'user' && <Users className="w-4 h-4 text-indigo-400" />}
+                        {e.category === 'lead' && <Inbox className="w-4 h-4 text-amber-400" />}
+                        {e.category === 'billing' && <DollarSign className="w-4 h-4 text-emerald-400" />}
+                        {e.category === 'chat' && <MessageSquare className="w-4 h-4 text-purple-400" />}
+                        {e.category === 'admin' && <Shield className="w-4 h-4 text-rose-400" />}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-bold text-white text-xs">{e.title}</h4>
+                          <span className="text-[10px] text-slate-500 font-mono shrink-0">
+                            {new Date(e.timestamp).toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">{e.description}</p>
+                        <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-slate-500">
+                          <span>Actor: <strong className="text-slate-300">{e.actor}</strong></span>
+                          {e.target && (
+                            <span>Target: <strong className="text-slate-300">{e.target}</strong></span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 8: RBAC & ADMIN STAFF MANAGEMENT
+            ======================================================== */}
+        {activeTab === 'admins' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            {/* Super Admin Notice */}
+            <div className="p-5 rounded-3xl bg-indigo-950/40 border border-indigo-900/60 flex items-start gap-3.5 text-xs text-indigo-200">
+              <Shield className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h4 className="font-bold text-white">Privileged RBAC Security Architecture</h4>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Super Admins are set via <code className="bg-indigo-900/60 text-indigo-300 px-1 py-0.2 rounded font-mono">SUPER_ADMIN_EMAIL</code> in <code className="bg-indigo-900/60 text-indigo-300 px-1 py-0.2 rounded font-mono">.env</code>. You can invite additional administrators below who will have full telemetry, chatbot moderation, and lead viewing privileges.
+                </p>
+              </div>
+            </div>
+
+            {/* Invite Form */}
+            {isSuperAdmin && (
+              <form onSubmit={handleAddAdmin} className="p-5 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+                <h3 className="text-sm font-bold text-white">Grant Administrator Privileges</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Google Email Address</label>
                     <input
                       type="email"
                       required
-                      placeholder="e.g. colleague@company.com"
+                      placeholder="admin@example.com"
                       value={newAdminEmail}
                       onChange={(e) => setNewAdminEmail(e.target.value)}
-                      className="w-full min-w-0 max-w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-
-                  <div className="min-w-0">
-                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                      Staff / Member Name
-                    </label>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Full Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Sarah Jenkins"
+                      placeholder="Jane Doe"
                       value={newAdminName}
                       onChange={(e) => setNewAdminName(e.target.value)}
-                      className="w-full min-w-0 max-w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
+                </div>
 
-                  <div className="flex min-w-0 items-end">
-                    <button
-                      type="submit"
-                      disabled={addingAdmin}
-                      className="w-full min-w-0 max-w-full py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {addingAdmin ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Plus className="w-4 h-4 stroke-[2.5]" />
-                      )}
-                      <span>Grant Admin Access</span>
-                    </button>
+                {adminActionMsg && (
+                  <div className={`p-3 rounded-xl text-xs font-semibold ${adminActionMsg.type === 'success' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                    {adminActionMsg.text}
                   </div>
-                </form>
-              </div>
-            ) : (
-              <div className="min-w-0 break-words p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300">
-                You are viewing this as an <strong>Admin</strong>. Adding or revoking other administrators requires <strong>Super Admin</strong> privileges.
-              </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={addingAdmin}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors cursor-pointer text-center"
+                >
+                  {addingAdmin ? 'Authorizing...' : 'Grant Admin Privileges'}
+                </button>
+              </form>
             )}
 
-            {/* Administrators Table */}
-            <div className="min-w-0 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
-                <table className="w-full min-w-[680px] text-left text-xs">
-                  <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
+            {/* Admins Table */}
+            <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[550px] text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                     <tr>
-                      <th className="px-5 py-3.5">Administrator</th>
-                      <th className="px-4 py-3.5">Role Tier</th>
-                      <th className="px-4 py-3.5">Added By</th>
-                      <th className="px-4 py-3.5">Added Date</th>
-                      {isSuperAdmin && <th className="px-5 py-3.5 text-right">Action</th>}
+                      <th className="px-5 py-4">Administrator</th>
+                      <th className="px-4 py-4">Role</th>
+                      <th className="px-4 py-4">Assigned By</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                    {adminsList.map((a, i) => (
-                      <tr
-                        key={i}
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                      >
-                        <td className="px-5 py-4">
-                          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                            <div className="w-7 h-7 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 text-xs">
-                              {(a.name || a.email)[0].toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="min-w-0 max-w-[180px] truncate font-bold text-slate-900 dark:text-white">
-                                {a.name || 'Admin User'}
-                              </p>
-                              <p className="min-w-0 max-w-[200px] truncate text-[11px] text-slate-400 font-mono">{a.email}</p>
-                            </div>
-                          </div>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {adminsList.map((a) => (
+                      <tr key={a.email} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="font-bold text-white">{a.name || a.email.split('@')[0]}</div>
+                          <div className="text-[11px] font-mono text-slate-400">{a.email}</div>
                         </td>
-
-                        <td className="px-4 py-4">
-                          <span
-                            className={`inline-block max-w-full break-words px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                              a.isEnv
-                                ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                                : 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
-                            }`}
-                          >
-                            {a.isEnv ? 'Super Admin (Env)' : 'Admin (DB)'}
+                        <td className="px-4 py-3.5">
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            {a.role || 'Admin'}
                           </span>
                         </td>
-
-                        <td className="px-4 py-4 text-[11px] font-mono text-slate-500">
-                          <span className="block min-w-0 max-w-[180px] truncate">{a.addedBy}</span>
+                        <td className="px-4 py-3.5 text-slate-400 font-mono text-[11px]">{a.assignedBy || 'Super Admin'}</td>
+                        <td className="px-5 py-3.5 text-right">
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() => handleRevokeAdmin(a.email)}
+                              disabled={revokingAdminEmail === a.email}
+                              className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              Revoke
+                            </button>
+                          )}
                         </td>
-
-                        <td className="px-4 py-4 text-[11px] text-slate-400 whitespace-nowrap">
-                          {new Date(a.createdAt).toLocaleDateString()}
-                        </td>
-
-                        {isSuperAdmin && (
-                          <td className="px-5 py-4 text-right">
-                            {a.isEnv ? (
-                              <span className="text-[10px] text-slate-400 font-semibold italic">
-                                Permanent
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => handleRevokeAdmin(a.email)}
-                                disabled={revokingAdminEmail === a.email}
-                                title="Revoke Admin Access"
-                                className="shrink-0 px-2.5 py-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
-                              >
-                                {revokingAdminEmail === a.email ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  'Revoke'
-                                )}
-                              </button>
-                            )}
-                          </td>
-                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -1648,15 +2130,239 @@ export default function AdminPanelPage() {
           </div>
         )}
 
-        {/* ================= TAB 8: PLANS & MODELS SETTINGS ================= */}
+        {/* ========================================================
+            TAB: WHATSAPP LIVE GATEWAY & TWO-WAY RELAY
+            ======================================================== */}
+        {activeTab === 'whatsapp' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            {waActionMsg && (
+              <div
+                className={`p-4 rounded-2xl text-xs font-semibold flex items-center justify-between gap-3 ${
+                  waActionMsg.type === 'success'
+                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                    : 'bg-rose-500/20 border border-rose-500/30 text-rose-300'
+                }`}
+              >
+                <span>{waActionMsg.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setWaActionMsg(null)}
+                  className="font-bold underline text-[11px] cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Top Bar for WhatsApp Tab */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">WhatsApp Integration & Two-Way Live Relay</h2>
+                  <p className="text-xs text-slate-400">
+                    Pair Baileys WhatsApp client, deliver proactive user alerts, and relay live visitor handoffs.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Link
+                  href="/admin/whatsapp"
+                  className="w-full sm:w-auto text-center justify-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:scale-105 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2"
+                >
+                  <span>Open Full WhatsApp Hub</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* 3 Metric Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase text-slate-400">Connection State</span>
+                  <span
+                    className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      waStatus.status === 'connected'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : waStatus.status === 'connecting'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    }`}
+                  >
+                    {waStatus.status === 'connected'
+                      ? 'Connected'
+                      : waStatus.status === 'connecting'
+                      ? 'Connecting'
+                      : 'Disconnected'}
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="text-lg font-black text-white">
+                    {waStatus.status === 'connected' ? `+${waStatus.phoneNumber}` : 'No Active Session'}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    {waStatus.pushName ? `Push Name: ${waStatus.pushName}` : 'Offline'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase text-slate-400">Human Handoff Tickets</span>
+                  <Headphones className="w-4 h-4 text-indigo-400" />
+                </div>
+                <div className="mt-3">
+                  <div className="text-lg font-black text-white">
+                    {waTickets.filter((t) => t.status !== 'closed').length} Active
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    Total: {waTickets.length} tickets recorded
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase text-slate-400">Auth Persistence</span>
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="mt-3">
+                  <div className="text-lg font-black text-white font-mono">MongoDB Cache</div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    BufferJSON keys preserved across restarts
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Action Panel */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-white">WhatsApp Web Pairing</h3>
+                {waStatus.status === 'connected' ? (
+                  <button
+                    onClick={handleWaLogout}
+                    disabled={waLoggingOut}
+                    className="w-full sm:w-auto justify-center px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{waLoggingOut ? 'Disconnecting...' : 'Disconnect WhatsApp'}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleWaConnect(true)}
+                    disabled={waConnecting}
+                    className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${waConnecting ? 'animate-spin' : ''}`} />
+                    <span>{waConnecting ? 'Initializing...' : 'Generate Pairing QR'}</span>
+                  </button>
+                )}
+              </div>
+
+              {waStatus.status === 'connected' ? (
+                <div className="p-5 sm:p-6 rounded-2xl bg-slate-950/60 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">WhatsApp Client Connected & Ready</h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Outbound lead notifications and visitor human handoffs are operating directly via WhatsApp.
+                    </p>
+                  </div>
+                </div>
+              ) : waStatus.qrCode ? (
+                <div className="p-6 rounded-2xl bg-slate-950/60 border border-slate-800 text-center space-y-3 max-w-full">
+                  <div className="inline-block p-3 bg-white rounded-2xl border-4 border-slate-800 shadow-xl max-w-full">
+                    <Image
+                      src={waStatus.qrCode}
+                      alt="WhatsApp Pairing QR"
+                      width={180}
+                      height={180}
+                      unoptimized
+                      className="rounded-lg max-w-full h-auto mx-auto"
+                    />
+                  </div>
+                  <div className="text-xs text-emerald-400 font-bold">
+                    Scan with WhatsApp &gt; Linked Devices
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-slate-950/60 border border-slate-800 text-center space-y-3">
+                  <QrCode className="w-10 h-10 text-slate-600 mx-auto" />
+                  <p className="text-xs text-slate-400">
+                    Click &quot;Generate Pairing QR&quot; or open the dedicated WhatsApp hub to scan and link your phone.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Tickets Preview */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Headphones className="w-4 h-4 text-emerald-400" />
+                  <span>Recent Live Support Tickets ({waTickets.length})</span>
+                </h3>
+                <Link
+                  href="/admin/whatsapp"
+                  className="text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1"
+                >
+                  <span>Manage in Hub</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {waTickets.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-xs">
+                  No live handoff tickets yet. When visitors request human support, tickets will appear here and trigger WhatsApp alerts.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {waTickets.slice(0, 5).map((t: any) => (
+                    <div
+                      key={t.ticketId}
+                      className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-emerald-400 font-bold">#{t.ticketId}</span>
+                        <span className="text-slate-300 font-semibold">{t.visitor?.name || 'Visitor'}</span>
+                        <span className="text-slate-500">•</span>
+                        <span className="text-slate-400 truncate max-w-xs">{t.lastUserMessage || t.botName}</span>
+                      </div>
+                      <span
+                        className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full w-fit ${
+                          t.status === 'closed'
+                            ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        }`}
+                      >
+                        {t.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 9: PLATFORM ENGINE & AI MODELS SETTINGS
+            ======================================================== */}
         {activeTab === 'settings' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             {settingsMsg && (
               <div
                 className={`p-4 rounded-2xl text-xs font-semibold flex items-center justify-between gap-3 ${
                   settingsMsg.type === 'success'
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                    ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                    : 'bg-rose-500/20 border border-rose-500/30 text-rose-300'
                 }`}
               >
                 <span>{settingsMsg.text}</span>
@@ -1672,26 +2378,26 @@ export default function AdminPanelPage() {
 
             <form onSubmit={handleSaveSettings} className="space-y-6">
               {/* Section 1: Default AI Models & Providers */}
-              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
-                <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                   <div className="space-y-1">
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-indigo-600" />
-                      <span>Default AI Models &amp; Providers</span>
+                    <h3 className="text-base font-extrabold text-white font-heading flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <span>Default AI Models &amp; Engine</span>
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      These settings define the default models used for new chatbots. Models are stored in the database and can be modified here anytime without editing .env files.
+                    <p className="text-xs text-slate-400">
+                      Models are loaded dynamically from database settings without modifying server .env files.
                     </p>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                    Database Backed
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 whitespace-nowrap">
+                    Live Engine
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {/* Default Chat Provider */}
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                       Default Chat Provider
                     </label>
                     <select
@@ -1708,7 +2414,7 @@ export default function AdminPanelPage() {
                           defaultChatModel: defModel,
                         });
                       }}
-                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-semibold outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold outline-none focus:border-indigo-500"
                     >
                       <option value="openai">OpenAI</option>
                       <option value="nvidia">NVIDIA NIM</option>
@@ -1719,7 +2425,7 @@ export default function AdminPanelPage() {
 
                   {/* Default Chat Model */}
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                       Default Chat Model ID
                     </label>
                     <input
@@ -1727,80 +2433,13 @@ export default function AdminPanelPage() {
                       value={settings.defaultChatModel}
                       onChange={(e) => setSettings({ ...settings, defaultChatModel: e.target.value })}
                       placeholder="e.g. gpt-4o-mini, gemini-2.5-flash"
-                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white font-mono outline-none focus:border-indigo-500"
                     />
-                    {/* Quick Model Presets */}
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {settings.defaultChatProvider === 'openai' &&
-                        ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'].map((m: string) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
-                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
-                              settings.defaultChatModel === m
-                                ? 'bg-indigo-600 text-white font-bold'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                            }`}
-                          >
-                            {m}
-                          </button>
-                        ))}
-                      {settings.defaultChatProvider === 'nvidia' &&
-                        [
-                          'nvidia/llama-3.1-nemotron-70b-instruct',
-                          'meta/llama-3.1-8b-instruct',
-                          'meta/muse-glimmer-30b',
-                        ].map((m: string) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
-                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
-                              settings.defaultChatModel === m
-                                ? 'bg-emerald-600 text-white font-bold'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                            }`}
-                          >
-                            {m.split('/')[1] || m}
-                          </button>
-                        ))}
-                      {settings.defaultChatProvider === 'gemini' &&
-                        ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'].map((m: string) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
-                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
-                              settings.defaultChatModel === m
-                                ? 'bg-indigo-600 text-white font-bold'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                            }`}
-                          >
-                            {m}
-                          </button>
-                        ))}
-                      {settings.defaultChatProvider === 'openrouter' &&
-                        ['meta-llama/llama-3-8b-instruct:free', 'deepseek/deepseek-chat'].map((m: string) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setSettings({ ...settings, defaultChatModel: m })}
-                            className={`text-[10px] font-mono px-2 py-0.5 rounded-md transition-all ${
-                              settings.defaultChatModel === m
-                                ? 'bg-purple-600 text-white font-bold'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                            }`}
-                          >
-                            {m.split('/')[1] || m}
-                          </button>
-                        ))}
-                    </div>
                   </div>
 
                   {/* Default Embeddings Provider */}
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                       Default Embeddings Provider
                     </label>
                     <select
@@ -1816,7 +2455,7 @@ export default function AdminPanelPage() {
                           defaultEmbedModel: defEmbed,
                         });
                       }}
-                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-semibold outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold outline-none focus:border-indigo-500"
                     >
                       <option value="openai">OpenAI (text-embedding-3-small)</option>
                       <option value="nvidia">NVIDIA NIM (nv-embedqa)</option>
@@ -1826,7 +2465,7 @@ export default function AdminPanelPage() {
 
                   {/* Default Embeddings Model */}
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                       Default Embeddings Model ID
                     </label>
                     <input
@@ -1834,45 +2473,39 @@ export default function AdminPanelPage() {
                       value={settings.defaultEmbedModel}
                       onChange={(e) => setSettings({ ...settings, defaultEmbedModel: e.target.value })}
                       placeholder="e.g. text-embedding-3-small"
-                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white font-mono outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
-
-                {/* API Key Security Notice */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
-                  <span className="font-bold text-slate-900 dark:text-white">🔒 Default Provider API Keys:</span>{' '}
-                  Server-side LLM credentials (OPENAI_API_KEY, GEMINI_API_KEY, NVIDIA_API_KEY, OPENROUTER_API_KEY) are securely read from your private <code className="font-mono text-indigo-600 dark:text-indigo-400">.env</code> file. Chatbot users can optionally supply their own custom API keys in their Chatbot Studio.
-                </div>
               </div>
 
-              {/* Section 2: Per-Plan Quotas & Token Restrictions */}
-              <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
-                <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              {/* Section 2: Plan Quotas & Bot Restrictions */}
+              <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                   <div className="space-y-1">
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-heading flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-emerald-600" />
+                    <h3 className="text-base font-extrabold text-white font-heading flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>Plan Quotas &amp; Bot Restrictions</span>
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Configure strict chatbot limits, monthly token quotas, and message allowances for Free and Pro tiers.
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Free Plan Configuration */}
-                  <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-4">
+                  {/* Free Plan */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                        <span>Free Plan Limits</span>
+                        <span>Free Tier Limits</span>
                       </h4>
-                      <span className="text-xs font-bold text-slate-500">Free / $0</span>
+                      <span className="text-xs font-bold text-slate-400">Free / $0</span>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Chatbot Project Limit
                       </label>
                       <input
@@ -1886,13 +2519,12 @@ export default function AdminPanelPage() {
                             freePlan: { ...settings.freePlan, botLimit: Number(e.target.value) || 1 },
                           })
                         }
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 font-bold text-white"
                       />
-                      <p className="text-[10px] text-slate-400 mt-0.5">Strictly blocks creation of additional bots beyond this number.</p>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Monthly Token Quota
                       </label>
                       <input
@@ -1906,13 +2538,12 @@ export default function AdminPanelPage() {
                             freePlan: { ...settings.freePlan, tokenQuota: Number(e.target.value) || 25000 },
                           })
                         }
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 font-mono font-bold text-white"
                       />
-                      <p className="text-[10px] text-slate-400 mt-0.5">e.g. 25,000 tokens for free users.</p>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Monthly Chat / Message Limit
                       </label>
                       <input
@@ -1926,26 +2557,25 @@ export default function AdminPanelPage() {
                             freePlan: { ...settings.freePlan, chatQuota: Number(e.target.value) || 50 },
                           })
                         }
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 font-mono font-bold text-white"
                       />
-                      <p className="text-[10px] text-slate-400 mt-0.5">Maximum free messages before chat prompt blocks.</p>
                     </div>
                   </div>
 
-                  {/* Pro Plan Configuration */}
-                  <div className="p-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60 space-y-4">
+                  {/* Pro Plan */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-indigo-950/20 border border-indigo-900/60 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-black text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+                      <h4 className="text-sm font-bold text-indigo-300 flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
                         <span>Pro Plan Limits</span>
                       </h4>
-                      <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                      <span className="text-xs font-black text-indigo-400">
                         ${settings.proPlan?.monthlyPrice || 9}/mo
                       </span>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Chatbot Project Limit
                       </label>
                       <input
@@ -1959,12 +2589,12 @@ export default function AdminPanelPage() {
                             proPlan: { ...settings.proPlan, botLimit: Number(e.target.value) || 10 },
                           })
                         }
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 font-bold text-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Monthly Token Quota
                       </label>
                       <input
@@ -1978,12 +2608,12 @@ export default function AdminPanelPage() {
                             proPlan: { ...settings.proPlan, tokenQuota: Number(e.target.value) || 2500000 },
                           })
                         }
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 font-mono font-bold text-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
                         Monthly Chat / Message Limit
                       </label>
                       <input
@@ -1997,27 +2627,27 @@ export default function AdminPanelPage() {
                             proPlan: { ...settings.proPlan, chatQuota: Number(e.target.value) || 50000 },
                           })
                         }
-                        className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono font-bold"
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 font-mono font-bold text-white"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Section 3: BYOK (Custom API Key) Exemption Policy */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                {/* Section 3: BYOK Policy */}
+                <div className="pt-4 border-t border-slate-800">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.byokBypassQuota !== false}
                       onChange={(e) => setSettings({ ...settings, byokBypassQuota: e.target.checked })}
-                      className="w-4 h-4 rounded text-indigo-600 mt-0.5"
+                      className="w-4 h-4 rounded text-indigo-600 mt-0.5 shrink-0"
                     />
                     <div>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">
-                        Exempt Custom API Key (BYOK) Chatbots from Token &amp; Message Quotas
+                      <p className="text-xs font-bold text-white">
+                        Exempt Custom API Key (BYOK) Chatbots from Platform Quotas
                       </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                        When enabled, free users who configure their own custom provider API key (Google Gemini, OpenAI, NVIDIA NIM, or OpenRouter) will not be blocked by monthly chat or token limits since their chats are powered directly by their own API keys.
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        When enabled, free users who configure their own provider API keys will not be blocked by monthly chat or token limits.
                       </p>
                     </div>
                   </label>
@@ -2029,7 +2659,7 @@ export default function AdminPanelPage() {
                 <button
                   type="submit"
                   disabled={savingSettings || loadingSettings}
-                  className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                  className="w-full sm:w-auto justify-center px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer text-center"
                 >
                   {savingSettings ? (
                     <>
@@ -2039,7 +2669,7 @@ export default function AdminPanelPage() {
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Save System Settings</span>
+                      <span>Save Platform Settings</span>
                     </>
                   )}
                 </button>
@@ -2048,6 +2678,88 @@ export default function AdminPanelPage() {
           </div>
         )}
       </main>
+
+      {/* ========================================================
+          CONVERSATION INSPECTOR MODAL
+          ======================================================== */}
+      {selectedConversation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span className="truncate">{selectedConversation.botName}</span>
+                    <span className="text-[9px] uppercase px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 shrink-0">
+                      {selectedConversation.status}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono truncate">
+                    Visitor: {selectedConversation.visitor?.name || 'Visitor'} {selectedConversation.visitor?.email ? `(${selectedConversation.visitor.email})` : ''}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedConversation(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors shrink-0 ml-2"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Messages Scroll Area */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
+              {(!selectedConversation.messages || selectedConversation.messages.length === 0) ? (
+                <div className="text-center py-8 text-xs text-slate-500">
+                  No message history recorded for this session.
+                </div>
+              ) : (
+                selectedConversation.messages.map((m: any, idx: number) => {
+                  const isUser = m.role === 'user';
+                  return (
+                    <div
+                      key={m.id || idx}
+                      className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+                    >
+                      <div className="text-[10px] font-semibold text-slate-500 mb-1 px-1">
+                        {isUser ? 'Visitor' : 'AI Assistant'} • {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div
+                        className={`p-3.5 rounded-2xl text-xs max-w-[90%] sm:max-w-[85%] leading-relaxed whitespace-pre-wrap break-words break-all ${
+                          isUser
+                            ? 'bg-indigo-600 text-white rounded-tr-none'
+                            : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700/60'
+                        }`}
+                      >
+                        {m.content}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3.5 sm:p-4 border-t border-slate-800 bg-slate-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <span className="text-[11px] text-slate-500 font-mono truncate max-w-xs">
+                Session: {selectedConversation.sessionId}
+              </span>
+              <button
+                onClick={() => setSelectedConversation(null)}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors text-center"
+              >
+                Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

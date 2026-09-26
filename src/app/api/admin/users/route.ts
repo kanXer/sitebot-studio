@@ -207,3 +207,93 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const adminEmail = req.headers.get('x-user-email');
+    const isAuthorized = await isAdminEmail(adminEmail);
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const targetEmail = (body.email || '').toLowerCase().trim();
+    if (!targetEmail) {
+      return NextResponse.json({ error: 'Target email is required' }, { status: 400 });
+    }
+
+    await connectToDatabase();
+
+    const updateData: any = {};
+    if (body.plan) {
+      updateData.plan = body.plan;
+      if (body.plan === 'pro') {
+        updateData.botLimit = 10;
+        updateData.tokenQuota = 2500000;
+        updateData.chatQuota = 50000;
+        updateData.planExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      } else {
+        updateData.botLimit = 1;
+        updateData.tokenQuota = 25000;
+        updateData.chatQuota = 50;
+      }
+    }
+    if (typeof body.botLimit === 'number') updateData.botLimit = body.botLimit;
+    if (typeof body.tokenQuota === 'number') updateData.tokenQuota = body.tokenQuota;
+    if (typeof body.chatQuota === 'number') updateData.chatQuota = body.chatQuota;
+    if (body.resetUsage) {
+      updateData.usage = { inputTokens: 0, outputTokens: 0, chats: 0, leads: 0 };
+    }
+
+    if (isUsingMemoryDb()) {
+      MemoryDb.updateUserProfile(targetEmail, updateData);
+    } else {
+      await UserProfile.updateOne({ email: targetEmail }, { $set: updateData }, { upsert: true });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `User ${targetEmail} updated successfully.`,
+      updated: updateData,
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to update user' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const adminEmail = req.headers.get('x-user-email') || searchParams.get('adminEmail');
+    const isAuthorized = await isAdminEmail(adminEmail);
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
+    }
+
+    const targetEmail = (searchParams.get('email') || '').toLowerCase().trim();
+    if (!targetEmail) {
+      return NextResponse.json({ error: 'Target email is required' }, { status: 400 });
+    }
+
+    await connectToDatabase();
+
+    if (!isUsingMemoryDb()) {
+      await UserProfile.deleteOne({ email: targetEmail });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `User ${targetEmail} removed from platform.`,
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to delete user' },
+      { status: 500 }
+    );
+  }
+}

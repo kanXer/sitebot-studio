@@ -62,27 +62,6 @@ export function Navbar() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Check if logged in user has completed onboarding profile setup
-  useEffect(() => {
-    if (!user?.email) return;
-    if (pathname?.startsWith('/dashboard') || pathname?.startsWith('/create')) return;
-
-    fetch(`/api/profile?email=${encodeURIComponent(user.email)}`, {
-      headers: {
-        'x-user-email': user.email,
-        ...(user.uid ? { 'x-user-id': user.uid } : {}),
-      },
-      cache: 'no-store',
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.profile && data.profile.profileCompleted === false) {
-          setOnboardingOpen(true);
-        }
-      })
-      .catch(() => {});
-  }, [user?.email, user?.uid, pathname]);
-
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -256,7 +235,7 @@ export function Navbar() {
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden shadow-md shadow-indigo-500/20 group-hover:scale-105 group-hover:shadow-indigo-500/35 transition-all duration-300 bg-slate-950 border border-slate-700/50 flex items-center justify-center shrink-0">
               <img
                 src="/favicon.png"
-                alt="SiteBot Studio Logo"
+                alt="Rivafy Studio Logo"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
@@ -266,7 +245,7 @@ export function Navbar() {
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 whitespace-nowrap">
                 <span className="font-black text-lg sm:text-xl text-slate-900 dark:text-white tracking-tight font-heading">
-                  SiteBot
+                  Rivafy
                 </span>
                 <span className="font-black text-lg sm:text-xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-500 font-heading">
                   Studio
@@ -277,7 +256,7 @@ export function Navbar() {
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 dark:text-slate-500 hidden xl:block leading-none font-medium mt-0.5">
-                Multi-Tenant AI Chatbot Platform
+                Build. Embed. Automate.
               </p>
             </div>
           </Link>
@@ -376,13 +355,22 @@ export function Navbar() {
                     <img
                       src={user.photoURL}
                       alt={user.displayName || 'User'}
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
                       className="w-6 h-6 rounded-lg object-cover ring-1 ring-indigo-500/30"
                     />
-                  ) : (
-                    <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
-                      {(user.displayName || user.email || 'U')[0].toUpperCase()}
-                    </div>
-                  )}
+                  ) : null}
+                  <div
+                    style={{ display: user.photoURL ? 'none' : 'flex' }}
+                    className="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-bold items-center justify-center"
+                  >
+                    {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                  </div>
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-200 max-w-[90px] truncate">
                     {user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
                   </span>
@@ -390,15 +378,35 @@ export function Navbar() {
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
-                      <p className="font-extrabold text-slate-900 dark:text-white truncate">
-                        {user.displayName || 'User'}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        {user.email}
-                      </p>
-                      <div className="mt-1.5 flex items-center gap-1.5">
+                  <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                      {user.photoURL ? (
+                        <img
+                          src={user.photoURL}
+                          alt={user.displayName || 'User'}
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                          className="w-9 h-9 rounded-xl object-cover ring-1 ring-indigo-500/30 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                          {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-extrabold text-slate-900 dark:text-white truncate">
+                          {user.displayName || 'User'}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {user.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="px-4 pt-1.5 pb-2">
+                      <div className="flex items-center gap-1.5">
                         <span
                           className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
                             isSuperAdmin
@@ -493,13 +501,22 @@ export function Navbar() {
                   <img
                     src={user.photoURL}
                     alt={user.displayName || 'User'}
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                     className="w-7 h-7 rounded-lg object-cover"
                   />
-                ) : (
-                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
-                    {(user.displayName || user.email || 'U')[0].toUpperCase()}
-                  </div>
-                )}
+                ) : null}
+                <div
+                  style={{ display: user.photoURL ? 'none' : 'flex' }}
+                  className="w-7 h-7 rounded-lg bg-indigo-600 text-white text-xs font-bold items-center justify-center"
+                >
+                  {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                </div>
               </button>
             )}
 
@@ -540,10 +557,10 @@ export function Navbar() {
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-slate-950 border border-slate-700/50 flex items-center justify-center">
-                    <img src="/favicon.png" alt="SiteBot" className="w-5 h-5 object-cover" />
+                    <img src="/favicon.png" alt="Rivafy" className="w-5 h-5 object-cover" />
                   </div>
                   <span className="font-black text-sm text-slate-900 dark:text-white font-heading">
-                    SiteBot Navigation
+                    Rivafy Studio
                   </span>
                 </div>
                 <button
@@ -562,13 +579,22 @@ export function Navbar() {
                       <img
                         src={user.photoURL}
                         alt={user.displayName || 'User'}
+                        referrerPolicy="no-referrer"
+                        crossOrigin="anonymous"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
                         className="w-10 h-10 rounded-xl object-cover ring-2 ring-indigo-500/30 shrink-0"
                       />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center shrink-0">
-                        {(user.displayName || user.email || 'U')[0].toUpperCase()}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      style={{ display: user.photoURL ? 'none' : 'flex' }}
+                      className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-bold items-center justify-center shrink-0"
+                    >
+                      {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                    </div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {user.displayName || 'User'}
@@ -714,7 +740,7 @@ export function Navbar() {
                 >
                   <span className="flex items-center gap-2.5">
                     <Bot className="w-4 h-4 text-amber-500" />
-                    <span>About SiteBot</span>
+                    <span>About Rivafy</span>
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                 </Link>
@@ -937,6 +963,7 @@ export function Navbar() {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+        onLoginSuccess={() => setOnboardingOpen(true)}
         title="Sign In with Google"
         subtitle="Sign in to create, save, and manage your website AI chatbots."
       />

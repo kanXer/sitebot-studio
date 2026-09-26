@@ -156,7 +156,9 @@ function DashboardContent() {
         const data = await res.json();
         setProfile(data.profile);
         if (data.profile && data.profile.profileCompleted === false) {
-          setOnboardingOpen(true);
+          if (typeof window !== 'undefined' && !sessionStorage.getItem('onboarding_dismissed')) {
+            setOnboardingOpen(true);
+          }
         }
         setDraft({
           name: data.profile.name || '',
@@ -337,8 +339,8 @@ function DashboardContent() {
   }, [profile]);
 
   const handleCopyScript = (bot: UserBot) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://sitebotstudio.com';
-    const script = `<!-- SiteBot Studio AI Chatbot Widget -->\n<script src="${origin}/widget.js" data-bot-id="${bot.id}" defer></script>`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://rivafy.com';
+    const script = `<!-- Rivafy Studio AI Chatbot Widget -->\n<script src="${origin}/widget.js" data-bot-id="${bot.id}" defer></script>`;
     navigator.clipboard.writeText(script);
     setCopiedScript(true);
     setTimeout(() => setCopiedScript(false), 2000);
@@ -386,7 +388,11 @@ function DashboardContent() {
               </button>
             </div>
           </div>
-          <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => setAuthModalOpen(false)}
+            onLoginSuccess={() => setOnboardingOpen(true)}
+          />
         </div>
         <Footer />
       </div>
@@ -433,6 +439,12 @@ function DashboardContent() {
                 <img
                   src={user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.email}`}
                   alt={user.displayName || 'User'}
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${user.email}`;
+                  }}
                   className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl ring-2 ring-indigo-500/30 object-cover shadow-sm bg-slate-100 dark:bg-slate-800"
                 />
                 <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900" />
@@ -608,7 +620,7 @@ function DashboardContent() {
 
             <div className="relative bg-slate-900 rounded-2xl p-4 border border-slate-800 text-xs font-mono text-slate-200 overflow-x-auto">
               <code>
-                {`<!-- SiteBot Studio AI Chatbot Widget -->\n<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://sitebotstudio.com'}/widget.js" data-bot-id="${embedBotModal.id}" defer></script>`}
+                {`<!-- Rivafy Studio AI Chatbot Widget -->\n<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://rivafy.com'}/widget.js" data-bot-id="${embedBotModal.id}" defer></script>`}
               </code>
             </div>
 
@@ -654,8 +666,18 @@ function DashboardContent() {
       {/* New User Role & Onboarding Setup Modal */}
       <OnboardingModal
         isOpen={onboardingOpen}
-        onClose={() => setOnboardingOpen(false)}
-        onComplete={() => fetchProfile()}
+        onClose={() => {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('onboarding_dismissed', '1');
+          }
+          setOnboardingOpen(false);
+        }}
+        onComplete={() => {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('onboarding_dismissed');
+          }
+          fetchProfile();
+        }}
       />
 
       <Footer />
@@ -1472,6 +1494,12 @@ function ProfileTab({
             <img
               src={user?.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.email || 'user'}`}
               alt={user?.displayName || 'User'}
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.email || 'user'}`;
+              }}
               className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl ring-2 ring-indigo-500/30 object-cover shadow-sm shrink-0 bg-slate-100 dark:bg-slate-800"
             />
             <div className="min-w-0 flex-1">

@@ -17,7 +17,7 @@ export function Footer() {
               <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-105 transition-transform bg-white">
                 <img
                   src="/favicon.png"
-                  alt="SiteBot Studio Logo"
+                  alt="Rivafy Studio Logo"
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
@@ -26,10 +26,10 @@ export function Footer() {
               </div>
               <div className="min-w-0">
                 <span className="text-sm font-extrabold text-slate-900 dark:text-white block font-heading tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors break-words">
-                  SiteBot Studio
+                  Rivafy Studio
                 </span>
                 <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block break-words">
-                  AI Chatbot &amp; Agent Platform
+                  Build. Embed. Automate.
                 </span>
               </div>
             </Link>
@@ -89,7 +89,7 @@ export function Footer() {
             <ul className="min-w-0 space-y-2.5 font-medium">
               <li>
                 <Link href="/about" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors min-w-0 break-words">
-                  About SiteBot Studio
+                  About Rivafy Studio
                 </Link>
               </li>
               <li>
@@ -115,7 +115,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="https://sitebotstudio.app"
+                  href="https://rivafy.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors min-w-0 break-words inline-flex items-center gap-1"
@@ -156,7 +156,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="min-w-0 pt-8 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 text-[11px] text-slate-400 dark:text-slate-500">
-            <span className="min-w-0 break-words">&copy; {currentYear} SiteBot Studio. All rights reserved.</span>
+            <span className="min-w-0 break-words">&copy; {currentYear} Rivafy Studio. All rights reserved.</span>
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">

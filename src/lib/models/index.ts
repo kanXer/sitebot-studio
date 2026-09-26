@@ -9,3 +9,5 @@ export * from './UserProfile';
 export * from './CtaSubmission';
 export * from './UsageRecord';
 export * from './SystemSettings';
+export * from './WhatsAppAuth';
+export * from './ChatTicket';

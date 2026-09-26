@@ -62,7 +62,7 @@ export function AtlasSetupGuide() {
         <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
         <div>
           <strong className="text-white block mb-0.5">Resilient Dual-Mode Vector Engine:</strong>
-          SiteBot Studio automatically attempts native Atlas <code className="text-indigo-300 font-mono font-semibold">$vectorSearch</code>. If you haven&apos;t created the index yet or are working locally, it seamlessly runs <span className="text-emerald-400 font-semibold">in-memory cosine similarity</span> on the fly! Your bots work immediately with zero downtime.
+          Rivafy Studio automatically attempts native Atlas <code className="text-indigo-300 font-mono font-semibold">$vectorSearch</code>. If you haven&apos;t created the index yet or are working locally, it seamlessly runs <span className="text-emerald-400 font-semibold">in-memory cosine similarity</span> on the fly! Your bots work immediately with zero downtime.
         </div>
       </div>
 

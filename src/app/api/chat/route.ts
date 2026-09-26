@@ -64,7 +64,7 @@ function resolveSessionId(botId: string, body: any, message: string): string {
   return `sess-${digest}`;
 }
 
-function chunkString(text: string, size = 8): string[] {
+function chunkString(text: string, size = 28): string[] {
   const out: string[] = [];
   for (let i = 0; i < text.length; i += size) {
     out.push(text.slice(i, i + size));
@@ -82,7 +82,7 @@ function streamImmediateText(
       for (const evt of extraEvents) {
         controller.enqueue(sseEvent(evt.event, evt.data));
       }
-      const tokens = chunkString(text, 8);
+      const tokens = chunkString(text, 28);
       for (const token of tokens) {
         controller.enqueue(sseEvent('token', { token }));
       }
@@ -327,16 +327,9 @@ export async function POST(req: NextRequest) {
     ) {
       await appendConversationMessage(resolvedBotId, sessionId, { role: 'user', content: message });
 
-      const agentNotice = conversation.status === 'agent_active'
-        ? `Your message has been delivered to ${conversation.assignedAgent?.name || 'the support agent'}. They will respond directly here.`
-        : 'You are in the queue for a live support representative. An agent has been alerted and will join shortly.';
-
-      const taggedNotice = `${agentNotice} [[HANDOFF_ACTIVE: ${conversation.status}]]`;
-
-      trackChat([agentNotice]);
-
+      // Silent relay: Do not repeat bot disclaimers once connected with a human agent.
       if (stream) {
-        return streamImmediateText(taggedNotice, [
+        return streamImmediateText('', [
           {
             event: 'handoff',
             data: { status: conversation.status, assignedAgent: conversation.assignedAgent || null },
@@ -344,7 +337,7 @@ export async function POST(req: NextRequest) {
         ]);
       }
       return NextResponse.json({
-        response: taggedNotice,
+        response: '',
         tags: [`HANDOFF_ACTIVE: ${conversation.status}`],
         sources: [],
       }, { headers: CORS_HEADERS });
@@ -551,7 +544,7 @@ export async function POST(req: NextRequest) {
                 ? `Based on ${bot.name}'s verified documentation:\n\n${topChunk.slice(0, 450)}`
                 : bot.guardrails?.fallbackMessage || "Thank you for reaching out. Please contact our team directly for detailed assistance.";
               
-              const tokens = chunkString(directAnswer, 8);
+              const tokens = chunkString(directAnswer, 28);
               for (const token of tokens) {
                 callbacks.onToken(token);
               }

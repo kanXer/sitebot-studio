@@ -352,8 +352,8 @@ Output ONLY a raw, valid JSON object matching this exact schema:
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${openrouterKey}`,
-          'HTTP-Referer': 'https://sitebotstudio.app',
-          'X-Title': 'SiteBot Studio Bot Builder',
+          'HTTP-Referer': 'https://rivafy.com',
+          'X-Title': 'Rivafy Studio Bot Builder',
         },
         body: JSON.stringify({
           model: options?.model || 'openai/gpt-4o-mini',

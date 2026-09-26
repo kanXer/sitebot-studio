@@ -51,7 +51,7 @@ export function QdrantSetupGuide() {
         <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
         <div>
           <strong className="text-indigo-900 block mb-0.5">Automated Collection Management:</strong>
-          SiteBot Studio automatically provisions the <code className="font-mono font-bold text-indigo-800 bg-white px-1.5 py-0.5 rounded border border-indigo-200">sitebot_chunks</code> collection (768 dimensions, Cosine distance) with payload index on <code className="font-mono font-bold text-indigo-800 bg-white px-1.5 py-0.5 rounded border border-indigo-200">chatbotId</code>. If Qdrant is offline or not yet configured, the system gracefully runs in-memory vector search with zero downtime.
+          Rivafy Studio automatically provisions the <code className="font-mono font-bold text-indigo-800 bg-white px-1.5 py-0.5 rounded border border-indigo-200">sitebot_chunks</code> collection (768 dimensions, Cosine distance) with payload index on <code className="font-mono font-bold text-indigo-800 bg-white px-1.5 py-0.5 rounded border border-indigo-200">chatbotId</code>. If Qdrant is offline or not yet configured, the system gracefully runs in-memory vector search with zero downtime.
         </div>
       </div>
 

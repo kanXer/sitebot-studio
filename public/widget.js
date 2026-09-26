@@ -79,16 +79,10 @@
     customLinks: [],
   };
 
-  let widgetSessionId = '';
+  let widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   try {
-    widgetSessionId = sessionStorage.getItem('sitebot_session_' + botId) || '';
-    if (!widgetSessionId) {
-      widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      sessionStorage.setItem('sitebot_session_' + botId, widgetSessionId);
-    }
-  } catch {
-    widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-  }
+    sessionStorage.removeItem('sitebot_session_' + botId);
+  } catch {}
 
   const messageHistory = [];
 
@@ -1919,7 +1913,7 @@
           </button>
         </div>
         <div class="sitebot-footer-brand">
-          Powered by <a id="brandFooterLink" href="${apiHost}" target="_blank" rel="noopener" style="color: #fc0b0bff;">SiteBot Studio</a>
+          Powered by <a id="brandFooterLink" href="${apiHost}" target="_blank" rel="noopener" style="color: #fc0b0bff;">Rivafy Studio</a>
         </div>
       </div>
     </div>
@@ -1975,19 +1969,12 @@
   const sendIconSpinner = shadow.getElementById('sendIconSpinner');
   const brandFooterLink = shadow.getElementById('brandFooterLink');
 
-  // Unique session identifier for live agent handoff & lead persistence
+  // Unique session identifier for live agent handoff & lead persistence (fresh per page lifecycle)
   function getSessionId() {
-    const key = 'sitebot_session_' + botId;
-    try {
-      let id = window.sessionStorage.getItem(key);
-      if (!id) {
-        id = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-        window.sessionStorage.setItem(key, id);
-      }
-      return id;
-    } catch {
-      return 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    if (!widgetSessionId) {
+      widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
     }
+    return widgetSessionId;
   }
 
   // Live Agent & Handoff State
@@ -2065,11 +2052,17 @@
         const res = await fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${encodeURIComponent(sId)}`);
         if (!res.ok) return;
         const data = await res.json();
+        if (data.status === 'resolved' || data.status === 'closed' || data.status === 'bot') {
+          currentHandoffStatus = 'bot';
+          stopHandoffPolling();
+          if (handoffBanner) handoffBanner.style.display = 'none';
+          return;
+        }
         if (data.status && data.status !== currentHandoffStatus) {
           currentHandoffStatus = data.status;
           showHandoffBanner(data.status, data.assignedAgent);
         }
-        if (Array.isArray(data.messages)) {
+        if (Array.isArray(data.messages) && (currentHandoffStatus === 'waiting_agent' || currentHandoffStatus === 'agent_active' || data.status === 'admin_replied')) {
           const incoming = data.messages.filter((m) => m.role === 'agent' || m.role === 'system');
           const knownContents = new Set(messageHistory.map((m) => m.content));
           for (const m of incoming) {
@@ -2082,7 +2075,7 @@
       } catch {
         // non-fatal
       }
-    }, 3500);
+    }, 2500);
   }
 
   function stopHandoffPolling() {
@@ -2136,7 +2129,7 @@
     }
     if (tooltipText) tooltipText.textContent = `Chat with ${name}`;
     if (brandFooterLink) {
-      brandFooterLink.textContent = 'SiteBot Studio';
+      brandFooterLink.textContent = 'Rivafy Studio';
     }
 
     HINT_MESSAGES.length = 0;
@@ -2538,7 +2531,7 @@
     let idx = 0;
 
     const typeStep = () => {
-      idx++;
+      idx = Math.min(chars.length, idx + 2);
       const typed = chars.slice(0, idx).join('');
       // Render plain text while typing (avoid broken markdown/emoji glitches),
       // then apply full markdown once complete.
@@ -2553,11 +2546,11 @@
       }
 
       const ch = chars[idx];
-      const pause = ch === '\n' ? 240 : /[.?,!;:।]/.test(ch) ? 190 : /\s/.test(ch) ? 90 : 26;
+      const pause = ch === '\n' ? 35 : /[.?,!;:।]/.test(ch) ? 25 : 12;
       typewriterTimer = setTimeout(typeStep, pause);
     };
 
-    typewriterTimer = setTimeout(typeStep, 250);
+    typewriterTimer = setTimeout(typeStep, 60);
 
     messageHistory.push({ role: 'assistant', content: fullText });
   }
@@ -2589,9 +2582,26 @@
 
   // Clear conversation history
   clearBtn.addEventListener('click', () => {
+    const oldSessionId = widgetSessionId;
+    widgetSessionId = 'sess-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try {
+      sessionStorage.removeItem('sitebot_session_' + botId);
+    } catch {}
+
+    stopHandoffPolling();
+    currentHandoffStatus = 'bot';
+    if (handoffBanner) handoffBanner.style.display = 'none';
     messageHistory.length = 0;
     hasTypedWelcome = false;
     typewriteWelcome();
+
+    if (oldSessionId) {
+      try {
+        fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${encodeURIComponent(oldSessionId)}`, {
+          method: 'DELETE',
+        }).catch(() => {});
+      } catch {}
+    }
   });
 
   // Sending messages & handling SSE responses
@@ -2624,12 +2634,40 @@
 
     messageHistory.push({ role: 'user', content: text });
     messageInput.value = '';
+    chipsWrap.innerHTML = '';
+    updateScrollDownBtn();
+
+    const isLiveHandoff =
+      currentHandoffStatus === 'waiting_agent' ||
+      currentHandoffStatus === 'agent_active';
+
+    if (isLiveHandoff) {
+      // In live handoff mode: Deliver message to backend/WhatsApp directly without AI bubble or thinking shimmer
+      startHandoffPolling();
+      const isStudioPreview =
+        currentScript.getAttribute('data-preview') === 'true' ||
+        window.location.origin === apiHost ||
+        window.location.pathname.startsWith('/demo');
+
+      const reqHeaders = { 'Content-Type': 'application/json' };
+      if (isStudioPreview) reqHeaders['X-SiteBot-Preview'] = 'true';
+
+      fetch(`${apiHost}/api/chat/${botId}`, {
+        method: 'POST',
+        headers: reqHeaders,
+        body: JSON.stringify({
+          message: text,
+          history: messageHistory.slice(-6),
+          sessionId: getSessionId(),
+        }),
+      }).catch((e) => console.warn('[SiteBot] Failed to relay message to agent:', e));
+      return;
+    }
+
     sendBtn.disabled = true;
     sendIconPlane.style.display = 'none';
     sendIconSpinner.style.display = 'block';
     isStreaming = true;
-    chipsWrap.innerHTML = '';
-    updateScrollDownBtn();
 
     // Append Animated Loading Shimmer Card
     const loadingRow = document.createElement('div');
@@ -2762,6 +2800,11 @@
           .replace(/\[\[(HANDOFF|HANDOFF_ACTIVE|LEAD_CAPTURED|GUARDRAIL_BLOCKED)[^\]]*\]\]/gi, '')
           .replace(/\[\[UNGROUNDED_FALLBACK\]\]/gi, '')
           .trim();
+
+        if (!cleanText) {
+          loadingRow.remove();
+          return;
+        }
 
         assistantBubble.innerHTML = renderMarkdown(cleanText);
         playBeep('receive');

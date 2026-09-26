@@ -24,9 +24,9 @@ import { Footer } from '@/components/Footer';
 export const metadata: Metadata = {
   title: 'About Us — Next-Gen AI Website Chatbots & RAG Platform',
   description:
-    'Discover SiteBot Studio: The multi-tenant AI chatbot platform providing shadow DOM encapsulated chat widgets, multi-model RAG, Qdrant vector memory, and automated website scraping.',
+    'Discover Rivafy Studio: The multi-tenant AI chatbot platform providing shadow DOM encapsulated chat widgets, multi-model RAG, Qdrant vector memory, and automated website scraping.',
   keywords: [
-    'About SiteBot Studio',
+    'About Rivafy Studio',
     'AI Chatbot Platform',
     'RAG Chatbot Technology',
     'Shadow DOM Chatbot',
@@ -35,11 +35,11 @@ export const metadata: Metadata = {
     'OpenAI Next.js Chatbot',
   ],
   openGraph: {
-    title: 'About SiteBot Studio — Autonomous AI Chatbots for Any Website',
+    title: 'About Rivafy Studio — Autonomous AI Chatbots for Any Website',
     description:
       'Engineered to convert static websites into 24/7 intelligent sales and support engines using multi-model AI and Shadow DOM isolation.',
-    url: 'https://sitebotstudio.com/about',
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'About SiteBot Studio' }],
+    url: 'https://rivafy.com/about',
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'About Rivafy Studio' }],
   },
 };
 
@@ -47,13 +47,13 @@ export default function AboutPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'AboutPage',
-    name: 'About SiteBot Studio',
+    name: 'About Rivafy Studio',
     description:
       'Multi-Tenant AI Chatbot Platform providing shadow DOM encapsulated chat widgets, multi-model RAG, and automated website scraping.',
     publisher: {
       '@type': 'Organization',
-      name: 'SiteBot Studio',
-      logo: 'https://sitebotstudio.com/logo.png',
+      name: 'Rivafy Studio',
+      logo: 'https://rivafy.com/logo.png',
     },
   };
 
@@ -119,12 +119,12 @@ export default function AboutPage() {
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-950 tracking-tight leading-[1.15] break-words">
                 Powering Intelligent Website Conversations with{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600">
-                  SiteBot Studio
+                  Rivafy Studio
                 </span>
               </h1>
 
               <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-                SiteBot Studio was built to eliminate the frustration of clunky, slow, and style-breaking web chatbots. We engineered an isolated Shadow DOM embed combined with state-of-the-art vector search to turn any website into an autonomous 24/7 conversion engine.
+                Rivafy Studio was built to eliminate the frustration of clunky, slow, and style-breaking web chatbots. We engineered an isolated Shadow DOM embed combined with state-of-the-art vector search to turn any website into an autonomous 24/7 conversion engine.
               </p>
 
               <div className="pt-2 flex min-w-0 flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-4">
@@ -147,10 +147,10 @@ export default function AboutPage() {
             {/* Logo showcase card */}
             <div className="mt-14 max-w-xl mx-auto min-w-0 p-4 rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-xl flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-center sm:text-left">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-lg border border-slate-100 shrink-0">
-                <img src="/logo.png" alt="SiteBot Studio Official Logo" className="w-full h-full object-cover" />
+                <img src="/logo.png" alt="Rivafy Studio Official Logo" className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0 space-y-1">
-                <h2 className="text-lg font-bold text-slate-900 break-words">SiteBot Studio Platform</h2>
+                <h2 className="text-lg font-bold text-slate-900 break-words">Rivafy Studio Platform</h2>
                 <p className="text-xs text-slate-500 leading-relaxed break-words">
                   Engineered with Next.js App Router, Qdrant Vector DB, OpenAI, and NVIDIA NIM AI. Zero bloat, instant setup.
                 </p>
@@ -194,7 +194,7 @@ export default function AboutPage() {
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-                Why SiteBot Studio
+                Why Rivafy Studio
               </h2>
               <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">
                 How We Compare to Legacy Chatbots
@@ -206,7 +206,7 @@ export default function AboutPage() {
                 <thead>
                   <tr className="bg-slate-900 text-white font-bold">
                     <th className="py-4 px-5">Capability</th>
-                    <th className="py-4 px-5 text-indigo-300">SiteBot Studio</th>
+                    <th className="py-4 px-5 text-indigo-300">Rivafy Studio</th>
                     <th className="py-4 px-5 text-slate-400">Legacy / Generic Chatbots</th>
                   </tr>
                 </thead>

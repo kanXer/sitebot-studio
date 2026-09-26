@@ -12,18 +12,22 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+import { auth } from '@/lib/firebase/client';
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
   subtitle?: string;
+  onLoginSuccess?: (email: string) => void;
 }
 
 export function AuthModal({
   isOpen,
   onClose,
-  title = 'Sign In to SiteBot Studio',
+  title = 'Sign In to Rivafy Studio',
   subtitle = 'Sign in with your Google account to create, train, and manage your AI chatbots.',
+  onLoginSuccess,
 }: AuthModalProps) {
   const { user, signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -37,6 +41,26 @@ export function AuthModal({
     try {
       await signInWithGoogle();
       onClose();
+
+      if (onLoginSuccess) {
+        const email = auth?.currentUser?.email;
+        if (email) {
+          try {
+            const res = await fetch(`/api/profile?email=${encodeURIComponent(email)}`, {
+              headers: { 'x-user-email': email },
+              cache: 'no-store',
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.profile && data.profile.profileCompleted === false) {
+                onLoginSuccess(email);
+              }
+            }
+          } catch {
+            // non-fatal
+          }
+        }
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to sign in with Google');
     } finally {

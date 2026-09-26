@@ -18,27 +18,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://sitebotstudio.com'),
+  metadataBase: new URL('https://rivafy.com'),
   title: {
-    default: 'SiteBot Studio — Multi-Tenant AI Chatbot Platform for Any Website',
-    template: '%s | SiteBot Studio',
+    default: 'Rivafy Studio — Build. Embed. Automate.',
+    template: '%s | Rivafy Studio',
   },
   description:
-    'Build, train, and embed intelligent RAG AI chatbots on any website in 60 seconds with zero runtime dependencies and isolated Shadow DOM technology.',
+    'Rivafy Studio — Build. Embed. Automate. Build, train, and embed intelligent RAG AI chatbots on any website in 60 seconds with zero runtime dependencies and isolated Shadow DOM technology.',
   keywords: [
+    'Rivafy Studio',
+    'Rivafy',
+    'Build Embed Automate',
     'AI Chatbot',
     'Website Chatbot',
     'RAG Chatbot',
     'Customer Support AI',
-    'SiteBot Studio',
     'Shadow DOM Chatbot',
     'Qdrant Vector Search',
     'OpenAI Chatbot',
     'NVIDIA NIM AI',
   ],
-  authors: [{ name: 'SiteBot Studio' }],
-  creator: 'SiteBot Studio',
-  publisher: 'SiteBot Studio',
+  authors: [{ name: 'Rivafy Studio' }],
+  creator: 'Rivafy Studio',
+  publisher: 'Rivafy Studio',
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -49,17 +51,17 @@ export const metadata: Metadata = {
     apple: '/favicon.png',
   },
   openGraph: {
-    title: 'SiteBot Studio — Multi-Tenant AI Chatbot Platform for Any Website',
+    title: 'Rivafy Studio — Build. Embed. Automate.',
     description:
-      'Train AI on your website knowledge and embed an isolated, customizable floating chatbot on WordPress, Webflow, Shopify, or React.',
-    url: 'https://sitebotstudio.com',
-    siteName: 'SiteBot Studio',
+      'Rivafy Studio — Build. Embed. Automate. Train AI on your website knowledge and embed an isolated, customizable floating chatbot on WordPress, Webflow, Shopify, or React.',
+    url: 'https://rivafy.com',
+    siteName: 'Rivafy Studio',
     images: [
       {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'SiteBot Studio Platform Preview',
+        alt: 'Rivafy Studio Platform Preview',
       },
     ],
     locale: 'en_US',
@@ -67,9 +69,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SiteBot Studio — Multi-Tenant AI Chatbot Platform',
+    title: 'Rivafy Studio — Build. Embed. Automate.',
     description:
-      'Embed intelligent AI chatbots on any website with isolated Shadow DOM and multi-model LLMs.',
+      'Rivafy Studio — Build. Embed. Automate. Embed intelligent AI chatbots on any website with isolated Shadow DOM and multi-model LLMs.',
     images: ['/og-image.jpg'],
   },
 };

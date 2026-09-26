@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
-import { Chatbot, Conversation } from '@/lib/models';
+import { Chatbot, Conversation, ChatTicket } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
 import { appendConversationMessage, escalateToLiveAgent } from '@/lib/ai/handoff';
 
@@ -46,7 +46,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-SiteBot-Preview',
   'Access-Control-Max-Age': '86400',
 };
@@ -95,15 +95,37 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     const resolvedBotId = bot._id.toString();
 
-    let conv: HandoffConversation | null;
+    let activeTicket: any = null;
+    if (!isUsingMemoryDb()) {
+      try {
+        activeTicket = await ChatTicket.findOne({
+          sessionId,
+          status: { $in: ['open', 'waiting_admin', 'admin_replied'] },
+        }).sort({ updatedAt: -1 }).lean();
+      } catch {
+        // non-fatal
+      }
+    }
+
+    let conv: any = null;
     if (isUsingMemoryDb()) {
       conv = MemoryDb.findConversation(resolvedBotId, sessionId);
     } else {
-      const botObjId = new mongoose.Types.ObjectId(resolvedBotId);
-      conv = await Conversation.findOne({ botId: botObjId, sessionId }).lean();
+      const botObjId = mongoose.Types.ObjectId.isValid(resolvedBotId)
+        ? new mongoose.Types.ObjectId(resolvedBotId)
+        : null;
+      conv = await Conversation.findOne({
+        $or: [
+          { sessionId },
+          ...(botObjId ? [{ botId: botObjId, sessionId }] : []),
+        ],
+      }).sort({ updatedAt: -1 }).lean();
     }
 
-    if (!conv) {
+    const isConvActive = conv && (conv.status === 'waiting_agent' || conv.status === 'agent_active');
+    const isTicketActive = activeTicket && (activeTicket.status === 'open' || activeTicket.status === 'waiting_admin' || activeTicket.status === 'admin_replied');
+
+    if (!isConvActive && !isTicketActive) {
       return NextResponse.json(
         {
           status: 'bot',
@@ -114,8 +136,41 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Filter messages after the given timestamp if specified
-    let newMessages = conv.messages || [];
+    // Merge messages from Conversation and ChatTicket to ensure 100% delivery of WhatsApp replies
+    const mergedMap = new Map<string, any>();
+
+    if (conv && Array.isArray(conv.messages)) {
+      for (const m of conv.messages) {
+        if (!m || !m.content) continue;
+        const key = `${m.role || 'agent'}:${String(m.content).trim()}`;
+        mergedMap.set(key, {
+          role: m.role || 'assistant',
+          content: m.content,
+          senderName: m.senderName,
+          timestamp: m.timestamp || new Date(),
+        });
+      }
+    }
+
+    if (activeTicket && Array.isArray(activeTicket.messages)) {
+      for (const m of activeTicket.messages) {
+        if (!m || !m.content) continue;
+        const key = `${m.role || 'agent'}:${String(m.content).trim()}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, {
+            role: m.role || 'agent',
+            content: m.content,
+            senderName: m.senderName || 'Live Support Agent',
+            timestamp: m.timestamp || new Date(),
+          });
+        }
+      }
+    }
+
+    let newMessages = Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
     if (afterTimestamp) {
       const afterDate = new Date(afterTimestamp);
       if (!isNaN(afterDate.getTime())) {
@@ -125,13 +180,21 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       }
     }
 
+    let currentStatus = conv?.status || 'bot';
+    if (activeTicket) {
+      if (activeTicket.status === 'admin_replied') currentStatus = 'agent_active';
+      else if (activeTicket.status === 'waiting_admin') currentStatus = 'waiting_agent';
+      else if (activeTicket.status === 'closed') currentStatus = 'resolved';
+    }
+
     return NextResponse.json(
       {
-        status: conv.status,
-        handoffReason: conv.handoffReason,
-        assignedAgent: conv.assignedAgent || null,
+        status: currentStatus,
+        ticketId: activeTicket?.ticketId || null,
+        handoffReason: conv?.handoffReason || activeTicket?.lastUserMessage || 'visitor_request',
+        assignedAgent: conv?.assignedAgent || { name: 'Support Agent' },
         messages: newMessages,
-        lastMessageAt: conv.lastMessageAt,
+        lastMessageAt: conv?.lastMessageAt || activeTicket?.updatedAt || new Date(),
       },
       { headers: CORS_HEADERS }
     );
@@ -225,13 +288,91 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       content: `Live handoff requested (${reason}). A human support representative has been alerted.`,
     });
 
+    // Create or locate ChatTicket for Two-Way WhatsApp Relay
+    let ticketId = '';
+    try {
+      if (!isUsingMemoryDb()) {
+        let ticket = await ChatTicket.findOne({
+          sessionId,
+          status: { $in: ['open', 'waiting_admin', 'admin_replied'] },
+        });
+
+        if (!ticket) {
+          const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+          ticketId = `TICK-${randSuffix}`;
+          ticket = await ChatTicket.create({
+            ticketId,
+            botId: resolvedBotId,
+            botName: (bot as any)?.name || 'Rivafy Assistant',
+            sessionId,
+            visitor: {
+              name: visitorName || 'Visitor',
+              email: visitorEmail || '',
+              phone: visitorPhone || '',
+            },
+            status: 'waiting_admin',
+            lastUserMessage: message?.trim() || 'Visitor requested live agent',
+            messages: message?.trim()
+              ? [
+                  {
+                    id: crypto.randomUUID(),
+                    role: 'user',
+                    senderName: visitorName || 'Visitor',
+                    content: message.trim(),
+                    timestamp: new Date(),
+                  },
+                ]
+              : [],
+          });
+        } else {
+          ticketId = ticket.ticketId;
+          if (message && typeof message === 'string' && message.trim()) {
+            ticket.lastUserMessage = message.trim();
+            ticket.messages.push({
+              id: crypto.randomUUID(),
+              role: 'user',
+              senderName: visitorName || 'Visitor',
+              content: message.trim(),
+              timestamp: new Date(),
+            });
+            await ticket.save();
+          }
+        }
+
+        // Determine target WhatsApp number (handoff-specific first, then notifications.whatsapp, then admin)
+        const targetNumber =
+          (bot as any)?.handoff?.whatsappEnabled && (bot as any)?.handoff?.whatsappNumber
+            ? (bot as any).handoff.whatsappNumber
+            : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
+            ? (bot as any).notifications.whatsapp.number
+            : undefined;
+
+        // Trigger WhatsApp alert to Agent/Admin via Baileys
+        const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
+        sendTicketAlertToAdmin({
+          ticketId,
+          botName: (bot as any)?.name || 'Rivafy Assistant',
+          visitorName: visitorName || 'Visitor',
+          visitorEmail,
+          visitorPhone,
+          userMessage: message?.trim() || 'Visitor requested human support',
+          targetNumber,
+        }).catch((err) => {
+          console.warn('[Handoff] WhatsApp alert dispatch failed:', err);
+        });
+      }
+    } catch (ticketErr) {
+      console.warn('[Handoff] Ticket initialization warning:', ticketErr);
+    }
+
     return NextResponse.json(
       {
         success: true,
         status: 'waiting_agent',
+        ticketId: ticketId || undefined,
         message:
           'You are now connected to the live agent queue. A representative will be with you shortly.',
-        conversationId: conv._id,
+        conversationId: conv?._id,
       },
       { headers: CORS_HEADERS }
     );
@@ -239,6 +380,67 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     console.error('Handoff escalation failure:', error);
     return NextResponse.json(
       { error: getErrorMessage(error, 'Failed to escalate to live agent') },
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
+}
+
+/**
+ * Visitor or Admin clears session / chat history: close tickets & resolve active conversations
+ */
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  try {
+    await connectToDatabase();
+    const { botId } = await params;
+    const { searchParams } = new URL(req.url);
+    const sessionId = searchParams.get('sessionId');
+
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: 'sessionId query parameter is required' },
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    if (!isUsingMemoryDb()) {
+      await ChatTicket.updateMany(
+        {
+          sessionId,
+          status: { $in: ['open', 'waiting_admin', 'admin_replied'] },
+        },
+        {
+          $set: {
+            status: 'closed',
+            closedAt: new Date(),
+          },
+        }
+      );
+
+      await Conversation.updateMany(
+        {
+          sessionId,
+        },
+        {
+          $set: {
+            status: 'resolved',
+            lastMessageAt: new Date(),
+          },
+        }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        status: 'bot',
+        message: 'Active handoff session cleared and closed successfully',
+      },
+      { headers: CORS_HEADERS }
+    );
+  } catch (error: unknown) {
+    console.error('Handoff DELETE session failure:', error);
+    return NextResponse.json(
+      { error: getErrorMessage(error, 'Failed to clear session') },
       { status: 500, headers: CORS_HEADERS }
     );
   }

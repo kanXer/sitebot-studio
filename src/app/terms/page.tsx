@@ -19,9 +19,9 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — SiteBot Studio',
+  title: 'Terms of Service — Rivafy Studio',
   description:
-    'Read the official Terms of Service and user agreement for SiteBot Studio AI chatbot platform, website crawler, and embedded widgets.',
+    'Read the official Terms of Service and user agreement for Rivafy Studio AI chatbot platform, website crawler, and embedded widgets.',
 };
 
 export default function TermsPage() {
@@ -35,14 +35,14 @@ export default function TermsPage() {
       content: (
         <>
           <p className="leading-relaxed">
-            By accessing or using the SiteBot Studio platform, including our website, dashboard, API services,
+            By accessing or using the Rivafy Studio platform, including our website, dashboard, API services,
             crawler utilities, and embeddable JavaScript chat widgets (collectively, the &ldquo;Service&rdquo;),
             you agree to be bound by these Terms of Service (&ldquo;Terms&rdquo;). If you do not agree to these Terms,
             you may not access or use any part of the Service.
           </p>
           <p className="mt-3 leading-relaxed">
             These Terms apply to all registered users, website owners, site visitors, and administrators who
-            interact with our platform or deploy SiteBot Studio widgets on their domains.
+            interact with our platform or deploy Rivafy Studio widgets on their domains.
           </p>
         </>
       ),
@@ -54,7 +54,7 @@ export default function TermsPage() {
       content: (
         <>
           <p className="leading-relaxed">
-            SiteBot Studio provides an AI-powered conversational platform allowing customers to:
+            Rivafy Studio provides an AI-powered conversational platform allowing customers to:
           </p>
           <ul className="mt-3 space-y-2 pl-5 list-disc text-slate-600 dark:text-slate-300">
             <li>Crawl and extract public textual content from their authorized web domains.</li>
@@ -86,7 +86,7 @@ export default function TermsPage() {
           </p>
           <p className="mt-3 leading-relaxed">
             You are solely responsible for maintaining the confidentiality of your credentials, API keys, and session tokens.
-            You must promptly notify SiteBot Studio of any unauthorized use or security compromise regarding your account.
+            You must promptly notify Rivafy Studio of any unauthorized use or security compromise regarding your account.
           </p>
         </>
       ),
@@ -98,7 +98,7 @@ export default function TermsPage() {
       content: (
         <>
           <p className="leading-relaxed">
-            SiteBot Studio offers free starter tiers and paid recurring subscriptions (such as Pro and Enterprise tiers):
+            Rivafy Studio offers free starter tiers and paid recurring subscriptions (such as Pro and Enterprise tiers):
           </p>
           <ul className="mt-3 space-y-2 pl-5 list-disc text-slate-600 dark:text-slate-300">
             <li>
@@ -149,12 +149,12 @@ export default function TermsPage() {
       content: (
         <>
           <p className="leading-relaxed">
-            SiteBot Studio utilizes advanced Large Language Models and vector retrieval to generate conversational responses.
+            Rivafy Studio utilizes advanced Large Language Models and vector retrieval to generate conversational responses.
             While our platform incorporates strict anti-hallucination guardrails and knowledge base grounding, generative AI
             outputs may occasionally contain inaccuracies or incomplete answers.
           </p>
           <p className="mt-3 leading-relaxed">
-            You acknowledge that SiteBot Studio is not a substitute for licensed legal, medical, or financial counsel.
+            You acknowledge that Rivafy Studio is not a substitute for licensed legal, medical, or financial counsel.
             Website owners are encouraged to review their chatbot suggested questions, prompts, and knowledge chunks
             regularly in the Bot Studio playground.
           </p>
@@ -172,8 +172,8 @@ export default function TermsPage() {
             and customer inquiries captured by your chatbots.
           </p>
           <p className="mt-3 leading-relaxed">
-            <strong>Our Technology:</strong> SiteBot Studio, its logos, Shadow DOM widget engine, crawling infrastructure,
-            and software interfaces remain the exclusive intellectual property of SiteBot Studio and its licensors.
+            <strong>Our Technology:</strong> Rivafy Studio, its logos, Shadow DOM widget engine, crawling infrastructure,
+            and software interfaces remain the exclusive intellectual property of Rivafy Studio and its licensors.
           </p>
         </>
       ),
@@ -185,7 +185,7 @@ export default function TermsPage() {
       content: (
         <>
           <p className="leading-relaxed">
-            To the maximum extent permitted by applicable law, SiteBot Studio and its affiliates shall not be liable for any
+            To the maximum extent permitted by applicable law, Rivafy Studio and its affiliates shall not be liable for any
             indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, goodwill,
             or service interruptions arising from your use of or inability to use the Service.
           </p>
@@ -206,9 +206,9 @@ export default function TermsPage() {
             If you have questions, concerns, or legal notices regarding these Terms of Service, please reach out to our team:
           </p>
           <div className="min-w-0 mt-4 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs">
-            <p className="font-bold text-slate-900 dark:text-white">SiteBot Studio Legal Department</p>
-            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: <span className="break-all">support@sitebotstudio.com</span></p>
-            <p className="text-slate-600 dark:text-slate-300">Website: <span className="break-all">https://sitebotstudio.com</span></p>
+            <p className="font-bold text-slate-900 dark:text-white">Rivafy Studio Legal Department</p>
+            <p className="text-slate-600 dark:text-slate-300 mt-1">Email: <span className="break-all">support@rivafy.com</span></p>
+            <p className="text-slate-600 dark:text-slate-300">Website: <span className="break-all">https://rivafy.com</span></p>
           </div>
         </>
       ),

@@ -45,6 +45,7 @@ import {
   LogIn,
   User,
   LayoutDashboard,
+  Bell,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -52,6 +53,7 @@ import { QdrantSetupGuide } from '@/components/QdrantSetupGuide';
 import { BotGuardrailsTab } from '@/components/BotGuardrailsTab';
 import { BotHandoffTab } from '@/components/BotHandoffTab';
 import { BotLeadsTab } from '@/components/BotLeadsTab';
+import { BotNotificationsTab } from '@/components/BotNotificationsTab';
 import { DeleteBotModal } from '@/components/DeleteBotModal';
 import { useAuth } from '@/lib/firebase/AuthContext';
 
@@ -90,6 +92,13 @@ interface BotDetail {
     agentName?: string;
     notifyEmail?: string;
     offlineMessage?: string;
+    whatsappEnabled?: boolean;
+    whatsappNumber?: string;
+  };
+  notifications?: {
+    email?: { enabled?: boolean; to?: string };
+    whatsapp?: { enabled?: boolean; number?: string };
+    telegram?: { enabled?: boolean; chatId?: string; botToken?: string };
   };
   maskedKeys?: {
     gemini?: string;
@@ -145,7 +154,7 @@ export default function BotDashboardPage() {
     message: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'playground' | 'crawler' | 'leads' | 'guardrails' | 'handoff' | 'appearance' | 'ai' | 'security' | 'qdrant'
+    'playground' | 'crawler' | 'leads' | 'notifications' | 'guardrails' | 'handoff' | 'appearance' | 'ai' | 'security' | 'qdrant'
   >('playground');
   const [copiedCode, setCopiedCode] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -238,6 +247,17 @@ export default function BotDashboardPage() {
     handoffNotifyEmail: '',
     handoffOfflineMessage:
       'Our human support agents are currently offline or busy. Please leave your contact details and message, and our team will get back to you shortly!',
+    handoffWhatsappEnabled: false,
+    handoffWhatsappNumber: '',
+
+    // Notification Settings
+    notificationsEmailEnabled: false,
+    notificationsEmailTo: '',
+    notificationsWhatsappEnabled: false,
+    notificationsWhatsappNumber: '',
+    notificationsTelegramEnabled: false,
+    notificationsTelegramChatId: '',
+    notificationsTelegramBotToken: '',
   });
 
   // Custom DB test state
@@ -354,6 +374,16 @@ export default function BotDashboardPage() {
         handoffOfflineMessage:
           data.bot.handoff?.offlineMessage ||
           'Our human support agents are currently offline or busy. Please leave your contact details and message, and our team will get back to you shortly!',
+        handoffWhatsappEnabled: Boolean(data.bot.handoff?.whatsappEnabled),
+        handoffWhatsappNumber: data.bot.handoff?.whatsappNumber || '',
+
+        notificationsEmailEnabled: Boolean(data.bot.notifications?.email?.enabled),
+        notificationsEmailTo: data.bot.notifications?.email?.to || '',
+        notificationsWhatsappEnabled: Boolean(data.bot.notifications?.whatsapp?.enabled),
+        notificationsWhatsappNumber: data.bot.notifications?.whatsapp?.number || '',
+        notificationsTelegramEnabled: Boolean(data.bot.notifications?.telegram?.enabled),
+        notificationsTelegramChatId: data.bot.notifications?.telegram?.chatId || '',
+        notificationsTelegramBotToken: data.bot.notifications?.telegram?.botToken || '',
       });
 
       if (chatMessages.length === 0) {
@@ -582,6 +612,23 @@ export default function BotDashboardPage() {
           agentName: formData.handoffAgentName,
           notifyEmail: formData.handoffNotifyEmail,
           offlineMessage: formData.handoffOfflineMessage,
+          whatsappEnabled: Boolean(formData.handoffWhatsappEnabled),
+          whatsappNumber: (formData.handoffWhatsappNumber || '').trim(),
+        },
+        notifications: {
+          email: {
+            enabled: Boolean(formData.notificationsEmailEnabled),
+            to: (formData.notificationsEmailTo || '').trim(),
+          },
+          whatsapp: {
+            enabled: Boolean(formData.notificationsWhatsappEnabled),
+            number: (formData.notificationsWhatsappNumber || '').trim(),
+          },
+          telegram: {
+            enabled: Boolean(formData.notificationsTelegramEnabled),
+            chatId: (formData.notificationsTelegramChatId || '').trim(),
+            botToken: (formData.notificationsTelegramBotToken || '').trim(),
+          },
         },
         slug: formData.slug.trim() || null,
         allowedOrigins: formData.allowedOrigins,
@@ -701,6 +748,7 @@ export default function BotDashboardPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Rivafy-Preview': 'true',
           'X-SiteBot-Preview': 'true',
         },
         body: JSON.stringify({
@@ -1020,8 +1068,9 @@ export default function BotDashboardPage() {
               { id: 'playground', label: 'Live Test & Embed Code', icon: Code2 },
               { id: 'crawler', label: `Knowledge Base & Crawler (${stats.indexedPages})`, icon: Database },
               { id: 'leads', label: 'Captured Leads', icon: Inbox },
-              { id: 'guardrails', label: 'Guardrails Engine', icon: ShieldAlert },
+              { id: 'notifications', label: 'Notifications & Alerts', icon: Bell },
               { id: 'handoff', label: 'Live Handoff', icon: Headphones },
+              { id: 'guardrails', label: 'Guardrails Engine', icon: ShieldAlert },
               { id: 'appearance', label: 'Widget Customization', icon: Palette },
               { id: 'ai', label: 'AI Models & BYOK Keys', icon: Sliders },
               { id: 'security', label: 'Security & Access', icon: ShieldCheck },
@@ -1586,6 +1635,19 @@ export default function BotDashboardPage() {
         {/* TAB: Captured Leads & Forms */}
         {activeTab === 'leads' && (
           <BotLeadsTab botId={botId} botName={formData.name || 'Chatbot'} />
+        )}
+
+        {/* TAB: Notifications & Multi-Channel Alerts */}
+        {activeTab === 'notifications' && (
+          <BotNotificationsTab
+            botId={botId}
+            botName={formData.name || 'Chatbot'}
+            formData={formData}
+            setFormData={setFormData}
+            onSave={handleSaveSettings}
+            saveSuccess={saveSuccess}
+            onNavigateTab={(tab) => setActiveTab(tab as any)}
+          />
         )}
 
         {/* TAB: Guardrails Engine */}

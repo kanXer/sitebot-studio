@@ -142,13 +142,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           fallbackMessage:
             "I'm sorry, but I do not have verified information about that from this website. For assistance on this specific request, please feel free to contact our team or request to speak with a human representative.",
         },
-        handoff: bot.handoff || {
-          enabled: true,
-          autoDetect: true,
-          notifyEmail: '',
-          agentName: 'Support Agent',
+        handoff: {
+          enabled: bot.handoff?.enabled !== false,
+          autoDetect: bot.handoff?.autoDetect !== false,
+          notifyEmail: bot.handoff?.notifyEmail || '',
+          agentName: bot.handoff?.agentName || 'Support Agent',
           offlineMessage:
+            bot.handoff?.offlineMessage ||
             'Our human support agents are currently offline or busy. Please leave your contact details and message, and our team will get back to you shortly!',
+          whatsappEnabled: Boolean(bot.handoff?.whatsappEnabled),
+          whatsappNumber: bot.handoff?.whatsappNumber || '',
         },
         metaPrompt: bot.metaPrompt || '',
         aiLimit: bot.aiLimit || { enabled: false, maxTokens: 400 },
@@ -354,6 +357,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         offlineMessage:
           body.handoff.offlineMessage ||
           'Our human support agents are currently offline or busy. Please leave your contact details and message, and our team will get back to you shortly!',
+        whatsappEnabled: Boolean(body.handoff.whatsappEnabled),
+        whatsappNumber: (body.handoff.whatsappNumber || '').trim(),
       };
     }
 
