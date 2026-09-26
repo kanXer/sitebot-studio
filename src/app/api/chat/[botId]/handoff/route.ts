@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import mongoose from 'mongoose';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { Chatbot, Conversation, ChatTicket } from '@/lib/models';
@@ -356,12 +356,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ? (bot as any).notifications.whatsapp.number
         : (bot as any)?.whatsapp || undefined;
 
-    // Fire-and-forget: Dispatch WhatsApp alert in the background so the visitor
-    // gets an instant response. The 60-second heartbeat dispatchPendingTicketAlerts
-    // will retry any alerts that fail on the first attempt.
-    import('@/lib/whatsapp/baileysManager')
-      .then(({ sendTicketAlertToAdmin }) =>
-        sendTicketAlertToAdmin({
+    // Use Next.js after() to run WhatsApp alert AFTER the response is sent.
+    // This keeps the Vercel serverless function alive until the alert completes,
+    // unlike plain fire-and-forget which gets killed when the function terminates.
+    after(async () => {
+      try {
+        const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
+        const result = await sendTicketAlertToAdmin({
           ticketId: ticketId || 'PENDING',
           botName: (bot as any)?.name || 'Rivafy Assistant',
           visitorName: visitorName || 'Visitor',
@@ -369,9 +370,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           visitorPhone,
           userMessage: message?.trim() || 'Visitor requested human support',
           targetNumber,
-        })
-      )
-      .then((result) => {
+        });
         if (result?.ok) {
           console.log(
             `[Handoff] WhatsApp alert delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'})`
@@ -381,10 +380,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             `[Handoff] WhatsApp alert NOT delivered (bot=${resolvedBotId}, ticket=${ticketId}): ${result?.error || 'unknown'}`
           );
         }
-      })
-      .catch((alertErr) => {
-        console.warn('[Handoff] WhatsApp alert dispatch failed (background):', alertErr?.message || alertErr);
-      });
+      } catch (alertErr: any) {
+        console.warn('[Handoff] WhatsApp alert dispatch failed (after):', alertErr?.message || alertErr);
+      }
+    });
 
     // Append system escalation notice immediately
     await appendConversationMessage(resolvedBotId, sessionId, {
