@@ -105,7 +105,17 @@ export default function WhatsAppAdminPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setStatusData(data);
+        setStatusData((prev) => {
+          // If we are actively streaming a QR code, don't let polling overwrite qrCode or reset status
+          if (activeStreamReaderRef.current && prev.qrCode && data.status !== 'connected') {
+            return {
+              ...prev,
+              openTickets: data.openTickets ?? prev.openTickets,
+              dbMode: data.dbMode ?? prev.dbMode,
+            };
+          }
+          return data;
+        });
       }
     } catch {
       // non-fatal
@@ -367,23 +377,21 @@ export default function WhatsAppAdminPage() {
     }
   };
 
-  // Polling loop when connecting or viewing tickets
+  // Polling loop for status and tickets
   useEffect(() => {
     if (!user?.email) return;
     fetchStatus();
     fetchTickets();
 
-    // Poll status frequently if connecting (to show QR and connection transition)
-    const intervalTime = statusData.status === 'connecting' ? 3000 : 8000;
     pollIntervalRef.current = setInterval(() => {
       fetchStatus();
       fetchTickets();
-    }, intervalTime);
+    }, 6000);
 
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [user, statusData.status, fetchStatus, fetchTickets]);
+  }, [user, fetchStatus, fetchTickets]);
 
   // Loading state
   if (authLoading) {
@@ -711,7 +719,7 @@ export default function WhatsAppAdminPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleConnect(false)}
+                    onClick={() => handleConnect(true)}
                     disabled={connecting}
                     className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:scale-105 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
                   >

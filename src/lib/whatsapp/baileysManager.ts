@@ -703,7 +703,10 @@ export function startPairingStream(options?: {
       }, 55000);
 
       try {
-        if (forceNew) {
+        const meta = await getSessionMeta(sessionId);
+        const shouldForceFresh = forceNew || meta.status !== 'connected';
+
+        if (shouldForceFresh) {
           if (container.socket) {
             container.suppressNextClose = true;
             try {
@@ -719,7 +722,7 @@ export function startPairingStream(options?: {
         }
 
         // If already connected and not forcing new:
-        if (container.socket && container.status === 'connected' && !forceNew) {
+        if (container.socket && container.status === 'connected' && !shouldForceFresh) {
           sendEvent('connected', {
             status: 'connected',
             phoneNumber: container.phoneNumber,
@@ -740,109 +743,130 @@ export function startPairingStream(options?: {
 
         let waVersion: [number, number, number] | undefined;
         try {
-          const v = await fetchLatestBaileysVersion();
-          if (v?.version) waVersion = v.version;
+          const versionRace = await Promise.race([
+            fetchLatestBaileysVersion(),
+            new Promise<null>((r) => setTimeout(() => r(null), 2000)),
+          ]);
+          if (versionRace?.version) waVersion = versionRace.version;
         } catch {}
 
-        const sock = makeWASocket({
-          version: waVersion,
-          auth: state,
-          logger,
-          printQRInTerminal: false,
-          browser: Browsers.ubuntu('Chrome'),
-          connectTimeoutMs: 60000,
-          defaultQueryTimeoutMs: 60000,
-        });
+        const createSocket = () => {
+          if (isClosed) return;
 
-        container.socket = sock;
+          const sock = makeWASocket({
+            version: waVersion,
+            auth: state,
+            logger,
+            printQRInTerminal: false,
+            browser: Browsers.ubuntu('Chrome'),
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 60000,
+          });
 
-        sock.ev.on('connection.update', async (update) => {
-          const { connection, lastDisconnect, qr } = update;
+          container.socket = sock;
 
-          if (qr) {
-            try {
-              const qrDataUrl = await QRCode.toDataURL(qr, {
-                margin: 2,
-                scale: 7,
-                color: { dark: '#0f172a', light: '#ffffff' },
-              });
-              container.qrCode = qrDataUrl;
-              container.status = 'connecting';
-              await saveSessionMeta(sessionId, { status: 'connecting', qrCode: qrDataUrl });
-              sendEvent('qr', { qrCode: qrDataUrl, status: 'connecting' });
-            } catch (err) {
-              console.error('[Baileys Stream] QR encode error:', err);
+          sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+              try {
+                const qrDataUrl = await QRCode.toDataURL(qr, {
+                  margin: 2,
+                  scale: 7,
+                  color: { dark: '#0f172a', light: '#ffffff' },
+                });
+                container.qrCode = qrDataUrl;
+                container.status = 'connecting';
+                await saveSessionMeta(sessionId, { status: 'connecting', qrCode: qrDataUrl });
+                sendEvent('qr', { qrCode: qrDataUrl, status: 'connecting' });
+              } catch (err) {
+                console.error('[Baileys Stream] QR encode error:', err);
+              }
             }
-          }
 
-          if (connection === 'open') {
-            container.status = 'connected';
-            container.qrCode = '';
-            container.isInitializing = false;
-
-            const rawJid = sock.user?.id || '';
-            const normalized = jidNormalizedUser(rawJid);
-            const phone = normalized.split('@')[0] || '';
-            const pushName = sock.user?.name || 'Rivafy Admin';
-
-            container.phoneNumber = phone;
-            container.pushName = pushName;
-            container.jid = normalized;
-
-            await saveSessionMeta(sessionId, {
-              status: 'connected',
-              qrCode: '',
-              phoneNumber: phone,
-              pushName,
-              jid: normalized,
-              lastConnectedAt: new Date().toISOString(),
-            });
-
-            container.reconnectAttempts = 0;
-            container.requiresReauth = false;
-            container.lastDisconnectCode = null;
-            startKeepAlive(sock);
-
-            console.log(`[Baileys Stream] WhatsApp connected successfully as: ${phone} (${pushName})`);
-            sendEvent('connected', {
-              status: 'connected',
-              phoneNumber: phone,
-              pushName,
-              jid: normalized,
-            });
-
-            setTimeout(cleanup, 1500);
-          }
-
-          if (connection === 'close') {
-            const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
-            const loggedOut = statusCode === DisconnectReason.loggedOut;
-            stopKeepAlive();
-
-            if (loggedOut) {
-              container.status = 'disconnected';
+            if (connection === 'open') {
+              container.status = 'connected';
               container.qrCode = '';
-              container.socket = null;
-              sendEvent('error', { message: 'WhatsApp session logged out or expired. Please generate a new QR.' });
-              cleanup();
+              container.isInitializing = false;
+
+              const rawJid = sock.user?.id || '';
+              const normalized = jidNormalizedUser(rawJid);
+              const phone = normalized.split('@')[0] || '';
+              const pushName = sock.user?.name || 'Rivafy Admin';
+
+              container.phoneNumber = phone;
+              container.pushName = pushName;
+              container.jid = normalized;
+
+              await saveSessionMeta(sessionId, {
+                status: 'connected',
+                qrCode: '',
+                phoneNumber: phone,
+                pushName,
+                jid: normalized,
+                lastConnectedAt: new Date().toISOString(),
+              });
+
+              container.reconnectAttempts = 0;
+              container.requiresReauth = false;
+              container.lastDisconnectCode = null;
+              startKeepAlive(sock);
+
+              console.log(`[Baileys Stream] WhatsApp connected successfully as: ${phone} (${pushName})`);
+              sendEvent('connected', {
+                status: 'connected',
+                phoneNumber: phone,
+                pushName,
+                jid: normalized,
+              });
+
+              setTimeout(cleanup, 2000);
             }
-          }
-        });
 
-        sock.ev.on('creds.update', async () => {
-          try {
-            await saveCreds();
-          } catch (e) {
-            console.error('[Baileys Stream] Error saving creds:', e);
-          }
-        });
+            if (connection === 'close') {
+              const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
+              const loggedOut = statusCode === DisconnectReason.loggedOut;
+              stopKeepAlive();
 
-        sock.ev.on('messages.upsert', async ({ messages, type }) => {
-          if (type !== 'notify' && type !== 'append') return;
-          for (const msg of messages) {
-            await handleIncomingMessage(sock, msg);
-          }
-        });
+              console.log(`[Baileys Stream] Connection closed. Reason: ${statusCode}, loggedOut: ${loggedOut}`);
+
+              if (loggedOut) {
+                container.status = 'disconnected';
+                container.qrCode = '';
+                container.socket = null;
+                sendEvent('error', { message: 'WhatsApp session logged out. Please generate a new QR.' });
+                cleanup();
+              } else if (!isClosed) {
+                // WhatsApp sends 515 (restartRequired) right after scanning the QR code to finalize credentials.
+                // Reconnect immediately within the live stream!
+                console.log(`[Baileys Stream] Reconnecting socket (code ${statusCode}) to finalize pairing...`);
+                sendComment('reconnecting-after-qr-scan');
+                setTimeout(() => {
+                  if (!isClosed) {
+                    createSocket();
+                  }
+                }, 1000);
+              }
+            }
+          });
+
+          sock.ev.on('creds.update', async () => {
+            try {
+              await saveCreds();
+            } catch (e) {
+              console.error('[Baileys Stream] Error saving creds:', e);
+            }
+          });
+
+          sock.ev.on('messages.upsert', async ({ messages, type }) => {
+            if (type !== 'notify' && type !== 'append') return;
+            for (const msg of messages) {
+              await handleIncomingMessage(sock, msg);
+            }
+          });
+        };
+
+        createSocket();
 
       } catch (err: any) {
         console.error('[Baileys Stream] Init error:', err);
