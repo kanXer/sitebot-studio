@@ -182,7 +182,7 @@ export async function streamOpenAICompatibleChat(
   }
 
   // Auto-redirect deprecated / EOL models on NVIDIA NIM
-  let resolvedModel = modelName;
+  let resolvedModel = modelName || 'meta/muse-glimmer-30b';
   if (endpointUrl.includes('integrate.api.nvidia.com')) {
     const deprecated = [
       'meta/llama-3.1-8b-instruct',
@@ -190,10 +190,9 @@ export async function streamOpenAICompatibleChat(
       'meta/llama-3.2-3b-instruct',
       'meta/llama-3.2-1b-instruct',
       'meta/llama-3-8b-instruct',
-      'meta/muse-glimmer-30b',
     ];
-    if (!resolvedModel || deprecated.includes(resolvedModel)) {
-      resolvedModel = 'meta/llama-3.2-11b-vision-instruct';
+    if (deprecated.includes(resolvedModel)) {
+      resolvedModel = 'meta/muse-glimmer-30b';
     }
   }
 

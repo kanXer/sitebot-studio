@@ -61,10 +61,10 @@ export async function POST(req: NextRequest) {
       openrouterKey = '',
       openaiKey = '',
       nvidiaKey = '',
-      chatProvider = systemSettings.defaultChatProvider || 'openai',
-      chatModel = systemSettings.defaultChatModel || 'gpt-4o-mini',
-      embedProvider = systemSettings.defaultEmbedProvider || 'openai',
-      embedModel = systemSettings.defaultEmbedModel || 'text-embedding-3-small',
+      chatProvider = systemSettings.defaultChatProvider || 'nvidia',
+      chatModel = systemSettings.defaultChatModel || 'meta/muse-glimmer-30b',
+      embedProvider = systemSettings.defaultEmbedProvider || 'nvidia',
+      embedModel = systemSettings.defaultEmbedModel || 'nvidia/llama-nemotron-embed-vl-1b-v2',
       systemPrompt,
       greeting,
       suggestedQuestions,
@@ -219,10 +219,10 @@ export async function GET(req: NextRequest) {
 
     const systemSettings = await getSystemSettings();
     const defaults = {
-      chatProvider: systemSettings.defaultChatProvider || 'openai',
-      chatModel: systemSettings.defaultChatModel || 'gpt-4o-mini',
-      embedProvider: systemSettings.defaultEmbedProvider || 'openai',
-      embedModel: systemSettings.defaultEmbedModel || 'text-embedding-3-small',
+      chatProvider: systemSettings.defaultChatProvider || 'nvidia',
+      chatModel: systemSettings.defaultChatModel || 'meta/muse-glimmer-30b',
+      embedProvider: systemSettings.defaultEmbedProvider || 'nvidia',
+      embedModel: systemSettings.defaultEmbedModel || 'nvidia/llama-nemotron-embed-vl-1b-v2',
     };
 
     // Private: without a logged-in owner, no bots are ever listed or

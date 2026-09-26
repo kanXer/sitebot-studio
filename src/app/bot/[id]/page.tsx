@@ -211,10 +211,10 @@ export default function BotDashboardPage() {
     email: '',
     auditUrl: '',
     pricingUrl: '',
-    chatProvider: 'openai',
-    chatModel: 'gpt-4o-mini',
-    embedProvider: 'openai',
-    embedModel: 'text-embedding-3-small',
+    chatProvider: 'nvidia',
+    chatModel: 'meta/muse-glimmer-30b',
+    embedProvider: 'nvidia',
+    embedModel: 'nvidia/llama-nemotron-embed-vl-1b-v2',
     geminiKey: '',
     openrouterKey: '',
     openaiKey: '',
@@ -338,10 +338,10 @@ export default function BotDashboardPage() {
         email: data.bot.email || '',
         auditUrl: data.bot.auditUrl || '',
         pricingUrl: data.bot.pricingUrl || '',
-        chatProvider: data.bot.chatProvider || 'openai',
-        chatModel: data.bot.chatModel || 'gpt-4o-mini',
-        embedProvider: data.bot.embedProvider || 'openai',
-        embedModel: data.bot.embedModel || 'text-embedding-3-small',
+        chatProvider: data.bot.chatProvider || 'nvidia',
+        chatModel: data.bot.chatModel || 'meta/muse-glimmer-30b',
+        embedProvider: data.bot.embedProvider || 'nvidia',
+        embedModel: data.bot.embedModel || 'nvidia/llama-nemotron-embed-vl-1b-v2',
         geminiKey: '',
         openrouterKey: '',
         openaiKey: '',
@@ -2062,15 +2062,15 @@ export default function BotDashboardPage() {
                       const newProvider = e.target.value;
                       let defaultModel = formData.chatModel;
                       if (newProvider === 'openai') defaultModel = 'gpt-4o-mini';
-                      else if (newProvider === 'nvidia') defaultModel = 'meta/llama-3.1-8b-instruct';
+                      else if (newProvider === 'nvidia') defaultModel = 'meta/muse-glimmer-30b';
                       else if (newProvider === 'gemini') defaultModel = 'gemini-1.5-flash';
                       else if (newProvider === 'openrouter') defaultModel = 'meta-llama/llama-3-8b-instruct:free';
                       setFormData({ ...formData, chatProvider: newProvider, chatModel: defaultModel });
                     }}
                     className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-semibold"
                   >
+                    <option value="nvidia">NVIDIA NIM (muse-glimmer-30b)</option>
                     <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
-                    <option value="nvidia">NVIDIA NIM (Llama 3.1 8B/70B)</option>
                     <option value="gemini">Google Gemini (Gemini 1.5 Flash)</option>
                     <option value="openrouter">OpenRouter (Multi-Model Hub)</option>
                   </select>
@@ -2178,14 +2178,14 @@ export default function BotDashboardPage() {
                     value={formData.embedProvider}
                     onChange={(e) => {
                       const newProvider = e.target.value;
-                      let defaultEmbed = 'nvidia/llama-3.2-nv-embedqa-1b-v1';
+                      let defaultEmbed = 'nvidia/llama-nemotron-embed-vl-1b-v2';
                       if (newProvider === 'openai') defaultEmbed = 'text-embedding-3-small';
                       else if (newProvider === 'gemini') defaultEmbed = 'text-embedding-004';
                       setFormData({ ...formData, embedProvider: newProvider, embedModel: defaultEmbed });
                     }}
                     className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 font-semibold"
                   >
-                    <option value="nvidia">NVIDIA NIM</option>
+                    <option value="nvidia">NVIDIA NIM (llama-nemotron-embed-vl-1b-v2)</option>
                     <option value="openai">OpenAI (768 dims)</option>
                     <option value="gemini">Google Gemini (768 dims)</option>
                   </select>
@@ -2199,15 +2199,15 @@ export default function BotDashboardPage() {
                     type="text"
                     value={formData.embedModel}
                     onChange={(e) => setFormData({ ...formData, embedModel: e.target.value })}
-                    placeholder="e.g. nvidia/llama-3.2-nv-embedqa-1b-v1"
+                    placeholder="e.g. nvidia/llama-nemotron-embed-vl-1b-v2"
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-indigo-600"
                   />
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {formData.embedProvider === 'nvidia' && (
                       <>
                         {[
+                          'nvidia/llama-nemotron-embed-vl-1b-v2',
                           'nvidia/llama-3.2-nv-embedqa-1b-v1',
-                          'nvidia/nv-embedqa-mistral-7b-v2',
                           'snowflake/arctic-embed-l',
                         ].map((m) => (
                           <button

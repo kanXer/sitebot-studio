@@ -651,14 +651,26 @@ export default function WhatsAppAdminPage() {
                   <span>{loggingOut ? 'Disconnecting...' : 'Logout'}</span>
                 </button>
               ) : (
-                <button
-                  onClick={() => handleConnect(true)}
-                  disabled={connecting}
-                  className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${connecting ? 'animate-spin' : ''}`} />
-                  <span>{connecting ? 'Generating...' : 'Generate New QR'}</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  {statusData.phoneNumber && (
+                    <button
+                      onClick={() => handleConnect(false)}
+                      disabled={connecting}
+                      className="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${connecting ? 'animate-spin' : ''}`} />
+                      <span>{connecting ? 'Connecting...' : 'Reconnect Saved'}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleConnect(true)}
+                    disabled={connecting}
+                    className="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>{connecting ? 'Generating...' : statusData.phoneNumber ? 'New QR' : 'Generate QR'}</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -675,11 +687,11 @@ export default function WhatsAppAdminPage() {
                       Session linked to <span className="font-mono text-emerald-400 font-bold">+{statusData.phoneNumber}</span>. Auth credentials are securely cached in MongoDB, so restarts or Vercel redeploys will remain connected automatically.
                     </p>
                   </div>
-                  <div className="pt-2">
+                  <div className="pt-2 flex items-center justify-center gap-2">
                     <button
                       onClick={handleLogout}
                       disabled={loggingOut}
-                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
                     >
                       Disconnect WhatsApp
                     </button>
@@ -705,6 +717,34 @@ export default function WhatsAppAdminPage() {
                     <p className="text-[11px] text-slate-400 mt-2 max-w-xs mx-auto">
                       Open WhatsApp on your phone &gt; Settings &gt; Linked Devices &gt; Link a Device.
                     </p>
+                  </div>
+                </div>
+              ) : statusData.phoneNumber ? (
+                <div className="space-y-4 max-w-sm">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
+                    <Smartphone className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Saved Session: +{statusData.phoneNumber}</h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      MongoDB auth credentials are saved. Click below to reconnect instantly or scan a new QR to link another phone.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                    <button
+                      onClick={() => handleConnect(false)}
+                      disabled={connecting}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/30 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {connecting ? 'Connecting...' : 'Reconnect Saved Session'}
+                    </button>
+                    <button
+                      onClick={() => handleConnect(true)}
+                      disabled={connecting}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Scan New QR
+                    </button>
                   </div>
                 </div>
               ) : (

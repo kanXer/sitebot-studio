@@ -503,10 +503,10 @@ export async function ingestAndBuildBot(params: IngestAndBuildParams): Promise<I
     systemPrompt: synthesizedPrompt,
     primaryColor,
     position,
-    chatProvider,
-    chatModel: 'gemini-2.5-flash',
-    embedProvider: 'gemini',
-    embedModel: 'text-embedding-004',
+    chatProvider: chatProvider || 'nvidia',
+    chatModel: 'meta/muse-glimmer-30b',
+    embedProvider: 'nvidia',
+    embedModel: 'nvidia/llama-nemotron-embed-vl-1b-v2',
     apiKeys,
     greeting,
     suggestedQuestions,
@@ -548,14 +548,23 @@ export async function ingestAndBuildBot(params: IngestAndBuildParams): Promise<I
 
   // Step 4: Batch Embeddings
   const textsToEmbed = rawChunks.map((c) => c.content);
+  const nvidiaKey = apiKeys.nvidia || process.env.NVIDIA_API_KEY || '';
   const geminiKey = apiKeys.gemini || process.env.GEMINI_API_KEY || '';
   let embeddings: number[][] = [];
 
-  if (geminiKey && !geminiKey.toLowerCase().includes('dummy')) {
+  if (nvidiaKey && !nvidiaKey.toLowerCase().includes('dummy')) {
+    try {
+      embeddings = await getBatchEmbeddings(textsToEmbed, 'nvidia', nvidiaKey, 'nvidia/llama-nemotron-embed-vl-1b-v2');
+    } catch (err) {
+      console.warn('[BotBuilder] NVIDIA Embeddings call failed, trying fallback:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  if ((!embeddings || embeddings.length === 0) && geminiKey && !geminiKey.toLowerCase().includes('dummy')) {
     try {
       embeddings = await getBatchEmbeddings(textsToEmbed, 'gemini', geminiKey);
     } catch (err) {
-      console.warn('[BotBuilder] Embeddings API call failed, generating deterministic fallback vectors:', err instanceof Error ? err.message : err);
+      console.warn('[BotBuilder] Gemini Embeddings fallback failed:', err instanceof Error ? err.message : err);
     }
   }
 

@@ -40,9 +40,9 @@ const FALLBACKS: Record<string, { chat: string[]; embed: string[] }> = {
       'nvidia/llama-3.1-nemotron-70b-instruct',
     ],
     embed: [
+      'nvidia/llama-nemotron-embed-vl-1b-v2',
       'nvidia/llama-3.2-nv-embedqa-1b-v1',
       'nvidia/nv-embedqa-mistral-7b-v2',
-      'nvidia/llama-nemotron-embed-vl-1b-v2',
       'snowflake/arctic-embed-l',
     ],
   },

@@ -86,10 +86,10 @@ export default function AdminPanelPage() {
 
   // Settings State (Plans, Models, Quotas)
   const [settings, setSettings] = useState<any>({
-    defaultChatProvider: 'openai',
-    defaultChatModel: 'gpt-4o-mini',
-    defaultEmbedProvider: 'openai',
-    defaultEmbedModel: 'text-embedding-3-small',
+    defaultChatProvider: 'nvidia',
+    defaultChatModel: 'meta/muse-glimmer-30b',
+    defaultEmbedProvider: 'nvidia',
+    defaultEmbedModel: 'nvidia/llama-nemotron-embed-vl-1b-v2',
     freePlan: { botLimit: 1, tokenQuota: 25000, chatQuota: 50, monthlyPrice: 0 },
     proPlan: { botLimit: 10, tokenQuota: 2500000, chatQuota: 50000, monthlyPrice: 9 },
     byokBypassQuota: true,
@@ -2405,7 +2405,7 @@ export default function AdminPanelPage() {
                       onChange={(e) => {
                         const prov = e.target.value;
                         let defModel = 'gpt-4o-mini';
-                        if (prov === 'nvidia') defModel = 'nvidia/llama-3.1-nemotron-70b-instruct';
+                        if (prov === 'nvidia') defModel = 'meta/muse-glimmer-30b';
                         else if (prov === 'gemini') defModel = 'gemini-2.5-flash';
                         else if (prov === 'openrouter') defModel = 'meta-llama/llama-3-8b-instruct:free';
                         setSettings({
@@ -2447,7 +2447,7 @@ export default function AdminPanelPage() {
                       onChange={(e) => {
                         const prov = e.target.value;
                         let defEmbed = 'text-embedding-3-small';
-                        if (prov === 'nvidia') defEmbed = 'nvidia/llama-3.2-nv-embedqa-1b-v1';
+                        if (prov === 'nvidia') defEmbed = 'nvidia/llama-nemotron-embed-vl-1b-v2';
                         else if (prov === 'gemini') defEmbed = 'gemini-embedding-001';
                         setSettings({
                           ...settings,
@@ -2458,7 +2458,7 @@ export default function AdminPanelPage() {
                       className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold outline-none focus:border-indigo-500"
                     >
                       <option value="openai">OpenAI (text-embedding-3-small)</option>
-                      <option value="nvidia">NVIDIA NIM (nv-embedqa)</option>
+                      <option value="nvidia">NVIDIA NIM (llama-nemotron-embed-vl-1b-v2)</option>
                       <option value="gemini">Google Gemini (gemini-embedding-001)</option>
                     </select>
                   </div>

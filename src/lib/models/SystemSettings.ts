@@ -34,21 +34,21 @@ const SystemSettingsSchema = new Schema(
     defaultChatProvider: {
       type: String,
       enum: ['openai', 'gemini', 'nvidia', 'openrouter'],
-      default: 'openai',
+      default: 'nvidia',
     },
     defaultChatModel: {
       type: String,
-      default: 'gpt-4o-mini',
+      default: 'meta/muse-glimmer-30b',
       trim: true,
     },
     defaultEmbedProvider: {
       type: String,
       enum: ['openai', 'gemini', 'nvidia'],
-      default: 'openai',
+      default: 'nvidia',
     },
     defaultEmbedModel: {
       type: String,
-      default: 'text-embedding-3-small',
+      default: 'nvidia/llama-nemotron-embed-vl-1b-v2',
       trim: true,
     },
     freePlan: {

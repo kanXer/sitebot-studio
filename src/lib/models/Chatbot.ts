@@ -138,7 +138,7 @@ const ChatbotSchema: Schema = new Schema(
     },
     embedModel: {
       type: String,
-      default: 'gemini-embedding-001',
+      default: 'nvidia/llama-nemotron-embed-vl-1b-v2',
     },
     apiKeys: {
       gemini: { type: String, default: '' },

@@ -23,10 +23,10 @@ export interface GlobalSystemConfig {
 }
 
 export const DEFAULT_SYSTEM_CONFIG: GlobalSystemConfig = {
-  defaultChatProvider: 'openai',
-  defaultChatModel: 'gpt-4o-mini',
-  defaultEmbedProvider: 'openai',
-  defaultEmbedModel: 'text-embedding-3-small',
+  defaultChatProvider: 'nvidia',
+  defaultChatModel: 'meta/muse-glimmer-30b',
+  defaultEmbedProvider: 'nvidia',
+  defaultEmbedModel: 'nvidia/llama-nemotron-embed-vl-1b-v2',
   freePlan: {
     botLimit: 1,
     tokenQuota: 25000, // Reduced as requested (25K tokens)

@@ -444,10 +444,10 @@ export const MemoryDb = {
       primaryColor: data.primaryColor || '#6366f1',
       position: data.position || 'bottom-right',
       launcherStyle: data.launcherStyle || 'standard',
-      chatProvider: data.chatProvider || 'gemini',
-      chatModel: data.chatModel || 'gemini-2.5-flash',
-      embedProvider: data.embedProvider || 'gemini',
-      embedModel: data.embedModel || 'gemini-embedding-001',
+      chatProvider: data.chatProvider || 'nvidia',
+      chatModel: data.chatModel || 'meta/muse-glimmer-30b',
+      embedProvider: data.embedProvider || 'nvidia',
+      embedModel: data.embedModel || 'nvidia/llama-nemotron-embed-vl-1b-v2',
       apiKeys: data.apiKeys || {},
       greeting: data.greeting || 'Hi there! 👋 How can I help you today?',
       suggestedQuestions: data.suggestedQuestions || [
@@ -1344,10 +1344,10 @@ export const MemoryDb = {
 
   updateSystemSettings(data: any): any {
     const existing = (global as any).__memorySystemSettings || {
-      defaultChatProvider: 'openai',
-      defaultChatModel: 'gpt-4o-mini',
-      defaultEmbedProvider: 'openai',
-      defaultEmbedModel: 'text-embedding-3-small',
+      defaultChatProvider: 'nvidia',
+      defaultChatModel: 'meta/muse-glimmer-30b',
+      defaultEmbedProvider: 'nvidia',
+      defaultEmbedModel: 'nvidia/llama-nemotron-embed-vl-1b-v2',
       freePlan: { botLimit: 1, tokenQuota: 25000, chatQuota: 50, monthlyPrice: 0 },
       proPlan: { botLimit: 10, tokenQuota: 2500000, chatQuota: 50000, monthlyPrice: 9 },
       byokBypassQuota: true,

@@ -155,10 +155,10 @@ function CreateBotContent() {
   };
 
   // AI Provider & Model State
-  const [activeProvider, setActiveProvider] = useState<'openai' | 'nvidia' | 'gemini' | 'openrouter'>('openai');
-  const [chatModel, setChatModel] = useState('gpt-4o-mini');
+  const [activeProvider, setActiveProvider] = useState<'openai' | 'nvidia' | 'gemini' | 'openrouter'>('nvidia');
+  const [chatModel, setChatModel] = useState('meta/muse-glimmer-30b');
   const [embedProvider, setEmbedProvider] = useState<'openai' | 'nvidia' | 'gemini'>('nvidia');
-  const [embedModel, setEmbedModel] = useState('nvidia/llama-3.2-nv-embedqa-1b-v1');
+  const [embedModel, setEmbedModel] = useState('nvidia/llama-nemotron-embed-vl-1b-v2');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // BYOK Keys
@@ -543,10 +543,10 @@ PRIMARY INSTRUCTIONS:
         whatsapp,
         email,
         customLinks,
-        chatProvider: activeProvider,
-        chatModel: chatModel.trim() || 'gpt-4o-mini',
-        embedProvider,
-        embedModel: embedModel.trim() || 'text-embedding-3-small',
+        chatProvider: activeProvider || 'nvidia',
+        chatModel: chatModel.trim() || 'meta/muse-glimmer-30b',
+        embedProvider: embedProvider || 'nvidia',
+        embedModel: embedModel.trim() || 'nvidia/llama-nemotron-embed-vl-1b-v2',
       };
 
       if (geminiKey || openrouterKey || openaiKey || nvidiaKey) {

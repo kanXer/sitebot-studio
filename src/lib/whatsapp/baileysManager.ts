@@ -11,6 +11,7 @@ import makeWASocket, {
   Browsers,
   WASocket,
   fetchLatestBaileysVersion,
+  isJidBroadcast,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCode from 'qrcode';
@@ -104,6 +105,34 @@ export function extractTicketId(text: string): string | null {
   return match ? match[0].toUpperCase() : null;
 }
 
+let cachedWaVersion: [number, number, number] | null = null;
+let versionFetchPromise: Promise<[number, number, number] | undefined> | null = null;
+
+async function getCachedBaileysVersion(): Promise<[number, number, number] | undefined> {
+  if (cachedWaVersion) return cachedWaVersion;
+  if (versionFetchPromise) return versionFetchPromise;
+
+  versionFetchPromise = (async () => {
+    try {
+      const race = await Promise.race([
+        fetchLatestBaileysVersion(),
+        new Promise<null>((r) => setTimeout(() => r(null), 1500)),
+      ]);
+      if (race?.version) {
+        cachedWaVersion = race.version;
+        return race.version;
+      }
+    } catch (err) {
+      console.warn('[Baileys] Version check warning:', err);
+    }
+    return undefined;
+  })();
+
+  const result = await versionFetchPromise;
+  versionFetchPromise = null;
+  return result;
+}
+
 /**
  * Get current live WhatsApp status and storage engine info
  */
@@ -130,6 +159,20 @@ export async function getWhatsAppStatus(
 
   if (container.qrCode && meta.status !== 'connected') {
     meta.qrCode = container.qrCode;
+  }
+
+  // AUTO-CONNECT: If session was previously connected or has a phone number,
+  // but in-memory socket is disconnected, automatically reconnect in background!
+  if (
+    (meta.status === 'connected' || meta.phoneNumber) &&
+    container.status === 'disconnected' &&
+    !container.isInitializing &&
+    !container.requiresReauth
+  ) {
+    console.log(`[Baileys] Auto-restoring WhatsApp connection for +${meta.phoneNumber || 'Admin'}...`);
+    initializeWhatsApp({ sessionId, forceNew: false }).catch((err) => {
+      console.warn('[Baileys] Auto-restore background error:', err?.message || err);
+    });
   }
 
   return meta;
@@ -350,18 +393,21 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
 }
 
 /**
- * Keeps the socket warm with presence updates
+ * Keeps the socket warm with presence updates and active ping frames
  */
 function startKeepAlive(sock: WASocket) {
   stopKeepAlive();
   container.keepAliveTimer = setInterval(() => {
-    if (container.socket !== sock) return;
+    if (container.socket !== sock || container.status !== 'connected') return;
     try {
       sock.sendPresenceUpdate('available').catch(() => {});
+      if ((sock as any)?.ws && typeof (sock as any).ws.ping === 'function') {
+        (sock as any).ws.ping();
+      }
     } catch {
       // Socket closing
     }
-  }, 25_000);
+  }, 15_000);
 
   if (typeof container.keepAliveTimer.unref === 'function') {
     container.keepAliveTimer.unref();
@@ -377,19 +423,23 @@ function stopKeepAlive() {
 
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-function scheduleReconnect(sessionId: string) {
+function scheduleReconnect(sessionId: string, immediate = false) {
   if (reconnectTimer) return;
 
   container.reconnectAttempts += 1;
   const attempt = container.reconnectAttempts;
-  const delay = Math.min(3000 * Math.pow(2, attempt - 1), 60_000);
+  // If immediate (e.g. restartRequired 515), reconnect in 500ms
+  // Otherwise fast backoff capped at 8s
+  const delay = immediate ? 500 : Math.min(500 * Math.pow(1.5, Math.min(attempt - 1, 6)), 8000);
+
+  console.log(`[Baileys] Scheduling reconnect #${attempt} in ${delay}ms...`);
 
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    initializeWhatsApp({ sessionId }).catch((err) => {
-      console.warn(`[Baileys] Reconnect attempt ${attempt} failed:`, err);
+    initializeWhatsApp({ sessionId, forceNew: false }).catch((err) => {
+      console.warn(`[Baileys] Reconnect attempt ${attempt} failed:`, err?.message || err);
       container.status = 'disconnected';
-      scheduleReconnect(sessionId);
+      scheduleReconnect(sessionId, false);
     });
   }, delay);
 
@@ -469,13 +519,7 @@ async function runInitializeWhatsApp(options?: {
     const { state, saveCreds } = await getMongoAuthState(sessionId);
     const logger = pino({ level: 'silent' });
 
-    let waVersion: [number, number, number] | undefined;
-    try {
-      const v = await fetchLatestBaileysVersion();
-      if (v?.version) waVersion = v.version;
-    } catch (verErr) {
-      console.warn('[Baileys] Version check warning:', verErr);
-    }
+    const waVersion = await getCachedBaileysVersion();
 
     const sock = makeWASocket({
       version: waVersion,
@@ -483,8 +527,16 @@ async function runInitializeWhatsApp(options?: {
       logger,
       printQRInTerminal: false,
       browser: Browsers.ubuntu('Chrome'),
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000,
+      connectTimeoutMs: 30000,
+      defaultQueryTimeoutMs: 30000,
+      keepAliveIntervalMs: 10000,
+      markOnlineOnConnect: true,
+      syncFullHistory: false,
+      generateHighQualityLinkPreview: false,
+      emitOwnEvents: false,
+      shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
+      retryRequestDelayMs: 250,
+      maxMsgRetryCount: 3,
     });
 
     container.socket = sock;
@@ -567,12 +619,11 @@ async function runInitializeWhatsApp(options?: {
             status: 'disconnected',
             qrCode: '',
           });
-
-          scheduleReconnect(sessionId);
         } else {
+          const isImmediate = statusCode === DisconnectReason.restartRequired || statusCode === 515;
           container.status = 'connecting';
           container.isInitializing = false;
-          scheduleReconnect(sessionId);
+          scheduleReconnect(sessionId, isImmediate);
         }
       }
     });
@@ -594,7 +645,7 @@ async function runInitializeWhatsApp(options?: {
       }
     });
 
-    // Await first QR code or connection event (max 8 seconds)
+    // Await first QR code or connection event (max 5 seconds)
     const isLive = (): boolean =>
       Boolean(container.qrCode) || container.status === 'connected';
 
@@ -613,12 +664,12 @@ async function runInitializeWhatsApp(options?: {
             clearInterval(checkInterval);
             finish();
           }
-        }, 150);
+        }, 100);
 
         setTimeout(() => {
           clearInterval(checkInterval);
           finish();
-        }, 8000);
+        }, 5000);
       });
     }
 
@@ -704,7 +755,7 @@ export function startPairingStream(options?: {
 
       try {
         const meta = await getSessionMeta(sessionId);
-        const shouldForceFresh = forceNew || meta.status !== 'connected';
+        const shouldForceFresh = Boolean(forceNew);
 
         if (shouldForceFresh) {
           if (container.socket) {
@@ -740,15 +791,7 @@ export function startPairingStream(options?: {
 
         const { state, saveCreds } = await getMongoAuthState(sessionId);
         const logger = pino({ level: 'silent' });
-
-        let waVersion: [number, number, number] | undefined;
-        try {
-          const versionRace = await Promise.race([
-            fetchLatestBaileysVersion(),
-            new Promise<null>((r) => setTimeout(() => r(null), 2000)),
-          ]);
-          if (versionRace?.version) waVersion = versionRace.version;
-        } catch {}
+        const waVersion = await getCachedBaileysVersion();
 
         const createSocket = () => {
           if (isClosed) return;
@@ -759,8 +802,16 @@ export function startPairingStream(options?: {
             logger,
             printQRInTerminal: false,
             browser: Browsers.ubuntu('Chrome'),
-            connectTimeoutMs: 60000,
-            defaultQueryTimeoutMs: 60000,
+            connectTimeoutMs: 30000,
+            defaultQueryTimeoutMs: 30000,
+            keepAliveIntervalMs: 10000,
+            markOnlineOnConnect: true,
+            syncFullHistory: false,
+            generateHighQualityLinkPreview: false,
+            emitOwnEvents: false,
+            shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
+            retryRequestDelayMs: 250,
+            maxMsgRetryCount: 3,
           });
 
           container.socket = sock;
