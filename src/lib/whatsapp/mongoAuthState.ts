@@ -204,6 +204,22 @@ export async function getMongoAuthState(sessionId = 'admin_primary'): Promise<{
   saveCreds: () => Promise<void>;
   clearSession: () => Promise<void>;
 }> {
+  // Preload all session keys into warm in-memory cache in ONE single batch query
+  // This turns dozens of subsequent round-trips to remote MongoDB Atlas into instant 0ms memory lookups!
+  try {
+    await connectToDatabase();
+    if (!isUsingMemoryDb()) {
+      const allDocs = await WhatsAppAuth.find({ sessionId }).lean();
+      for (const doc of allDocs) {
+        if (doc && doc._id && doc.data) {
+          memoryAuthStore.set(doc._id, doc.data);
+        }
+      }
+    }
+  } catch (preloadErr) {
+    console.warn('[WhatsAppAuth] Auth keys batch preload warning:', preloadErr);
+  }
+
   let creds: AuthenticationCreds | null = await readKey<AuthenticationCreds>(sessionId, 'creds');
   if (!creds) {
     creds = initAuthCreds();

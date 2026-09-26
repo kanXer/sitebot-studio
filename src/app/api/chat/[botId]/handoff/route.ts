@@ -5,6 +5,8 @@ import { Chatbot, Conversation, ChatTicket } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
 import { appendConversationMessage, escalateToLiveAgent } from '@/lib/ai/handoff';
 
+export const maxDuration = 60;
+
 interface RouteParams {
   params: Promise<{ botId: string }>;
 }
@@ -370,24 +372,56 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // unlike plain fire-and-forget which gets killed when the function terminates.
     after(async () => {
       try {
-        const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
-        const result = await sendTicketAlertToAdmin({
-          ticketId: ticketId || 'PENDING',
-          botName: (bot as any)?.name || 'Rivafy Assistant',
-          visitorName: visitorName || 'Visitor',
-          visitorEmail,
-          visitorPhone,
-          userMessage: message?.trim() || 'Visitor requested human support',
-          targetNumber,
-        });
-        if (result?.ok) {
-          console.log(
-            `[Handoff] WhatsApp alert delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'})`
-          );
-        } else {
-          console.warn(
-            `[Handoff] WhatsApp alert NOT delivered (bot=${resolvedBotId}, ticket=${ticketId}): ${result?.error || 'unknown'}`
-          );
+        const { isMetaCloudConfigured, sendMetaTicketAlert } = await import(
+          '@/lib/whatsapp/metaCloudManager'
+        );
+
+        const recipientNumber = targetNumber || process.env.NOTIFY_WHATSAPP;
+
+        let metaSent = false;
+        if (isMetaCloudConfigured() && recipientNumber) {
+          const metaResult = await sendMetaTicketAlert({
+            ticketId: ticketId || 'PENDING',
+            botName: (bot as any)?.name || 'Rivafy Assistant',
+            visitorName: visitorName || 'Visitor',
+            visitorEmail,
+            visitorPhone,
+            userMessage: message?.trim() || 'Visitor requested human support',
+            targetNumber: recipientNumber,
+          });
+
+          if (metaResult?.ok) {
+            metaSent = true;
+            console.log(
+              `[Handoff] Meta Cloud WhatsApp alert delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${recipientNumber})`
+            );
+          } else {
+            console.warn(
+              `[Handoff] Meta Cloud WhatsApp alert failed (bot=${resolvedBotId}, ticket=${ticketId}): ${metaResult?.error || 'unknown'}. Falling back to Baileys.`
+            );
+          }
+        }
+
+        if (!metaSent) {
+          const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
+          const result = await sendTicketAlertToAdmin({
+            ticketId: ticketId || 'PENDING',
+            botName: (bot as any)?.name || 'Rivafy Assistant',
+            visitorName: visitorName || 'Visitor',
+            visitorEmail,
+            visitorPhone,
+            userMessage: message?.trim() || 'Visitor requested human support',
+            targetNumber,
+          });
+          if (result?.ok) {
+            console.log(
+              `[Handoff] Baileys WhatsApp alert delivered (bot=${resolvedBotId}, ticket=${ticketId}, target=${targetNumber || 'admin fallback'})`
+            );
+          } else {
+            console.warn(
+              `[Handoff] WhatsApp alert NOT delivered (bot=${resolvedBotId}, ticket=${ticketId}): ${result?.error || 'unknown'}`
+            );
+          }
         }
       } catch (alertErr: any) {
         console.warn('[Handoff] WhatsApp alert dispatch failed (after):', alertErr?.message || alertErr);

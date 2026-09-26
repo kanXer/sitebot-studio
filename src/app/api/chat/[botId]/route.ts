@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
+
+export const maxDuration = 60;
 import { createHash } from 'crypto';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { Chatbot, BotForm, FormSubmission, ChatTicket } from '@/lib/models';

@@ -32,9 +32,14 @@ export async function GET(req: NextRequest) {
       // non-fatal
     }
 
+    const { isMetaCloudConfigured, getMetaPhoneNumberId } = await import(
+      '@/lib/whatsapp/metaCloudManager'
+    );
+    const metaCloudActive = isMetaCloudConfigured();
+
     return NextResponse.json({
       success: true,
-      status: meta.status || 'disconnected',
+      status: metaCloudActive ? 'connected' : (meta.status || 'disconnected'),
       qrCode: meta.qrCode || '',
       phoneNumber: meta.phoneNumber || '',
       pushName: meta.pushName || '',
@@ -42,6 +47,11 @@ export async function GET(req: NextRequest) {
       lastConnectedAt: meta.lastConnectedAt || null,
       dbMode: meta.dbMode || 'mongodb',
       openTickets,
+      metaCloud: {
+        configured: metaCloudActive,
+        phoneNumberId: getMetaPhoneNumberId() || null,
+        callbackUrl: '/api/whatsapp/webhook',
+      },
     });
   } catch (error: any) {
     console.error('Error in WhatsApp status route:', error);

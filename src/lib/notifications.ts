@@ -229,14 +229,36 @@ export async function sendTelegram(
 // ============================================================
 
 export function isWhatsAppConfigured(): boolean {
-  return Boolean(process.env.WHATSAPP_API_URL || process.env.NOTIFY_WHATSAPP);
+  return Boolean(
+    process.env.META_WHATSAPP_TOKEN ||
+    process.env.WHATSAPP_CLOUD_API_TOKEN ||
+    process.env.WHATSAPP_API_URL ||
+    process.env.NOTIFY_WHATSAPP
+  );
 }
 
 export async function sendWhatsApp(
   message: string,
   toNumber?: string
 ): Promise<{ ok: boolean; error?: string }> {
-  // 1. Try Baileys connected client first
+  // 1. Try Meta WhatsApp Cloud API first if configured (100% serverless, zero socket overhead)
+  if (toNumber) {
+    try {
+      const { isMetaCloudConfigured, sendMetaTextMessage } = await import(
+        '@/lib/whatsapp/metaCloudManager'
+      );
+      if (isMetaCloudConfigured()) {
+        const metaRes = await sendMetaTextMessage(toNumber, message);
+        if (metaRes.ok) {
+          return { ok: true };
+        }
+      }
+    } catch {
+      // Fall through to Baileys or HTTP gateway
+    }
+  }
+
+  // 2. Try Baileys connected client
   if (toNumber) {
     try {
       const { sendWhatsAppMessage } = await import('@/lib/whatsapp/baileysManager');

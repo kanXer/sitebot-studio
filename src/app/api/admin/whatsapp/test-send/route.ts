@@ -34,7 +34,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await sendWhatsAppMessage(phone, message);
+    const { isMetaCloudConfigured, sendMetaTextMessage } = await import(
+      '@/lib/whatsapp/metaCloudManager'
+    );
+
+    let result: { ok: boolean; error?: string; messageId?: string } = { ok: false };
+
+    if (isMetaCloudConfigured()) {
+      result = await sendMetaTextMessage(phone, message);
+    }
+
+    if (!result.ok) {
+      result = await sendWhatsAppMessage(phone, message);
+    }
+
     if (!result.ok) {
       return NextResponse.json(
         { error: result.error || 'Failed to dispatch WhatsApp message' },
@@ -44,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Message dispatched successfully to ${phone}`,
+      message: `Message dispatched successfully to ${phone}${result.messageId ? ` (Meta ID: ${result.messageId})` : ''}`,
     });
   } catch (error: any) {
     console.error('Error sending test WhatsApp message:', error);
