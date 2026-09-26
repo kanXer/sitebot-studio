@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { Chatbot } from '@/lib/models';
 import { MemoryDb } from '@/lib/memoryDb';
@@ -230,37 +231,60 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, defaults, bots: [] });
     }
 
+    // Ownership is absolute, including for admins.
+    //
+    // This list used to branch on isAdminEmail: an admin saw every bot on the
+    // platform and could also pull arbitrary bots by passing ?ids=. Admin in the
+    // Chatbots section is a separate console from the bot owner, so being an
+    // admin must not widen what you see. Every caller now gets exactly the bots
+    // they created.
+    const ownerEmail = userEmail.toLowerCase().trim();
+    const orConditions: any[] = [];
+    if (ownerEmail) orConditions.push({ ownerEmail });
+    if (userId) orConditions.push({ ownerId: userId });
+    const ownerQuery = orConditions.length > 0 ? { $or: orConditions } : { _id: null };
+
     let botList: any[] = [];
-    const isUserAdmin = await isAdminEmail(userEmail);
 
     if (isUsingMemoryDb()) {
-      const idArray =
-        isUserAdmin && ids
-          ? ids.split(',').map((id) => id.trim()).filter(Boolean)
-          : undefined;
-      let allBots = MemoryDb.findChatbots(idArray);
+      let allBots = MemoryDb.findChatbots();
 
-      // Non-admins only ever see their own bots.
-      if (!isUserAdmin) {
-        allBots = allBots.filter(
-          (b) =>
-            (b.ownerEmail && b.ownerEmail.toLowerCase() === userEmail) ||
-            (userId && b.ownerId === userId)
+      allBots = allBots.filter((b) => {
+        const bEmail = (b.ownerEmail || '').toLowerCase().trim();
+        const bId = (b.ownerId || '').trim();
+        if (bEmail && ownerEmail && bEmail === ownerEmail) return true;
+        if (bId && userId && bId === userId) return true;
+        return false;
+      });
+
+      // ?ids= now only narrows within the caller's own bots.
+      if (ids) {
+        const wanted = new Set(
+          ids
+            .split(',')
+            .map((id) => id.trim())
+            .filter(Boolean)
         );
+        if (wanted.size > 0) {
+          allBots = allBots.filter((b) => wanted.has(b._id) || (b.id && wanted.has(b.id)));
+        }
       }
+
       botList = allBots;
     } else {
-      let query: any = {};
-      if (isUserAdmin && ids) {
-        const idArray = ids.split(',').map((id) => id.trim()).filter(Boolean);
-        query._id = { $in: idArray };
-      }
+      const query: any = { ...ownerQuery };
 
-      // Non-admins only ever see their own bots.
-      if (!isUserAdmin) {
-        const orConditions: any[] = [{ ownerEmail: userEmail }];
-        if (userId) orConditions.push({ ownerId: userId });
-        query = { ...query, $or: orConditions };
+      if (ids) {
+        const idArray = ids.split(',').map((id) => id.trim()).filter(Boolean);
+        if (idArray.length > 0) {
+          const validIds = idArray.filter((id) => mongoose.Types.ObjectId.isValid(id));
+          const slugOrId = idArray.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+          const extra: any[] = [];
+          if (validIds.length > 0) extra.push({ _id: { $in: validIds } });
+          if (slugOrId.length > 0) extra.push({ slug: { $in: slugOrId } });
+          // Intersect with ownership, never bypass it.
+          query.$and = extra;
+        }
       }
 
       botList = await Chatbot.find(query)

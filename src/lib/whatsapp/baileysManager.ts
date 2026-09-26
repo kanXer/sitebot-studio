@@ -50,6 +50,10 @@ interface GlobalBaileysContainer {
   lastDisconnectCode: number | null;
   /** True once a 401/loggedOut close happened, so status can explain itself. */
   requiresReauth: boolean;
+  /** In-flight init, so concurrent callers join one socket instead of racing. */
+  initPromise: Promise<{ status: string; qrCode?: string; phoneNumber?: string }> | null;
+  /** When the current init began, used to detect a stale flag after a hot reload. */
+  initStartedAt: number;
 }
 
 declare global {
@@ -72,6 +76,8 @@ const container: GlobalBaileysContainer = global.__baileysContainer || {
   keepAliveTimer: null,
   lastDisconnectCode: null,
   requiresReauth: false,
+  initPromise: null,
+  initStartedAt: 0,
 };
 
 /**
@@ -84,6 +90,8 @@ function backfillContainerFields(c: GlobalBaileysContainer): void {
   if (c.keepAliveTimer === undefined) c.keepAliveTimer = null;
   if (c.lastDisconnectCode === undefined) c.lastDisconnectCode = null;
   if (typeof c.requiresReauth !== 'boolean') c.requiresReauth = false;
+  if (c.initPromise === undefined) c.initPromise = null;
+  if (typeof c.initStartedAt !== 'number') c.initStartedAt = 0;
 }
 
 backfillContainerFields(container);
@@ -462,25 +470,67 @@ function scheduleReconnect(sessionId: string) {
 /**
  * Initialize WhatsApp Baileys connection
  */
+/**
+ * Public entry point for (re)connecting WhatsApp.
+ *
+ * Single-flight by design. The previous guard was
+ * `if (container.isInitializing && container.qrCode) return ...`, which only
+ * short-circuited once a QR had actually been produced. During the first
+ * moments of an init `qrCode` is still empty, so a concurrent caller (the admin
+ * page polls /status every few seconds) fell straight through and built a
+ * SECOND socket over the same auth keys. Two live sockets for one session make
+ * WhatsApp treat the second as a duplicate device and drop it, which surfaced
+ * to the admin as "could not connect" moments after the QR was scanned.
+ *
+ * Now every caller joins the in-flight init instead of racing it.
+ */
 export async function initializeWhatsApp(options?: {
   sessionId?: string;
   forceNew?: boolean;
 }): Promise<{ status: string; qrCode?: string; phoneNumber?: string }> {
-  const sessionId = options?.sessionId || DEFAULT_SESSION_ID;
-
+  // Fast path: already live and the caller does not want a fresh QR.
   if (container.socket && container.status === 'connected' && !options?.forceNew) {
+    return { status: 'connected', phoneNumber: container.phoneNumber };
+  }
+
+  // A previous init is still running: join it rather than starting another.
+  if (container.isInitializing && !options?.forceNew) {
+    if (container.initPromise) {
+      try {
+        return await container.initPromise;
+      } catch {
+        // The in-flight init failed; fall through and report current state.
+      }
+    }
     return {
-      status: 'connected',
+      status: container.status,
+      qrCode: container.qrCode,
       phoneNumber: container.phoneNumber,
     };
   }
 
-  if (container.isInitializing && container.qrCode) {
-    return {
-      status: container.status,
-      qrCode: container.qrCode,
-    };
-  }
+  const promise = runInitializeWhatsApp(options);
+  container.initPromise = promise;
+
+  // Clear the shared handle as soon as this init settles so the next call can
+  // start a fresh one.
+  promise
+    .catch(() => {})
+    .finally(() => {
+      if (container.initPromise === promise) {
+        container.initPromise = null;
+        container.initStartedAt = 0;
+      }
+    });
+
+  return promise;
+}
+
+async function runInitializeWhatsApp(options?: {
+  sessionId?: string;
+  forceNew?: boolean;
+}): Promise<{ status: string; qrCode?: string; phoneNumber?: string }> {
+  const sessionId = options?.sessionId || DEFAULT_SESSION_ID;
 
   if (options?.forceNew && container.socket) {
     // Mark before ending: `end()` synchronously emits connection.update/close,
@@ -494,6 +544,7 @@ export async function initializeWhatsApp(options?: {
   }
 
   container.isInitializing = true;
+  container.initStartedAt = Date.now();
   container.status = 'connecting';
   await saveSessionMeta(sessionId, { status: 'connecting' });
 
