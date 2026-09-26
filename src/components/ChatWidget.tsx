@@ -552,6 +552,7 @@ export function ChatWidget({
     active: boolean;
     status: 'bot' | 'waiting_agent' | 'agent_active' | 'resolved';
     agentName?: string;
+    ticketId?: string;
   }>({ active: false, status: 'bot' });
 
   // Dynamic Lead Capture Card state
@@ -585,10 +586,44 @@ export function ChatWidget({
         setHandoffState({
           active: true,
           status: data.status || 'waiting_agent',
+          ticketId: data.ticketId,
         });
+        const confirmationText =
+          data.message ||
+          (data.ticketId
+            ? `✅ Ticket #${data.ticketId} created. You are now connected to the live agent queue! Our support team has been alerted on WhatsApp. Please type your message below—an agent will reply directly here.`
+            : '✅ You are now connected to the live agent queue! Our support team has been alerted on WhatsApp. Please type your message below.');
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'system',
+            content: confirmationText,
+          },
+        ]);
+      } else {
+        const errData = await res.json().catch(() => null);
+        const errText =
+          errData?.error ||
+          'Live agent support is currently offline. Please leave your contact info using the Contact button, and our team will get in touch!';
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'system',
+            content: errText,
+          },
+        ]);
+        setHandoffState({ active: false, status: 'bot' });
       }
     } catch (err) {
       console.error('Handoff error:', err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'system',
+          content: 'Unable to reach live support at the moment. Please try again or leave your contact details.',
+        },
+      ]);
+      setHandoffState({ active: false, status: 'bot' });
     }
   }, [apiHost, botId, getSessionId, user, userProfile]);
 
@@ -741,12 +776,14 @@ export function ChatWidget({
             return;
           }
 
-          if (data.status && data.status !== handoffState.status) {
-            setHandoffState({
+          if (data.status && (data.status !== handoffState.status || (data.ticketId && !handoffState.ticketId))) {
+            setHandoffState((prev) => ({
+              ...prev,
               active: isStillHandoff,
               status: data.status === 'admin_replied' ? 'agent_active' : data.status,
               agentName: data.assignedAgent?.name,
-            });
+              ticketId: data.ticketId || prev.ticketId,
+            }));
           }
           if (Array.isArray(data.messages)) {
             const agentOrSys = data.messages.filter(
@@ -1759,7 +1796,9 @@ export function ChatWidget({
                       <span>
                         {handoffState.status === 'agent_active'
                           ? `Connected with ${handoffState.agentName || 'Live Agent'}`
-                          : 'Waiting for live agent to connect...'}
+                          : handoffState.ticketId
+                          ? `In Queue (${handoffState.ticketId}) — Waiting for agent...`
+                          : 'Connecting to live representative...'}
                       </span>
                     </div>
                     <button

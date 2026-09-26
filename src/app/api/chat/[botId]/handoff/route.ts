@@ -409,8 +409,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         notifiedChannels: notified ? ['whatsapp'] : [],
         notifyError,
         message: notified
-          ? 'You are now connected to the live agent queue. Our team has been alerted on WhatsApp and a representative will be with you shortly.'
-          : 'You are in the live agent queue and a representative will be with you shortly. If we do not respond right away, please use the contact options on this site to reach us directly.',
+          ? `✅ You are now connected to the live agent queue (Ticket #${ticketId}). Our team has been alerted on WhatsApp and a representative will reply directly here. Feel free to type your question below!`
+          : `✅ You are in the live agent queue (Ticket #${ticketId}). A representative will be with you shortly. Please type your question below!`,
         conversationId: conv?._id,
       },
       { headers: CORS_HEADERS }

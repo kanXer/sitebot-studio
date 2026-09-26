@@ -22,6 +22,9 @@ if (!global.mongooseCache) {
 }
 
 export function isUsingMemoryDb(): boolean {
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    return false;
+  }
   if (cached.isMemoryMode) return true;
   const uri = process.env.MONGODB_URI;
   if (
@@ -40,6 +43,12 @@ export function isUsingMemoryDb(): boolean {
 export async function connectToDatabase(): Promise<typeof mongoose | null> {
   const uri = process.env.MONGODB_URI;
 
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    cached.conn = mongoose;
+    cached.isMemoryMode = false;
+    return mongoose;
+  }
+
   // If no URI or default placeholder is present, operate in memory fallback mode
   if (
     !uri ||
@@ -52,7 +61,7 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
     return null;
   }
 
-  if (cached.conn) {
+  if (cached.conn && mongoose.connection.readyState === 1) {
     cached.isMemoryMode = false;
     return cached.conn;
   }
@@ -61,7 +70,7 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
     const opts = {
       bufferCommands: false,
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
     };
 
     cached.promise = mongoose

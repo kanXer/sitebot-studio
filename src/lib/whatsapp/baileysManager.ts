@@ -536,6 +536,14 @@ async function runInitializeWhatsApp(options?: {
 
     const waVersion = await getCachedBaileysVersion();
 
+    if (container.socket) {
+      container.suppressNextClose = true;
+      try {
+        container.socket.end(new Error('Replacing with new socket'));
+      } catch {}
+      container.socket = null;
+    }
+
     const sock = makeWASocket({
       version: waVersion,
       auth: state,
@@ -558,6 +566,11 @@ async function runInitializeWhatsApp(options?: {
 
     // Handle Connection State Updates
     sock.ev.on('connection.update', async (update) => {
+      // Guard against zombie callbacks from superseded sockets
+      if (container.socket !== sock) {
+        return;
+      }
+
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
@@ -605,6 +618,7 @@ async function runInitializeWhatsApp(options?: {
         container.requiresReauth = false;
         container.lastDisconnectCode = null;
         startKeepAlive(sock);
+        dispatchPendingTicketAlerts(sock).catch(() => {});
 
         console.log(`[Baileys] WhatsApp connected successfully as: ${phone} (${pushName})`);
       }
@@ -612,6 +626,7 @@ async function runInitializeWhatsApp(options?: {
       if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
         const loggedOut = statusCode === DisconnectReason.loggedOut;
+        const isReplaced = statusCode === 440 || statusCode === DisconnectReason.connectionReplaced;
 
         stopKeepAlive();
         container.lastDisconnectCode = statusCode ?? null;
@@ -620,6 +635,14 @@ async function runInitializeWhatsApp(options?: {
 
         if (container.suppressNextClose) {
           container.suppressNextClose = false;
+          return;
+        }
+
+        if (isReplaced) {
+          console.warn('[Baileys] Socket connection replaced by active session. Yielding.');
+          container.status = 'disconnected';
+          container.socket = null;
+          container.isInitializing = false;
           return;
         }
 
@@ -1083,7 +1106,7 @@ export async function sendTicketAlertToAdmin(params: {
   targetNumber?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 35000);
+    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 25000);
 
     const {
       ticketId,
@@ -1163,6 +1186,64 @@ export async function sendTicketAlertToAdmin(params: {
 }
 
 /**
+ * Background Dispatcher for Pending ChatTickets.
+ * Checks for any support tickets waiting for an admin where the WhatsApp alert hasn't been sent.
+ * Delivers the alert immediately and marks alertMessageId.
+ */
+export async function dispatchPendingTicketAlerts(sock?: WASocket): Promise<void> {
+  try {
+    const activeSock = sock || (container.status === 'connected' ? container.socket : null);
+    if (!activeSock) return;
+
+    await connectToDatabase();
+    if (isUsingMemoryDb()) return;
+
+    const pendingTickets = await ChatTicket.find({
+      status: 'waiting_admin',
+      $or: [
+        { alertMessageId: { $exists: false } },
+        { alertMessageId: '' },
+        { alertMessageId: null },
+      ],
+    }).sort({ createdAt: -1 }).limit(5);
+
+    for (const ticket of pendingTickets) {
+      try {
+        let targetNumber: string | undefined;
+        if (ticket.botId) {
+          const { Chatbot } = await import('@/lib/models/Chatbot');
+          const bot = await Chatbot.findById(ticket.botId).lean();
+          targetNumber =
+            (bot as any)?.handoff?.whatsappEnabled && (bot as any)?.handoff?.whatsappNumber
+              ? (bot as any).handoff.whatsappNumber
+              : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
+              ? (bot as any).notifications.whatsapp.number
+              : (bot as any)?.whatsapp || undefined;
+        }
+
+        const res = await sendTicketAlertToAdmin({
+          ticketId: ticket.ticketId,
+          botName: ticket.botName || 'Rivafy Assistant',
+          visitorName: ticket.visitor?.name || 'Visitor',
+          visitorEmail: ticket.visitor?.email,
+          visitorPhone: ticket.visitor?.phone,
+          userMessage: ticket.lastUserMessage || 'Visitor requested human support',
+          targetNumber,
+        });
+
+        if (res.ok) {
+          console.log(`[Baileys Outbound] Dispatched pending alert for Ticket #${ticket.ticketId}`);
+        }
+      } catch (err) {
+        console.warn(`[Baileys Outbound] Failed to dispatch alert for #${ticket.ticketId}:`, err);
+      }
+    }
+  } catch (e) {
+    console.warn('[Baileys Outbound] Error in dispatchPendingTicketAlerts:', e);
+  }
+}
+
+/**
  * Global Permanent 60-Second Background Heartbeat:
  * Runs automatically every 60 seconds (1 minute).
  * Checks if WhatsApp session credentials exist in MongoDB.
@@ -1191,6 +1272,7 @@ export function startGlobalWhatsAppHeartbeat(): void {
           // Socket connected, ping presence to keep socket alive
           try {
             await container.socket?.sendPresenceUpdate('available');
+            dispatchPendingTicketAlerts(container.socket).catch(() => {});
           } catch {}
         }
       }
