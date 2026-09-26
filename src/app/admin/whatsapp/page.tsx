@@ -38,6 +38,7 @@ interface WhatsAppStatus {
   jid?: string;
   lastConnectedAt?: string;
   openTickets?: number;
+  dbMode?: 'mongodb' | 'memory';
 }
 
 interface TicketMessage {
@@ -136,34 +137,128 @@ export default function WhatsAppAdminPage() {
     }
   }, [user, activeTicket]);
 
-  // Connect WhatsApp / Request QR
+  const activeStreamReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
+
+  // Connect WhatsApp / Request QR via Live SSE Stream (Vercel & Cloud Compatible)
   const handleConnect = async (forceNew = false) => {
     if (!user?.email) return;
+    if (activeStreamReaderRef.current) {
+      try {
+        await activeStreamReaderRef.current.cancel();
+      } catch {}
+      activeStreamReaderRef.current = null;
+    }
+
     setConnecting(true);
     setErrorMsg(null);
     setActionSuccess(null);
+
     try {
-      const res = await fetch('/api/admin/whatsapp/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-email': user.email,
-        },
-        body: JSON.stringify({ forceNew }),
+      const streamUrl = `/api/admin/whatsapp/pair?forceNew=${forceNew}&email=${encodeURIComponent(user.email)}`;
+      const res = await fetch(streamUrl, {
+        headers: { 'x-user-email': user.email },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to start WhatsApp connection');
-      setStatusData((prev) => ({
-        ...prev,
-        status: data.status,
-        qrCode: data.qrCode || prev.qrCode,
-        phoneNumber: data.phoneNumber || prev.phoneNumber,
-      }));
-      setActionSuccess('Connecting to WhatsApp Web... Scan the QR code below.');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to connect');
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to start live pairing stream');
+      }
+
+      if (!res.body) {
+        throw new Error('ReadableStream not supported on this browser');
+      }
+
+      const reader = res.body.getReader();
+      activeStreamReaderRef.current = reader;
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() || '';
+
+        for (const block of blocks) {
+          const trimmed = block.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
+
+          let eventType = 'message';
+          let dataStr = '';
+
+          for (const line of trimmed.split('\n')) {
+            if (line.startsWith('event:')) {
+              eventType = line.replace('event:', '').trim();
+            } else if (line.startsWith('data:')) {
+              dataStr = line.replace('data:', '').trim();
+            }
+          }
+
+          if (!dataStr) continue;
+
+          try {
+            const parsed = JSON.parse(dataStr);
+
+            if (eventType === 'qr') {
+              setStatusData((prev) => ({
+                ...prev,
+                status: 'connecting',
+                qrCode: parsed.qrCode,
+              }));
+              setConnecting(false);
+              setActionSuccess('Live stream connected! Scan the QR code below on WhatsApp.');
+            } else if (eventType === 'connected') {
+              setStatusData((prev) => ({
+                ...prev,
+                status: 'connected',
+                qrCode: '',
+                phoneNumber: parsed.phoneNumber,
+                pushName: parsed.pushName,
+                jid: parsed.jid,
+              }));
+              setConnecting(false);
+              setActionSuccess(`WhatsApp connected successfully! Logged in as +${parsed.phoneNumber}`);
+              fetchStatus();
+            } else if (eventType === 'timeout') {
+              setErrorMsg(parsed.message || 'QR session timed out. Click Generate New QR to retry.');
+              setConnecting(false);
+            } else if (eventType === 'error') {
+              setErrorMsg(parsed.message || 'WhatsApp pairing error occurred');
+              setConnecting(false);
+            }
+          } catch {
+            // non-fatal
+          }
+        }
+      }
+    } catch (streamErr: any) {
+      console.warn('[WhatsApp] Streaming failed, falling back to standard POST:', streamErr);
+      try {
+        const res = await fetch('/api/admin/whatsapp/connect', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user.email,
+          },
+          body: JSON.stringify({ forceNew }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to start WhatsApp connection');
+        setStatusData((prev) => ({
+          ...prev,
+          status: data.status,
+          qrCode: data.qrCode || prev.qrCode,
+          phoneNumber: data.phoneNumber || prev.phoneNumber,
+        }));
+        setActionSuccess('Connecting to WhatsApp Web... Scan the QR code below.');
+      } catch (err: any) {
+        setErrorMsg(err.message || streamErr.message || 'Failed to connect');
+      }
     } finally {
       setConnecting(false);
+      activeStreamReaderRef.current = null;
     }
   };
 
@@ -389,6 +484,17 @@ export default function WhatsAppAdminPage() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-7 overflow-x-hidden">
         {/* Alerts */}
+        {statusData.dbMode === 'memory' && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+            <div className="space-y-1">
+              <div className="font-bold text-amber-200">Database Running in In-Memory Fallback Mode</div>
+              <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                MongoDB Atlas could not be reached, so credentials are currently held in memory. On Vercel, in-memory state is erased when serverless functions terminate. To keep WhatsApp connected permanently across Vercel deployments, add <code className="px-1.5 py-0.5 bg-amber-950/60 rounded text-amber-200 font-mono font-bold">0.0.0.0/0</code> in <strong>MongoDB Atlas &gt; Network Access &gt; IP Access List</strong>.
+              </p>
+            </div>
+          </div>
+        )}
         {errorMsg && (
           <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-3">
             <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
@@ -451,7 +557,13 @@ export default function WhatsAppAdminPage() {
 
             <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
               <span>Session Storage:</span>
-              <span className="font-mono text-emerald-400 font-semibold">MongoDB Persistent</span>
+              <span
+                className={`font-mono font-semibold ${
+                  statusData.dbMode === 'memory' ? 'text-amber-400' : 'text-emerald-400'
+                }`}
+              >
+                {statusData.dbMode === 'memory' ? 'In-Memory (Ephemeral)' : 'MongoDB Atlas (Persistent)'}
+              </span>
             </div>
           </div>
 

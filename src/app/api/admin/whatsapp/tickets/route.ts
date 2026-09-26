@@ -7,6 +7,9 @@ import { ChatTicket } from '@/lib/models/ChatTicket';
 import { Conversation } from '@/lib/models/Conversation';
 import { appendConversationMessage } from '@/lib/ai/handoff';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   try {
     const userEmail = req.headers.get('x-user-email');

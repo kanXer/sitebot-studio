@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAdminEmail } from '@/lib/auth/adminAuth';
 import { initializeWhatsApp } from '@/lib/whatsapp/baileysManager';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const userEmail = req.headers.get('x-user-email');

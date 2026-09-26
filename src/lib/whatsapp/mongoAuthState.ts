@@ -24,10 +24,26 @@ export interface WhatsAppSessionMeta {
   jid?: string;
   lastConnectedAt?: Date | string;
   updatedAt?: Date | string;
+  dbMode?: 'mongodb' | 'memory';
 }
 
 // In-memory fallback map when running without MongoDB connection
 const memoryAuthStore = new Map<string, string>();
+
+/**
+ * Check if the active storage is real MongoDB or in-memory fallback
+ */
+export async function getAuthStorageMode(): Promise<'mongodb' | 'memory'> {
+  try {
+    const conn = await connectToDatabase();
+    if (conn && !isUsingMemoryDb()) {
+      return 'mongodb';
+    }
+  } catch {
+    // fallback
+  }
+  return 'memory';
+}
 
 /**
  * Clean key ID string for storage
@@ -54,6 +70,7 @@ async function writeKey(
         { _id: compositeId },
         {
           $set: {
+            _id: compositeId,
             sessionId,
             keyId: sanitizeKey(keyId),
             data: serialized,
@@ -62,6 +79,8 @@ async function writeKey(
         },
         { upsert: true, new: true }
       );
+      // Also cache in memory for fast lookup in warm container
+      memoryAuthStore.set(compositeId, serialized);
       return;
     }
   } catch (err) {
@@ -80,11 +99,20 @@ async function readKey<T = unknown>(
 ): Promise<T | null> {
   const compositeId = `${sessionId}:${sanitizeKey(keyId)}`;
 
+  // Check warm in-memory cache first
+  const cached = memoryAuthStore.get(compositeId);
+  if (cached) {
+    try {
+      return JSON.parse(cached, BufferJSON.reviver) as T;
+    } catch {}
+  }
+
   try {
     await connectToDatabase();
     if (!isUsingMemoryDb()) {
       const record = await WhatsAppAuth.findOne({ _id: compositeId }).lean();
       if (record && record.data) {
+        memoryAuthStore.set(compositeId, record.data);
         return JSON.parse(record.data, BufferJSON.reviver) as T;
       }
       return null;
@@ -93,9 +121,7 @@ async function readKey<T = unknown>(
     console.warn('[WhatsAppAuth] MongoDB read failed, falling back to memory store:', err);
   }
 
-  const raw = memoryAuthStore.get(compositeId);
-  if (!raw) return null;
-  return JSON.parse(raw, BufferJSON.reviver) as T;
+  return null;
 }
 
 /**
@@ -108,7 +134,6 @@ async function removeKey(sessionId: string, keyId: string): Promise<void> {
     await connectToDatabase();
     if (!isUsingMemoryDb()) {
       await WhatsAppAuth.deleteOne({ _id: compositeId });
-      return;
     }
   } catch (err) {
     console.warn('[WhatsAppAuth] MongoDB remove failed:', err);
@@ -163,11 +188,12 @@ export async function getSessionMeta(
   sessionId: string
 ): Promise<WhatsAppSessionMeta> {
   const meta = await readKey<WhatsAppSessionMeta>(sessionId, 'meta');
-  return (
-    meta || {
-      status: 'disconnected',
-    }
-  );
+  const dbMode = await getAuthStorageMode();
+  return {
+    status: 'disconnected',
+    ...(meta || {}),
+    dbMode,
+  };
 }
 
 /**
@@ -178,8 +204,12 @@ export async function getMongoAuthState(sessionId = 'admin_primary'): Promise<{
   saveCreds: () => Promise<void>;
   clearSession: () => Promise<void>;
 }> {
-  const creds: AuthenticationCreds =
-    (await readKey<AuthenticationCreds>(sessionId, 'creds')) || initAuthCreds();
+  let creds: AuthenticationCreds | null = await readKey<AuthenticationCreds>(sessionId, 'creds');
+  if (!creds) {
+    creds = initAuthCreds();
+    // Persist initial creds immediately so subsequent calls use the same keypair
+    await writeKey(sessionId, 'creds', creds);
+  }
 
   return {
     state: {
@@ -190,38 +220,113 @@ export async function getMongoAuthState(sessionId = 'admin_primary'): Promise<{
           ids: string[]
         ): Promise<{ [key: string]: SignalDataTypeMap[T] }> => {
           const data: { [key: string]: SignalDataTypeMap[T] } = {};
-          await Promise.all(
-            ids.map(async (id) => {
-              let value = await readKey<SignalDataTypeMap[T]>(
-                sessionId,
-                `${type}-${id}`
-              );
-              if (type === 'app-state-sync-key' && value) {
-                value = proto.Message.AppStateSyncKeyData.fromObject(
-                  value as object
-                ) as unknown as SignalDataTypeMap[T];
+          if (!ids || ids.length === 0) return data;
+
+          const keyMap = new Map<string, string>(); // compositeId -> id
+          const compositeIds: string[] = [];
+
+          for (const id of ids) {
+            const rawKey = `${type}-${id}`;
+            const compositeId = `${sessionId}:${sanitizeKey(rawKey)}`;
+            keyMap.set(compositeId, id);
+            compositeIds.push(compositeId);
+
+            // Fast path: check in-memory cache
+            const cached = memoryAuthStore.get(compositeId);
+            if (cached) {
+              try {
+                let parsed = JSON.parse(cached, BufferJSON.reviver);
+                if (type === 'app-state-sync-key' && parsed) {
+                  parsed = proto.Message.AppStateSyncKeyData.fromObject(parsed as object);
+                }
+                data[id] = parsed as SignalDataTypeMap[T];
+              } catch {}
+            }
+          }
+
+          // Fetch missing keys from MongoDB in a single batch query
+          const missingCompositeIds = compositeIds.filter((cid) => {
+            const id = keyMap.get(cid);
+            return id && !data[id];
+          });
+
+          if (missingCompositeIds.length > 0) {
+            try {
+              await connectToDatabase();
+              if (!isUsingMemoryDb()) {
+                const records = await WhatsAppAuth.find({
+                  _id: { $in: missingCompositeIds },
+                }).lean();
+
+                for (const record of records) {
+                  const id = keyMap.get(record._id);
+                  if (id && record.data) {
+                    try {
+                      memoryAuthStore.set(record._id, record.data);
+                      let parsed = JSON.parse(record.data, BufferJSON.reviver);
+                      if (type === 'app-state-sync-key' && parsed) {
+                        parsed = proto.Message.AppStateSyncKeyData.fromObject(parsed as object);
+                      }
+                      data[id] = parsed as SignalDataTypeMap[T];
+                    } catch {}
+                  }
+                }
               }
-              if (value) {
-                data[id] = value;
-              }
-            })
-          );
+            } catch (err) {
+              console.warn('[WhatsAppAuth] Batch read failed:', err);
+            }
+          }
+
           return data;
         },
         set: async (data: Record<string, Record<string, unknown>>) => {
-          const tasks: Promise<void>[] = [];
+          const bulkOps: any[] = [];
+
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id];
               const fileKey = `${category}-${id}`;
+              const compositeId = `${sessionId}:${sanitizeKey(fileKey)}`;
+
               if (value) {
-                tasks.push(writeKey(sessionId, fileKey, value));
+                const serialized = JSON.stringify(value, BufferJSON.replacer);
+                memoryAuthStore.set(compositeId, serialized);
+                bulkOps.push({
+                  updateOne: {
+                    filter: { _id: compositeId },
+                    update: {
+                      $set: {
+                        _id: compositeId,
+                        sessionId,
+                        keyId: sanitizeKey(fileKey),
+                        data: serialized,
+                        updatedAt: new Date(),
+                      },
+                    },
+                    upsert: true,
+                  },
+                });
               } else {
-                tasks.push(removeKey(sessionId, fileKey));
+                memoryAuthStore.delete(compositeId);
+                bulkOps.push({
+                  deleteOne: {
+                    filter: { _id: compositeId },
+                  },
+                });
               }
             }
           }
-          await Promise.all(tasks);
+
+          if (bulkOps.length > 0) {
+            try {
+              await connectToDatabase();
+              if (!isUsingMemoryDb()) {
+                await WhatsAppAuth.bulkWrite(bulkOps, { ordered: false });
+              }
+            } catch (err) {
+              console.warn('[WhatsAppAuth] Bulk write failed:', err);
+            }
+          }
         },
       },
     },

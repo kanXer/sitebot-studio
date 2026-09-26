@@ -84,6 +84,7 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
   try {
     cached.conn = await cached.promise;
     if (!cached.conn) {
+      cached.promise = null;
       cached.isMemoryMode = true;
     }
   } catch {

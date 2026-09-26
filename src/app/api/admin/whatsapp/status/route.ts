@@ -4,6 +4,9 @@ import { getWhatsAppStatus } from '@/lib/whatsapp/baileysManager';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { ChatTicket } from '@/lib/models/ChatTicket';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   try {
     const userEmail = req.headers.get('x-user-email');
@@ -37,6 +40,7 @@ export async function GET(req: NextRequest) {
       pushName: meta.pushName || '',
       jid: meta.jid || '',
       lastConnectedAt: meta.lastConnectedAt || null,
+      dbMode: meta.dbMode || 'mongodb',
       openTickets,
     });
   } catch (error: any) {

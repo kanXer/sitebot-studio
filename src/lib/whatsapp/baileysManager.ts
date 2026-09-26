@@ -20,6 +20,7 @@ import {
   getSessionMeta,
   clearWhatsAppSession,
   WhatsAppSessionMeta,
+  getAuthStorageMode,
 } from './mongoAuthState';
 import mongoose from 'mongoose';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
@@ -36,23 +37,12 @@ interface GlobalBaileysContainer {
   jid: string;
   isInitializing: boolean;
   sessionId: string;
-  /**
-   * True only between "we deliberately end this socket" and the resulting
-   * connection.update close event. Without this guard, ending a socket
-   * re-enters this handler, which ended it again -> an endless reconnect loop.
-   */
   suppressNextClose: boolean;
-  /** Consecutive failed reconnect attempts, used for backoff. */
   reconnectAttempts: number;
-  /** Interval that keeps the socket alive so WhatsApp does not drop it. */
   keepAliveTimer: ReturnType<typeof setInterval> | null;
-  /** Last disconnect code, surfaced for diagnostics. */
   lastDisconnectCode: number | null;
-  /** True once a 401/loggedOut close happened, so status can explain itself. */
   requiresReauth: boolean;
-  /** In-flight init, so concurrent callers join one socket instead of racing. */
   initPromise: Promise<{ status: string; qrCode?: string; phoneNumber?: string }> | null;
-  /** When the current init began, used to detect a stale flag after a hot reload. */
   initStartedAt: number;
 }
 
@@ -80,10 +70,6 @@ const container: GlobalBaileysContainer = global.__baileysContainer || {
   initStartedAt: 0,
 };
 
-/**
- * Older hot-reloaded containers predate the reconnect fields. Backfill them on a
- * function parameter so TypeScript does not narrow the module-level binding.
- */
 function backfillContainerFields(c: GlobalBaileysContainer): void {
   if (typeof c.suppressNextClose !== 'boolean') c.suppressNextClose = false;
   if (typeof c.reconnectAttempts !== 'number') c.reconnectAttempts = 0;
@@ -111,10 +97,6 @@ export function formatPhoneToJid(phone: string): string {
 
 /**
  * Extract ticket ID from incoming text or quoted text
- * Patterns matched:
- * - #TICK-ABCD
- * - TICK-ABCD
- * - Ticket: #TICK-ABCD
  */
 export function extractTicketId(text: string): string | null {
   if (!text) return null;
@@ -123,39 +105,31 @@ export function extractTicketId(text: string): string | null {
 }
 
 /**
- * Get current live WhatsApp status
+ * Get current live WhatsApp status and storage engine info
  */
 export async function getWhatsAppStatus(
   sessionId = DEFAULT_SESSION_ID
 ): Promise<WhatsAppSessionMeta> {
-  // If memory container is connected, return memory state
+  const dbMode = await getAuthStorageMode();
+
+  // If memory container has active socket, return memory state
   if (container.socket && container.status === 'connected') {
     return {
-      status: container.status,
-      qrCode: container.qrCode,
+      status: 'connected',
+      qrCode: '',
       phoneNumber: container.phoneNumber,
       pushName: container.pushName,
       jid: container.jid,
+      dbMode,
     };
   }
 
   // Otherwise check persisted state in MongoDB
   const meta = await getSessionMeta(sessionId);
+  meta.dbMode = dbMode;
+
   if (container.qrCode && meta.status !== 'connected') {
     meta.qrCode = container.qrCode;
-  }
-
-  // Auto-resume: a saved session that is merely disconnected (server restart,
-  // dropped network) should reattach on its own instead of showing the admin a
-  // dead "disconnected" panel that looks like a logout.
-  const hasSavedSession = meta.status === 'connected' || Boolean(meta.phoneNumber);
-  if (hasSavedSession && !container.requiresReauth && !container.isInitializing) {
-    container.status = 'connecting';
-    meta.status = 'connecting';
-    // Fire and forget: report "connecting" immediately, the UI polls again.
-    initializeWhatsApp({ sessionId }).catch(() => {
-      container.status = 'disconnected';
-    });
   }
 
   return meta;
@@ -172,7 +146,6 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
   try {
     if (!msg.message) return;
 
-    // Extract text from regular or extended message
     const text: string =
       msg.message.conversation ||
       msg.message.extendedTextMessage?.text ||
@@ -200,10 +173,8 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       return;
     }
 
-    // 1. Check if message has ticket ID explicitly (e.g. #TICK-ABCD or TICK-ABCD)
     let ticketId = extractTicketId(cleanText);
 
-    // 2. Check contextInfo if admin swipe-replied / quoted the alert message
     const contextInfo =
       msg.message.extendedTextMessage?.contextInfo ||
       msg.message.imageMessage?.contextInfo ||
@@ -214,7 +185,7 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       msg.message.viewOnceMessage?.message?.extendedTextMessage?.contextInfo ||
       (msg.message as any)?.viewOnceMessageV2?.message?.extendedTextMessage?.contextInfo;
 
-    const stanzaId = contextInfo?.stanzaId; // Quoted message ID from WhatsApp
+    const stanzaId = contextInfo?.stanzaId;
     const quotedText: string =
       contextInfo?.quotedMessage?.conversation ||
       contextInfo?.quotedMessage?.extendedTextMessage?.text ||
@@ -228,21 +199,17 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
 
     let ticket: any = null;
 
-    // A. Find by direct ticketId
     if (ticketId) {
       ticket = await ChatTicket.findOne({ ticketId });
     }
 
-    // B. Find by alertMessageId (matched from swipe / quote-reply stanzaId)
     if (!ticket && stanzaId) {
       ticket = await ChatTicket.findOne({ alertMessageId: stanzaId });
       if (ticket) {
         ticketId = ticket.ticketId;
-        console.log(`[Baileys Relay] Matched quoted stanzaId ${stanzaId} to ticket #${ticketId}`);
       }
     }
 
-    // C. EASY RESPONSE MODE: If still not matched, auto-match the latest active ticket!
     if (!ticket) {
       ticket = await ChatTicket.findOne({
         status: { $in: ['waiting_admin', 'open', 'admin_replied'] },
@@ -250,18 +217,15 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
 
       if (ticket) {
         ticketId = ticket.ticketId;
-        console.log(`[Baileys Relay] Auto-matched incoming WhatsApp reply to active ticket #${ticketId}`);
       }
     }
 
     if (!ticket) {
-      console.log(`[Baileys Relay] No active ticket found for incoming text: "${cleanText}"`);
       return;
     }
 
     const replyJid = msg.key.remoteJid;
 
-    // Check if the command is to close the ticket
     const isCloseCommand =
       cleanText.toLowerCase().trim() === '/close' ||
       cleanText.toLowerCase().trim() === 'close' ||
@@ -280,7 +244,6 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       });
       await ticket.save();
 
-      // Resolve corresponding conversation if present
       if (!isUsingMemoryDb() && ticket.sessionId) {
         await Conversation.updateMany(
           {
@@ -305,13 +268,11 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
         );
       }
 
-      // Also append system message to conversation transcript via helper
       await appendConversationMessage(String(ticket.botId), ticket.sessionId, {
         role: 'system',
         content: 'Support agent closed this session via WhatsApp. AI assistant resumed.',
       });
 
-      // Send ack back to WhatsApp
       if (replyJid) {
         await sock.sendMessage(replyJid, {
           text: `✅ *Ticket #${ticket.ticketId} Closed*\nVisitor chat has been restored to AI auto-reply mode.`,
@@ -320,7 +281,6 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       return;
     }
 
-    // Extract actual message content without the #TICKET-ID prefix if present
     let replyContent = cleanText;
     const prefixRegex = new RegExp(`^#?${ticket.ticketId}\\s*[-:]*\\s*`, 'i');
     replyContent = replyContent.replace(prefixRegex, '').trim();
@@ -333,7 +293,6 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
     const now = new Date();
     const agentMsgId = crypto.randomUUID();
 
-    // 1. Append agent reply to ChatTicket
     ticket.status = 'admin_replied';
     ticket.lastAdminReply = replyContent;
     ticket.messages.push({
@@ -345,14 +304,12 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
     });
     await ticket.save();
 
-    // 2. Relay message to widget's Conversation record
     await appendConversationMessage(String(ticket.botId), ticket.sessionId, {
       role: 'agent',
       senderName: agentSenderName,
       content: replyContent,
     });
 
-    // 3. Direct Conversation record update to ensure immediate widget rendering
     if (!isUsingMemoryDb() && ticket.sessionId) {
       await Conversation.updateMany(
         {
@@ -378,7 +335,6 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       );
     }
 
-    // 4. Send delivery confirmation ack to WhatsApp
     if (replyJid) {
       try {
         await sock.sendMessage(replyJid, {
@@ -388,20 +344,13 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
         console.warn('[Baileys Relay] Error sending delivery ack:', ackErr);
       }
     }
-
-    console.log(`[Baileys Relay] Dispatched reply for ticket #${ticket.ticketId} to website visitor widget.`);
   } catch (err) {
     console.error('[Baileys Relay] Error handling incoming message:', err);
   }
 }
 
 /**
- * Keeps the socket warm.
- *
- * WhatsApp silently drops connections that go idle. A presence ping every ~25s
- * is cheap and is what stops the "connected for a while, then suddenly
- * disconnected" behaviour. Errors are ignored on purpose: a failed ping means
- * the socket is already closing and connection.update/close will handle it.
+ * Keeps the socket warm with presence updates
  */
 function startKeepAlive(sock: WASocket) {
   stopKeepAlive();
@@ -410,11 +359,10 @@ function startKeepAlive(sock: WASocket) {
     try {
       sock.sendPresenceUpdate('available').catch(() => {});
     } catch {
-      // Socket already gone; close handler takes over.
+      // Socket closing
     }
   }, 25_000);
 
-  // Do not hold the Node process open just for the keepalive.
   if (typeof container.keepAliveTimer.unref === 'function') {
     container.keepAliveTimer.unref();
   }
@@ -427,34 +375,17 @@ function stopKeepAlive() {
   }
 }
 
-/**
- * Schedules a single reconnect attempt with capped exponential backoff.
- *
- * The previous code fired a bare `setTimeout(initializeWhatsApp({ forceNew:
- * true }))` on every close. forceNew ends the socket, which emits another
- * close, which schedules another reconnect -- so one network blip could cascade
- * into repeated socket resets, and those resets are what the admin was
- * perceiving as WhatsApp logging itself out.
- *
- * This guard makes at most one attempt in flight at a time.
- */
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleReconnect(sessionId: string) {
-  if (reconnectTimer) return; // an attempt is already pending
+  if (reconnectTimer) return;
 
   container.reconnectAttempts += 1;
   const attempt = container.reconnectAttempts;
   const delay = Math.min(3000 * Math.pow(2, attempt - 1), 60_000);
 
-  console.log(
-    `[Baileys] Scheduling reconnect attempt ${attempt} for session ${sessionId} in ${Math.round(delay / 1000)}s`
-  );
-
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    // No forceNew: reuse the persisted credentials so this is a silent
-    // reconnect and cannot self-trigger another close.
     initializeWhatsApp({ sessionId }).catch((err) => {
       console.warn(`[Baileys] Reconnect attempt ${attempt} failed:`, err);
       container.status = 'disconnected';
@@ -468,38 +399,22 @@ function scheduleReconnect(sessionId: string) {
 }
 
 /**
- * Initialize WhatsApp Baileys connection
- */
-/**
  * Public entry point for (re)connecting WhatsApp.
- *
- * Single-flight by design. The previous guard was
- * `if (container.isInitializing && container.qrCode) return ...`, which only
- * short-circuited once a QR had actually been produced. During the first
- * moments of an init `qrCode` is still empty, so a concurrent caller (the admin
- * page polls /status every few seconds) fell straight through and built a
- * SECOND socket over the same auth keys. Two live sockets for one session make
- * WhatsApp treat the second as a duplicate device and drop it, which surfaced
- * to the admin as "could not connect" moments after the QR was scanned.
- *
- * Now every caller joins the in-flight init instead of racing it.
  */
 export async function initializeWhatsApp(options?: {
   sessionId?: string;
   forceNew?: boolean;
 }): Promise<{ status: string; qrCode?: string; phoneNumber?: string }> {
-  // Fast path: already live and the caller does not want a fresh QR.
   if (container.socket && container.status === 'connected' && !options?.forceNew) {
     return { status: 'connected', phoneNumber: container.phoneNumber };
   }
 
-  // A previous init is still running: join it rather than starting another.
   if (container.isInitializing && !options?.forceNew) {
     if (container.initPromise) {
       try {
         return await container.initPromise;
       } catch {
-        // The in-flight init failed; fall through and report current state.
+        // Fall through
       }
     }
     return {
@@ -512,8 +427,6 @@ export async function initializeWhatsApp(options?: {
   const promise = runInitializeWhatsApp(options);
   container.initPromise = promise;
 
-  // Clear the shared handle as soon as this init settles so the next call can
-  // start a fresh one.
   promise
     .catch(() => {})
     .finally(() => {
@@ -532,15 +445,19 @@ async function runInitializeWhatsApp(options?: {
 }): Promise<{ status: string; qrCode?: string; phoneNumber?: string }> {
   const sessionId = options?.sessionId || DEFAULT_SESSION_ID;
 
-  if (options?.forceNew && container.socket) {
-    // Mark before ending: `end()` synchronously emits connection.update/close,
-    // and the close handler must not treat our own shutdown as a new drop.
-    container.suppressNextClose = true;
-    try {
-      container.socket.end(new Error('Resetting socket for fresh QR'));
-    } catch {}
-    container.socket = null;
+  if (options?.forceNew) {
+    if (container.socket) {
+      container.suppressNextClose = true;
+      try {
+        container.socket.end(new Error('Resetting socket for fresh QR'));
+      } catch {}
+      container.socket = null;
+    }
     container.qrCode = '';
+    container.phoneNumber = '';
+    container.jid = '';
+    container.status = 'connecting';
+    await clearWhatsAppSession(sessionId);
   }
 
   container.isInitializing = true;
@@ -550,7 +467,6 @@ async function runInitializeWhatsApp(options?: {
 
   try {
     const { state, saveCreds } = await getMongoAuthState(sessionId);
-
     const logger = pino({ level: 'silent' });
 
     let waVersion: [number, number, number] | undefined;
@@ -582,10 +498,7 @@ async function runInitializeWhatsApp(options?: {
           const qrDataUrl = await QRCode.toDataURL(qr, {
             margin: 2,
             scale: 7,
-            color: {
-              dark: '#0f172a',
-              light: '#ffffff',
-            },
+            color: { dark: '#0f172a', light: '#ffffff' },
           });
           container.qrCode = qrDataUrl;
           container.status = 'connecting';
@@ -638,21 +551,12 @@ async function runInitializeWhatsApp(options?: {
 
         console.log(`[Baileys] Connection closed. Reason code: ${statusCode}, loggedOut: ${loggedOut}`);
 
-        // Our own socket.end() (forceNew / logout) lands here. Swallow it so it
-        // does not schedule another reconnect.
         if (container.suppressNextClose) {
           container.suppressNextClose = false;
-          console.log('[Baileys] Close was self-initiated; skipping reconnect.');
           return;
         }
 
         if (loggedOut) {
-          // Previously this deleted the saved credentials from Mongo, which is
-          // why the admin was silently kicked back to the QR screen after a
-          // short while. A 401 often means a transient re-registration or a
-          // competing session, so we keep the credentials and try to recover.
-          // Credentials are only destroyed by logoutWhatsApp(), which is the
-          // explicit "Disconnect" button.
           container.status = 'disconnected';
           container.qrCode = '';
           container.socket = null;
@@ -664,16 +568,8 @@ async function runInitializeWhatsApp(options?: {
             qrCode: '',
           });
 
-          console.warn(
-            '[Baileys] Session reported loggedOut (401). Credentials kept; attempting silent reconnect. ' +
-              'Re-scan the QR from Admin > WhatsApp if it does not recover.'
-          );
-
           scheduleReconnect(sessionId);
         } else {
-          // Reconnect automatically if the network dropped or the container
-          // restarted. Reuse the saved credentials (no forceNew) so we do not
-          // need a fresh QR and do not trigger another close event.
           container.status = 'connecting';
           container.isInitializing = false;
           scheduleReconnect(sessionId);
@@ -682,9 +578,15 @@ async function runInitializeWhatsApp(options?: {
     });
 
     // Handle Credentials Persistence
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', async () => {
+      try {
+        await saveCreds();
+      } catch (err) {
+        console.error('[Baileys] Error saving credentials:', err);
+      }
+    });
 
-    // Handle Incoming Messages (Two-Way Live Support Relay)
+    // Handle Incoming Messages
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (type !== 'notify' && type !== 'append') return;
       for (const msg of messages) {
@@ -692,7 +594,7 @@ async function runInitializeWhatsApp(options?: {
       }
     });
 
-    // Await first QR code or connection event (max 4.5 seconds)
+    // Await first QR code or connection event (max 8 seconds)
     const isLive = (): boolean =>
       Boolean(container.qrCode) || container.status === 'connected';
 
@@ -716,7 +618,7 @@ async function runInitializeWhatsApp(options?: {
         setTimeout(() => {
           clearInterval(checkInterval);
           finish();
-        }, 4500);
+        }, 8000);
       });
     }
 
@@ -735,6 +637,283 @@ async function runInitializeWhatsApp(options?: {
 }
 
 /**
+ * Server-Sent Events (SSE) Live Pairing Stream.
+ * Keeps the Vercel serverless function continuously awake and running
+ * while the QR code is displayed on the screen until the phone scans it.
+ */
+export function startPairingStream(options?: {
+  sessionId?: string;
+  forceNew?: boolean;
+  abortSignal?: AbortSignal;
+}): Response {
+  const sessionId = options?.sessionId || DEFAULT_SESSION_ID;
+  const forceNew = Boolean(options?.forceNew);
+  const encoder = new TextEncoder();
+
+  let keepAliveTimer: NodeJS.Timeout | null = null;
+  let timeoutTimer: NodeJS.Timeout | null = null;
+  let isClosed = false;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const sendEvent = (event: string, data: any) => {
+        if (isClosed) return;
+        try {
+          const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(payload));
+        } catch {
+          cleanup();
+        }
+      };
+
+      const sendComment = (comment: string) => {
+        if (isClosed) return;
+        try {
+          controller.enqueue(encoder.encode(`: ${comment}\n\n`));
+        } catch {
+          cleanup();
+        }
+      };
+
+      const cleanup = () => {
+        if (isClosed) return;
+        isClosed = true;
+        if (keepAliveTimer) clearInterval(keepAliveTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        try {
+          controller.close();
+        } catch {}
+      };
+
+      if (options?.abortSignal) {
+        options.abortSignal.addEventListener('abort', cleanup);
+      }
+
+      sendComment('stream-start');
+
+      // Keepalive heartbeat every 2.5s keeps the Lambda process running
+      keepAliveTimer = setInterval(() => {
+        sendComment('keepalive');
+      }, 2500);
+
+      // Max 55 seconds (safe margin before Vercel 60s hard limit)
+      timeoutTimer = setTimeout(() => {
+        sendEvent('timeout', { message: 'Pairing session timed out. Click Generate New QR to retry.' });
+        cleanup();
+      }, 55000);
+
+      try {
+        if (forceNew) {
+          if (container.socket) {
+            container.suppressNextClose = true;
+            try {
+              container.socket.end(new Error('Resetting for fresh QR'));
+            } catch {}
+            container.socket = null;
+          }
+          container.qrCode = '';
+          container.phoneNumber = '';
+          container.jid = '';
+          container.status = 'connecting';
+          await clearWhatsAppSession(sessionId);
+        }
+
+        // If already connected and not forcing new:
+        if (container.socket && container.status === 'connected' && !forceNew) {
+          sendEvent('connected', {
+            status: 'connected',
+            phoneNumber: container.phoneNumber,
+            pushName: container.pushName,
+            jid: container.jid,
+          });
+          setTimeout(cleanup, 1000);
+          return;
+        }
+
+        container.isInitializing = true;
+        container.initStartedAt = Date.now();
+        container.status = 'connecting';
+        await saveSessionMeta(sessionId, { status: 'connecting' });
+
+        const { state, saveCreds } = await getMongoAuthState(sessionId);
+        const logger = pino({ level: 'silent' });
+
+        let waVersion: [number, number, number] | undefined;
+        try {
+          const v = await fetchLatestBaileysVersion();
+          if (v?.version) waVersion = v.version;
+        } catch {}
+
+        const sock = makeWASocket({
+          version: waVersion,
+          auth: state,
+          logger,
+          printQRInTerminal: false,
+          browser: Browsers.ubuntu('Chrome'),
+          connectTimeoutMs: 60000,
+          defaultQueryTimeoutMs: 60000,
+        });
+
+        container.socket = sock;
+
+        sock.ev.on('connection.update', async (update) => {
+          const { connection, lastDisconnect, qr } = update;
+
+          if (qr) {
+            try {
+              const qrDataUrl = await QRCode.toDataURL(qr, {
+                margin: 2,
+                scale: 7,
+                color: { dark: '#0f172a', light: '#ffffff' },
+              });
+              container.qrCode = qrDataUrl;
+              container.status = 'connecting';
+              await saveSessionMeta(sessionId, { status: 'connecting', qrCode: qrDataUrl });
+              sendEvent('qr', { qrCode: qrDataUrl, status: 'connecting' });
+            } catch (err) {
+              console.error('[Baileys Stream] QR encode error:', err);
+            }
+          }
+
+          if (connection === 'open') {
+            container.status = 'connected';
+            container.qrCode = '';
+            container.isInitializing = false;
+
+            const rawJid = sock.user?.id || '';
+            const normalized = jidNormalizedUser(rawJid);
+            const phone = normalized.split('@')[0] || '';
+            const pushName = sock.user?.name || 'Rivafy Admin';
+
+            container.phoneNumber = phone;
+            container.pushName = pushName;
+            container.jid = normalized;
+
+            await saveSessionMeta(sessionId, {
+              status: 'connected',
+              qrCode: '',
+              phoneNumber: phone,
+              pushName,
+              jid: normalized,
+              lastConnectedAt: new Date().toISOString(),
+            });
+
+            container.reconnectAttempts = 0;
+            container.requiresReauth = false;
+            container.lastDisconnectCode = null;
+            startKeepAlive(sock);
+
+            console.log(`[Baileys Stream] WhatsApp connected successfully as: ${phone} (${pushName})`);
+            sendEvent('connected', {
+              status: 'connected',
+              phoneNumber: phone,
+              pushName,
+              jid: normalized,
+            });
+
+            setTimeout(cleanup, 1500);
+          }
+
+          if (connection === 'close') {
+            const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
+            const loggedOut = statusCode === DisconnectReason.loggedOut;
+            stopKeepAlive();
+
+            if (loggedOut) {
+              container.status = 'disconnected';
+              container.qrCode = '';
+              container.socket = null;
+              sendEvent('error', { message: 'WhatsApp session logged out or expired. Please generate a new QR.' });
+              cleanup();
+            }
+          }
+        });
+
+        sock.ev.on('creds.update', async () => {
+          try {
+            await saveCreds();
+          } catch (e) {
+            console.error('[Baileys Stream] Error saving creds:', e);
+          }
+        });
+
+        sock.ev.on('messages.upsert', async ({ messages, type }) => {
+          if (type !== 'notify' && type !== 'append') return;
+          for (const msg of messages) {
+            await handleIncomingMessage(sock, msg);
+          }
+        });
+
+      } catch (err: any) {
+        console.error('[Baileys Stream] Init error:', err);
+        sendEvent('error', { message: err?.message || 'Failed to initialize WhatsApp socket' });
+        cleanup();
+      }
+    },
+    cancel() {
+      if (keepAliveTimer) clearInterval(keepAliveTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      isClosed = true;
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+}
+
+/**
+ * Ensures a live, authenticated Baileys socket is connected.
+ * In serverless environments, this quickly reattaches to saved MongoDB credentials
+ * with an adequate timeout (15s) to guarantee reliable outbound message delivery.
+ */
+export async function ensureConnectedWhatsApp(
+  sessionId = DEFAULT_SESSION_ID,
+  timeoutMs = 15000
+): Promise<WASocket> {
+  // If socket is already connected and open:
+  if (
+    container.socket &&
+    container.status === 'connected' &&
+    (container.socket as any)?.ws?.readyState === 1
+  ) {
+    return container.socket;
+  }
+
+  const meta = await getSessionMeta(sessionId);
+  if (meta.status !== 'connected' && !meta.phoneNumber) {
+    throw new Error('WhatsApp is not linked on Admin panel. Please link WhatsApp first.');
+  }
+
+  // Trigger init with saved credentials
+  container.status = 'connecting';
+  initializeWhatsApp({ sessionId, forceNew: false }).catch(() => {});
+
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    if (
+      container.socket &&
+      container.status === 'connected' &&
+      (container.socket as any)?.ws?.readyState === 1
+    ) {
+      return container.socket;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  if (container.socket && container.status === 'connected') {
+    return container.socket;
+  }
+
+  throw new Error(`WhatsApp connection timed out after ${Math.round(timeoutMs / 1000)}s`);
+}
+
+/**
  * Logout and clear WhatsApp session
  */
 export async function logoutWhatsApp(
@@ -748,14 +927,10 @@ export async function logoutWhatsApp(
     stopKeepAlive();
 
     if (container.socket) {
-      // An explicit logout must not be undone by the auto-reconnect logic, and
-      // its close event must not schedule another reconnect.
       container.suppressNextClose = true;
       try {
         await container.socket.logout();
-      } catch {
-        // non-fatal
-      }
+      } catch {}
       container.socket = null;
     }
 
@@ -791,24 +966,13 @@ export async function sendWhatsAppMessage(
   text: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    // If socket is not running, attempt quick auto-init if creds exist
-    if (!container.socket || container.status !== 'connected') {
-      const meta = await getSessionMeta(DEFAULT_SESSION_ID);
-      if (meta.status === 'connected') {
-        await initializeWhatsApp();
-      }
-    }
-
-    if (!container.socket || container.status !== 'connected') {
-      return { ok: false, error: 'WhatsApp is not connected on admin panel' };
-    }
-
     const jid = formatPhoneToJid(toNumber);
     if (!jid) {
       return { ok: false, error: 'Invalid recipient phone number' };
     }
 
-    await container.socket.sendMessage(jid, { text });
+    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 15000);
+    await sock.sendMessage(jid, { text });
     return { ok: true };
   } catch (err: any) {
     console.error('[Baileys] Send message error:', err);
@@ -829,16 +993,7 @@ export async function sendTicketAlertToAdmin(params: {
   targetNumber?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    if (!container.socket || container.status !== 'connected') {
-      const meta = await getSessionMeta(DEFAULT_SESSION_ID);
-      if (meta.status === 'connected') {
-        await initializeWhatsApp();
-      }
-    }
-
-    if (!container.socket || container.status !== 'connected') {
-      return { ok: false, error: 'WhatsApp not connected to receive alerts' };
-    }
+    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 15000);
 
     const {
       ticketId,
@@ -862,10 +1017,6 @@ export async function sendTicketAlertToAdmin(params: {
       `👉 *To Reply:* Swipe / Quote-Reply to this message, or type your reply directly!\n` +
       `👉 *To Close:* Reply /close`;
 
-    // Recipient priority:
-    // 1. Target bot-specific WhatsApp number if provided (from bot handoff or bot notification settings)
-    // 2. Admin WhatsApp number from NOTIFY_WHATSAPP
-    // 3. Admin self-message on connected WhatsApp session
     const targetJids: string[] = [];
 
     if (targetNumber && targetNumber.trim()) {
@@ -878,7 +1029,7 @@ export async function sendTicketAlertToAdmin(params: {
     const envAdminPhone = process.env.NOTIFY_WHATSAPP;
     const adminTargetJid = envAdminPhone
       ? formatPhoneToJid(envAdminPhone)
-      : container.jid || jidNormalizedUser(container.socket.user?.id || '');
+      : container.jid || jidNormalizedUser(sock.user?.id || '');
 
     if (adminTargetJid && !targetJids.includes(adminTargetJid)) {
       targetJids.push(adminTargetJid);
@@ -892,7 +1043,7 @@ export async function sendTicketAlertToAdmin(params: {
     let sentMsgId = '';
     for (const jid of targetJids) {
       try {
-        const sentMsg = await container.socket.sendMessage(jid, { text: formattedMessage });
+        const sentMsg = await sock.sendMessage(jid, { text: formattedMessage });
         sent = true;
         if (sentMsg?.key?.id) {
           sentMsgId = sentMsg.key.id;
