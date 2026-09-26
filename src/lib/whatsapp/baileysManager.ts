@@ -24,6 +24,7 @@ import {
   getAuthStorageMode,
 } from './mongoAuthState';
 import mongoose from 'mongoose';
+import { EventEmitter } from 'events';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { ChatTicket, IChatTicket } from '@/lib/models/ChatTicket';
 import { Conversation } from '@/lib/models/Conversation';
@@ -49,6 +50,14 @@ interface GlobalBaileysContainer {
 
 declare global {
   var __baileysContainer: GlobalBaileysContainer | undefined;
+  var __handoffEventEmitter: EventEmitter | undefined;
+}
+
+export const handoffEventEmitter: EventEmitter =
+  global.__handoffEventEmitter || new EventEmitter();
+
+if (!global.__handoffEventEmitter) {
+  global.__handoffEventEmitter = handoffEventEmitter;
 }
 
 const DEFAULT_SESSION_ID = 'admin_primary';
@@ -346,6 +355,16 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       timestamp: now,
     });
 
+    // 1. Immediately notify live SSE stream in memory for zero-latency (<1ms) delivery
+    if (ticket.sessionId) {
+      handoffEventEmitter.emit(`message:${ticket.sessionId}`, {
+        role: 'agent',
+        content: replyContent,
+        senderName: agentSenderName,
+        timestamp: now,
+      });
+    }
+
     // Parallelize database writes for instant latency
     await Promise.all([
       ticket.save(),
@@ -525,7 +544,7 @@ async function runInitializeWhatsApp(options?: {
       markOnlineOnConnect: true,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
-      emitOwnEvents: false,
+      emitOwnEvents: true,
       shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
       retryRequestDelayMs: 250,
       maxMsgRetryCount: 3,
@@ -800,7 +819,7 @@ export function startPairingStream(options?: {
             markOnlineOnConnect: true,
             syncFullHistory: false,
             generateHighQualityLinkPreview: false,
-            emitOwnEvents: false,
+            emitOwnEvents: true,
             shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
             retryRequestDelayMs: 250,
             maxMsgRetryCount: 3,

@@ -259,7 +259,7 @@ async function startDaemon() {
         markOnlineOnConnect: true,
         syncFullHistory: false,
         generateHighQualityLinkPreview: false,
-        emitOwnEvents: false,
+        emitOwnEvents: true,
         shouldIgnoreJid: (jid) => isJidBroadcast(jid) || jid.endsWith('@newsletter'),
         retryRequestDelayMs: 250,
         maxMsgRetryCount: 3,

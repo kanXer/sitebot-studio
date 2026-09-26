@@ -2087,6 +2087,8 @@
     playBeep('receive');
   }
 
+  let handoffStreamAbort = null;
+
   function startHandoffPolling() {
     if (handoffPollingInterval) return;
     const pollHandoff = async () => {
@@ -2097,7 +2099,7 @@
         const data = await res.json();
         if (data.status === 'resolved' || data.status === 'closed' || data.status === 'bot') {
           currentHandoffStatus = 'bot';
-          stopHandoffPolling();
+          stopHandoffStream();
           if (handoffBanner) handoffBanner.style.display = 'none';
           return;
         }
@@ -2128,6 +2130,83 @@
       clearInterval(handoffPollingInterval);
       handoffPollingInterval = null;
     }
+  }
+
+  async function startHandoffStream() {
+    startHandoffPolling(); // keep light polling active as robust fallback
+
+    if (handoffStreamAbort) return;
+    handoffStreamAbort = new AbortController();
+    const sId = getSessionId();
+
+    try {
+      const res = await fetch(`${apiHost}/api/chat/${botId}/handoff/stream?sessionId=${encodeURIComponent(sId)}`, {
+        signal: handoffStreamAbort.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let currentEvent = 'message';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (currentEvent === 'message') {
+                if (data.role === 'agent' || data.role === 'system') {
+                  const alreadyPresent = messageHistory.some((m) => m.content === data.content);
+                  if (!alreadyPresent) {
+                    appendLiveMessage(data.role, data.content, data.senderName);
+                    messageHistory.push({ role: data.role, content: data.content });
+                  }
+                }
+              } else if (currentEvent === 'status') {
+                if (data.status === 'resolved' || data.status === 'closed' || data.status === 'bot') {
+                  currentHandoffStatus = 'bot';
+                  if (handoffBanner) handoffBanner.style.display = 'none';
+                  stopHandoffStream();
+                  return;
+                }
+                if (data.status && data.status !== currentHandoffStatus) {
+                  currentHandoffStatus = data.status;
+                  showHandoffBanner(data.status, data.assignedAgent);
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {
+      // Stream closed or aborted
+    } finally {
+      handoffStreamAbort = null;
+      if (currentHandoffStatus === 'waiting_agent' || currentHandoffStatus === 'agent_active') {
+        setTimeout(startHandoffStream, 1000);
+      }
+    }
+  }
+
+  function stopHandoffStream() {
+    if (handoffStreamAbort) {
+      try { handoffStreamAbort.abort(); } catch {}
+      handoffStreamAbort = null;
+    }
+    stopHandoffPolling();
   }
 
   // Show fullscreen button only on non-mobile screens
@@ -2399,7 +2478,7 @@
       showHandoffBanner('waiting_agent');
       appendLiveMessage('system', 'Transfer requested. Connecting you to a live human representative...', '');
       messageHistory.push({ role: 'system', content: 'Transfer requested. Connecting you to a live human representative...' });
-      startHandoffPolling();
+      startHandoffStream();
       try {
         await fetch(`${apiHost}/api/chat/${botId}/handoff`, {
           method: 'POST',
@@ -2429,6 +2508,7 @@
         });
       } catch {}
       currentHandoffStatus = 'resolved';
+      stopHandoffStream();
       showHandoffBanner('resolved');
       appendLiveMessage('system', 'Switched back to AI Assistant.', '');
       messageHistory.push({ role: 'system', content: 'Switched back to AI Assistant.' });
@@ -2694,7 +2774,7 @@
 
     if (isLiveHandoff) {
       // In live handoff mode: Deliver message to backend/WhatsApp directly without AI bubble or thinking shimmer
-      startHandoffPolling();
+      startHandoffStream();
       const isStudioPreview =
         currentScript.getAttribute('data-preview') === 'true' ||
         window.location.origin === apiHost ||
@@ -2877,12 +2957,12 @@
           handoffTriggered = true;
           currentHandoffStatus = 'waiting_agent';
           showHandoffBanner('waiting_agent');
-          startHandoffPolling();
+          startHandoffStream();
         } else if (activeMatch) {
           handoffTriggered = true;
           currentHandoffStatus = activeMatch[1].trim();
           showHandoffBanner(currentHandoffStatus);
-          startHandoffPolling();
+          startHandoffStream();
         }
 
         const cleanText = accumulatedText
@@ -2979,7 +3059,7 @@
               handoffTriggered = true;
               currentHandoffStatus = hData.status;
               showHandoffBanner(hData.status, hData.assignedAgent);
-              startHandoffPolling();
+              startHandoffStream();
             } catch {
               /* noop */
             }
