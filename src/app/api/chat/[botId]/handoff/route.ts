@@ -288,6 +288,20 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // Determine target WhatsApp number for Website Owner (handoff override ->
+    // notifications -> general whatsapp -> bot phone)
+    let targetNumber =
+      (bot as any)?.handoff?.whatsappEnabled && (bot as any)?.handoff?.whatsappNumber
+        ? (bot as any).handoff.whatsappNumber
+        : (bot as any)?.handoff?.whatsappNumber
+        ? (bot as any).handoff.whatsappNumber
+        : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
+        ? (bot as any).notifications.whatsapp.number
+        : (bot as any)?.whatsapp || (bot as any)?.phone || undefined;
+
+    const { formatPhoneToJid } = await import('@/lib/whatsapp/baileysManager');
+    const ownerTargetJid = targetNumber ? formatPhoneToJid(targetNumber) : '';
+
     // Create or locate ChatTicket for Two-Way WhatsApp Relay
     let ticketId = '';
     if (!isUsingMemoryDb()) {
@@ -311,6 +325,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               phone: visitorPhone || '',
             },
             status: 'waiting_admin',
+            assignedAdminJid: ownerTargetJid,
             lastUserMessage: message?.trim() || 'Visitor requested live agent',
             messages: message?.trim()
               ? [
@@ -326,6 +341,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           });
         } else {
           ticketId = ticket.ticketId;
+          if (ownerTargetJid && !ticket.assignedAdminJid) {
+            ticket.assignedAdminJid = ownerTargetJid;
+          }
           if (message && typeof message === 'string' && message.trim()) {
             ticket.lastUserMessage = message.trim();
             ticket.messages.push({
@@ -335,8 +353,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               content: message.trim(),
               timestamp: new Date(),
             });
-            await ticket.save();
           }
+          await ticket.save();
         }
       } catch (ticketErr) {
         console.warn('[Handoff] Ticket initialization warning:', ticketErr);
@@ -346,15 +364,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       // a reference id and the WhatsApp alert must still be delivered.
       ticketId = `TICK-${String(sessionId || '').slice(0, 6).toUpperCase()}`;
     }
-
-    // Determine target WhatsApp number (handoff-specific first, then
-    // notifications.whatsapp, then the admin fallback)
-    const targetNumber =
-      (bot as any)?.handoff?.whatsappEnabled && (bot as any)?.handoff?.whatsappNumber
-        ? (bot as any).handoff.whatsappNumber
-        : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
-        ? (bot as any).notifications.whatsapp.number
-        : (bot as any)?.whatsapp || undefined;
 
     // Use Next.js after() to run WhatsApp alert AFTER the response is sent.
     // This keeps the Vercel serverless function alive until the alert completes,
@@ -385,10 +394,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       }
     });
 
-    // Append system escalation notice immediately
+    // Append internal escalation notice (not shown to visitor — the widget already
+    // displays its own confirmation from the API response).
     await appendConversationMessage(resolvedBotId, sessionId, {
       role: 'system',
-      content: `Live handoff requested (${reason}). You are in the live agent queue. A representative will be with you shortly.`,
+      content: `[internal] Live handoff requested (${reason}). Ticket #${ticketId} created.`,
     });
 
     return NextResponse.json(

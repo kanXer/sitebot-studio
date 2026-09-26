@@ -226,6 +226,10 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       return;
     }
 
+    const rawRemoteJid = msg.key.remoteJid || '';
+    const remoteJid = jidNormalizedUser(rawRemoteJid);
+    const senderDigits = remoteJid.replace(/[^0-9]/g, '');
+
     let ticketId = extractTicketId(cleanText);
 
     const contextInfo =
@@ -248,14 +252,21 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       ticketId = extractTicketId(quotedText);
     }
 
+    // Ignore self-sent messages unless they explicitly target a ticket or close command
+    if (msg.key.fromMe && !ticketId && !stanzaId && !cleanText.toLowerCase().includes('/close')) {
+      return;
+    }
+
     await connectToDatabase();
 
     let ticket: any = null;
 
+    // Strategy 1: Explicit ticket ID in message text or quoted text (#TICK-XXXX)
     if (ticketId) {
       ticket = await ChatTicket.findOne({ ticketId });
     }
 
+    // Strategy 2: Quoted WhatsApp message stanzaId matches alertMessageId
     if (!ticket && stanzaId) {
       ticket = await ChatTicket.findOne({ alertMessageId: stanzaId });
       if (ticket) {
@@ -263,13 +274,36 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       }
     }
 
-    if (!ticket) {
+    // Strategy 3: Bridge Routing - Match incoming message by Website Owner's phone number!
+    // When the Website Owner replies directly to Admin WhatsApp, their sender phone matches assignedAdminJid.
+    if (!ticket && senderDigits && senderDigits.length >= 7) {
+      const last10 = senderDigits.slice(-10);
       ticket = await ChatTicket.findOne({
         status: { $in: ['waiting_admin', 'open', 'admin_replied'] },
+        $or: [
+          { assignedAdminJid: remoteJid },
+          { assignedAdminJid: rawRemoteJid },
+          { assignedAdminJid: { $regex: last10 } },
+        ],
       }).sort({ updatedAt: -1 });
 
       if (ticket) {
         ticketId = ticket.ticketId;
+      }
+    }
+
+    // Strategy 4: Fallback for Admin account if replying directly
+    if (!ticket) {
+      const myAdminJid = jidNormalizedUser(container.jid || sock.user?.id || '');
+      const isAdminSender = msg.key.fromMe || (myAdminJid && remoteJid === myAdminJid);
+      if (isAdminSender) {
+        ticket = await ChatTicket.findOne({
+          status: { $in: ['waiting_admin', 'open', 'admin_replied'] },
+        }).sort({ updatedAt: -1 });
+
+        if (ticket) {
+          ticketId = ticket.ticketId;
+        }
       }
     }
 
@@ -342,7 +376,7 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       replyContent = cleanText;
     }
 
-    const agentSenderName = container.pushName || 'Live Support Agent';
+    const agentSenderName = ticket.botName || 'Support Agent';
     const now = new Date();
     const agentMsgId = crypto.randomUUID();
 
@@ -356,7 +390,7 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       timestamp: now,
     });
 
-    // 1. Immediately notify live SSE stream in memory for zero-latency (<1ms) delivery
+    // 1. Immediately notify live SSE stream in memory for zero-latency (<1ms) delivery to ChatWidget
     if (ticket.sessionId) {
       handoffEventEmitter.emit(`message:${ticket.sessionId}`, {
         role: 'agent',
@@ -392,6 +426,7 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
         : Promise.resolve(),
     ]);
 
+    // Send confirmation back to the Website Owner so they know their reply reached the customer
     if (replyJid) {
       sock.sendMessage(replyJid, {
         text: `✅ *Sent to Visitor Chat* [Ticket: #${ticket.ticketId}]\n"${replyContent}"\n\n_(Visitor is seeing this live in the website chat)_`,
@@ -1094,7 +1129,8 @@ export async function sendWhatsAppMessage(
 }
 
 /**
- * Dispatch Instant Human Support Alert to Admin's WhatsApp
+ * Dispatch Instant Human Support Alert to Website Owner's WhatsApp
+ * (Admin WhatsApp account in Baileys acts as the bridge/gateway)
  */
 export async function sendTicketAlertToAdmin(params: {
   ticketId: string;
@@ -1120,32 +1156,40 @@ export async function sendTicketAlertToAdmin(params: {
 
     const formattedMessage =
       `🔴 *New Support Request* [Ticket: #${ticketId}]\n` +
+      `━━━━━━━━━━━━━━━━━━━\n` +
       `*Bot:* ${botName || 'Rivafy Assistant'}\n` +
-      `*Visitor:* ${visitorName || 'Visitor'}` +
+      `*Visitor:* ${visitorName || 'Website Visitor'}` +
       (visitorEmail ? ` (${visitorEmail})` : '') +
       (visitorPhone ? ` [${visitorPhone}]` : '') +
       `\n\n` +
       `💬 *Visitor message:*\n"${userMessage || 'Human assistance requested'}"\n\n` +
       `━━━━━━━━━━━━━━━━━━━\n` +
-      `👉 *To Reply:* Swipe / Quote-Reply to this message, or type your reply directly!\n` +
+      `👉 *To Reply:* Quote-reply to this message, or type your reply directly!\n` +
       `👉 *To Close:* Reply /close`;
 
     const targetJids: string[] = [];
+    let primaryTargetJid = '';
 
+    // Priority 1: Target the Website Owner's WhatsApp phone number
     if (targetNumber && targetNumber.trim()) {
-      const botTargetJid = formatPhoneToJid(targetNumber.trim());
-      if (botTargetJid && !targetJids.includes(botTargetJid)) {
-        targetJids.push(botTargetJid);
+      const ownerJid = formatPhoneToJid(targetNumber.trim());
+      if (ownerJid) {
+        targetJids.push(ownerJid);
+        primaryTargetJid = ownerJid;
       }
     }
 
-    const envAdminPhone = process.env.NOTIFY_WHATSAPP;
-    const adminTargetJid = envAdminPhone
-      ? formatPhoneToJid(envAdminPhone)
-      : container.jid || jidNormalizedUser(sock.user?.id || '');
+    // Priority 2: Only fallback to platform admin if NO website owner number was configured
+    if (targetJids.length === 0) {
+      const envAdminPhone = process.env.NOTIFY_WHATSAPP;
+      const adminTargetJid = envAdminPhone
+        ? formatPhoneToJid(envAdminPhone)
+        : container.jid || jidNormalizedUser(sock.user?.id || '');
 
-    if (adminTargetJid && !targetJids.includes(adminTargetJid)) {
-      targetJids.push(adminTargetJid);
+      if (adminTargetJid) {
+        targetJids.push(adminTargetJid);
+        primaryTargetJid = adminTargetJid;
+      }
     }
 
     if (targetJids.length === 0) {
@@ -1161,20 +1205,26 @@ export async function sendTicketAlertToAdmin(params: {
         if (sentMsg?.key?.id) {
           sentMsgId = sentMsg.key.id;
         }
+        console.log(`[Baileys Bridge] Alert dispatched for #${ticketId} to Website Owner ${jid} (msgId: ${sentMsgId})`);
       } catch (sendErr) {
-        console.warn(`[Baileys] Error sending ticket alert to ${jid}:`, sendErr);
+        console.warn(`[Baileys Bridge] Error sending ticket alert to ${jid}:`, sendErr);
       }
     }
 
-    if (sent && sentMsgId) {
+    if (sent) {
       try {
         await connectToDatabase();
         await ChatTicket.updateOne(
           { ticketId },
-          { $set: { alertMessageId: sentMsgId } }
+          {
+            $set: {
+              alertMessageId: sentMsgId || '',
+              assignedAdminJid: primaryTargetJid || '',
+            },
+          }
         );
       } catch (saveErr) {
-        console.warn('[Baileys] Error saving alertMessageId on ChatTicket:', saveErr);
+        console.warn('[Baileys Bridge] Error saving alertMessageId & assignedAdminJid on ChatTicket:', saveErr);
       }
     }
 
@@ -1218,7 +1268,11 @@ export async function dispatchPendingTicketAlerts(sock?: WASocket): Promise<void
               ? (bot as any).handoff.whatsappNumber
               : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
               ? (bot as any).notifications.whatsapp.number
-              : (bot as any)?.whatsapp || undefined;
+              : (bot as any)?.whatsapp || (bot as any)?.phone || undefined;
+        }
+
+        if (!targetNumber && ticket.assignedAdminJid) {
+          targetNumber = ticket.assignedAdminJid.replace(/[^0-9]/g, '');
         }
 
         const res = await sendTicketAlertToAdmin({

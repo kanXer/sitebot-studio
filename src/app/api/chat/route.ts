@@ -117,6 +117,18 @@ async function relayUserMessageToTicket(params: {
     });
 
     let ticketId = '';
+    const targetNumber =
+      bot?.handoff?.whatsappEnabled && bot?.handoff?.whatsappNumber
+        ? bot.handoff.whatsappNumber
+        : bot?.handoff?.whatsappNumber
+        ? bot.handoff.whatsappNumber
+        : bot?.notifications?.whatsapp?.enabled && bot?.notifications?.whatsapp?.number
+        ? bot.notifications.whatsapp.number
+        : bot?.whatsapp || bot?.phone || undefined;
+
+    const { formatPhoneToJid, sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
+    const ownerJid = targetNumber ? formatPhoneToJid(targetNumber) : '';
+
     if (!ticket) {
       const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
       ticketId = `TICK-${randSuffix}`;
@@ -131,6 +143,7 @@ async function relayUserMessageToTicket(params: {
           phone: '',
         },
         status: 'waiting_admin',
+        assignedAdminJid: ownerJid,
         lastUserMessage: message.trim(),
         messages: [
           {
@@ -146,6 +159,9 @@ async function relayUserMessageToTicket(params: {
       ticketId = ticket.ticketId;
       ticket.lastUserMessage = message.trim();
       ticket.status = 'waiting_admin';
+      if (ownerJid && !ticket.assignedAdminJid) {
+        ticket.assignedAdminJid = ownerJid;
+      }
       ticket.messages.push({
         id: (await import('crypto')).randomUUID(),
         role: 'user',
@@ -156,14 +172,6 @@ async function relayUserMessageToTicket(params: {
       await ticket.save();
     }
 
-    const targetNumber =
-      bot?.handoff?.whatsappEnabled && bot?.handoff?.whatsappNumber
-        ? bot.handoff.whatsappNumber
-        : bot?.notifications?.whatsapp?.enabled && bot?.notifications?.whatsapp?.number
-        ? bot.notifications.whatsapp.number
-        : bot?.whatsapp || undefined;
-
-    const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
     sendTicketAlertToAdmin({
       ticketId,
       botName: bot.name || 'Rivafy Assistant',

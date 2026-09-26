@@ -726,7 +726,7 @@ export function ChatWidget({
             });
             if (Array.isArray(data.messages) && data.messages.length > 0) {
               const agentOrSys = data.messages.filter(
-                (m: any) => m.role === 'agent' || m.role === 'system'
+                (m: any) => (m.role === 'agent' || m.role === 'system') && !String(m.content || '').startsWith('[internal]')
               );
               if (agentOrSys.length > 0) {
                 setMessages((prev) => {
@@ -787,7 +787,7 @@ export function ChatWidget({
           }
           if (Array.isArray(data.messages)) {
             const agentOrSys = data.messages.filter(
-              (m: any) => m.role === 'agent' || m.role === 'system'
+              (m: any) => (m.role === 'agent' || m.role === 'system') && !String(m.content || '').startsWith('[internal]')
             );
             setMessages((prev) => {
               const known = new Set(prev.map((p) => `${p.role}:${p.content}`));

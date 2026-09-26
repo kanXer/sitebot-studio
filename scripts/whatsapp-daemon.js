@@ -275,37 +275,48 @@ function startOutboundTicketDispatcher(sock, db) {
         const targetNumber =
           bot?.handoff?.whatsappEnabled && bot?.handoff?.whatsappNumber
             ? bot.handoff.whatsappNumber
+            : bot?.handoff?.whatsappNumber
+            ? bot.handoff.whatsappNumber
             : bot?.notifications?.whatsapp?.enabled && bot?.notifications?.whatsapp?.number
             ? bot.notifications.whatsapp.number
-            : bot?.whatsapp || undefined;
+            : bot?.whatsapp || bot?.phone || undefined;
 
         const targetJids = [];
+        let primaryTargetJid = '';
         if (targetNumber && String(targetNumber).trim()) {
           const jid = formatPhoneToJid(String(targetNumber).trim());
-          if (jid && !targetJids.includes(jid)) targetJids.push(jid);
+          if (jid) {
+            targetJids.push(jid);
+            primaryTargetJid = jid;
+          }
         }
 
-        const envAdminPhone = process.env.NOTIFY_WHATSAPP;
-        const adminTargetJid = envAdminPhone
-          ? formatPhoneToJid(envAdminPhone)
-          : jidNormalizedUser(sock.user?.id || '');
+        // Only fallback to admin if NO website owner number exists
+        if (targetJids.length === 0) {
+          const envAdminPhone = process.env.NOTIFY_WHATSAPP;
+          const adminTargetJid = envAdminPhone
+            ? formatPhoneToJid(envAdminPhone)
+            : jidNormalizedUser(sock.user?.id || '');
 
-        if (adminTargetJid && !targetJids.includes(adminTargetJid)) {
-          targetJids.push(adminTargetJid);
+          if (adminTargetJid) {
+            targetJids.push(adminTargetJid);
+            primaryTargetJid = adminTargetJid;
+          }
         }
 
         if (targetJids.length === 0) continue;
 
         const formattedMessage =
           `🔴 *New Support Request* [Ticket: #${ticket.ticketId}]\n` +
+          `━━━━━━━━━━━━━━━━━━━\n` +
           `*Bot:* ${ticket.botName || bot?.name || 'Rivafy Assistant'}\n` +
-          `*Visitor:* ${ticket.visitor?.name || 'Visitor'}` +
+          `*Visitor:* ${ticket.visitor?.name || 'Website Visitor'}` +
           (ticket.visitor?.email ? ` (${ticket.visitor.email})` : '') +
           (ticket.visitor?.phone ? ` [${ticket.visitor.phone}]` : '') +
           `\n\n` +
           `💬 *Visitor message:*\n"${ticket.lastUserMessage || 'Human assistance requested'}"\n\n` +
           `━━━━━━━━━━━━━━━━━━━\n` +
-          `👉 *To Reply:* Swipe / Quote-Reply to this message, or type your reply directly!\n` +
+          `👉 *To Reply:* Quote-reply to this message, or type your reply directly!\n` +
           `👉 *To Close:* Reply /close`;
 
         let sentMsgId = '';
@@ -313,6 +324,7 @@ function startOutboundTicketDispatcher(sock, db) {
           try {
             const sentMsg = await sock.sendMessage(jid, { text: formattedMessage });
             if (sentMsg?.key?.id) sentMsgId = sentMsg.key.id;
+            console.log(`[Daemon Bridge] Alert dispatched for #${ticket.ticketId} to Website Owner ${jid} (msgId: ${sentMsgId})`);
           } catch (sendErr) {
             console.warn(`[Daemon] Error dispatching alert for Ticket #${ticket.ticketId} to ${jid}:`, sendErr?.message || sendErr);
           }
@@ -321,7 +333,13 @@ function startOutboundTicketDispatcher(sock, db) {
         if (sentMsgId) {
           await ticketsCol.updateOne(
             { _id: ticket._id },
-            { $set: { alertMessageId: sentMsgId, updatedAt: new Date() } }
+            {
+              $set: {
+                alertMessageId: sentMsgId,
+                assignedAdminJid: primaryTargetJid,
+                updatedAt: new Date(),
+              },
+            }
           );
           console.log(`[Daemon] 🚀 Outbound alert dispatched for Ticket #${ticket.ticketId} to ${targetJids.join(', ')}`);
         }
@@ -433,77 +451,167 @@ async function startDaemon() {
         }
       });
 
-      // Listen for incoming messages to reply to live support tickets
-      sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        if (type !== 'notify' && type !== 'append') return;
+      // Listen for incoming messages to reply to live support tickets (Bridge Mode)
+      sock.ev.on("messages.upsert", async ({ messages, type }) => {
+        if (type !== "notify" && type !== "append") return;
         for (const msg of messages) {
           if (!msg.message) continue;
           const text =
             msg.message.conversation ||
             msg.message.extendedTextMessage?.text ||
-            '';
-          if (!text) continue;
+            msg.message.imageMessage?.caption ||
+            msg.message.videoMessage?.caption ||
+            "";
+          const cleanText = text.trim();
+          if (!cleanText) continue;
 
-          const match = text.match(/TICK-[A-Z0-9]+/i);
-          if (!match) continue;
+          // Ignore automated echo alerts
+          if (
+            cleanText.includes("🔴 *New Support Request*") ||
+            cleanText.includes("✅ *Sent to Visitor Chat*") ||
+            cleanText.includes("Visitor is seeing this live in the website chat") ||
+            cleanText.includes("Visitor chat has been restored to AI auto-reply mode")
+          ) {
+            continue;
+          }
 
-          const ticketId = match[0].toUpperCase();
-          const cleanText = text.replace(new RegExp(`^#?${ticketId}\\s*[-:]*\\s*`, 'i'), '').trim();
+          let match = cleanText.match(/TICK-[A-Z0-9]+/i);
+          let ticketId = match ? match[0].toUpperCase() : null;
 
-          console.log(`[Daemon] Received live reply for Ticket #${ticketId}: "${cleanText}"`);
-          try {
-            const ticketsCol = db.collection('chat_tickets');
-            const conversationsCol = db.collection('conversations');
+          const contextInfo =
+            msg.message.extendedTextMessage?.contextInfo ||
+            msg.message.imageMessage?.contextInfo ||
+            msg.message.videoMessage?.contextInfo;
+          const stanzaId = contextInfo?.stanzaId;
+          const quotedText =
+            contextInfo?.quotedMessage?.conversation ||
+            contextInfo?.quotedMessage?.extendedTextMessage?.text ||
+            "";
 
-            const ticket = await ticketsCol.findOne({ ticketId });
-            if (!ticket) continue;
+          if (!ticketId && quotedText) {
+            const qMatch = quotedText.match(/TICK-[A-Z0-9]+/i);
+            if (qMatch) ticketId = qMatch[0].toUpperCase();
+          }
 
+          const rawSenderJid = msg.key.remoteJid || "";
+          const senderJid = jidNormalizedUser(rawSenderJid);
+          const senderDigits = senderJid.replace(/[^0-9]/g, "");
+
+          const ticketsCol = db.collection("chat_tickets");
+          const conversationsCol = db.collection("conversations");
+
+          let ticket = null;
+          // Strategy 1: Explicit ticket ID in text
+          if (ticketId) {
+            ticket = await ticketsCol.findOne({ ticketId });
+          }
+          // Strategy 2: Quoted WhatsApp message stanzaId matches alertMessageId
+          if (!ticket && stanzaId) {
+            ticket = await ticketsCol.findOne({ alertMessageId: stanzaId });
+            if (ticket) ticketId = ticket.ticketId;
+          }
+          // Strategy 3: Match by Website Owner phone / JID
+          if (!ticket && senderDigits && senderDigits.length >= 7) {
+            const last10 = senderDigits.slice(-10);
+            ticket = await ticketsCol.findOne(
+              {
+                status: { $in: ["waiting_admin", "open", "admin_replied"] },
+                $or: [
+                  { assignedAdminJid: senderJid },
+                  { assignedAdminJid: rawSenderJid },
+                  { assignedAdminJid: { $regex: last10 } },
+                ],
+              },
+              { sort: { updatedAt: -1 } }
+            );
+            if (ticket) ticketId = ticket.ticketId;
+          }
+
+          if (!ticket) continue;
+
+          // Handle /close command
+          const isClose =
+            cleanText.toLowerCase().trim() === "/close" ||
+            cleanText.toLowerCase().trim() === "close" ||
+            cleanText.toLowerCase().includes("/close") ||
+            cleanText.toLowerCase() === `#${ticket.ticketId.toLowerCase()} /close`;
+
+          if (isClose) {
             const now = new Date();
             await ticketsCol.updateOne(
-              { ticketId },
-              {
-                $set: {
-                  status: 'admin_replied',
-                  lastAdminReply: cleanText,
-                  updatedAt: now,
-                },
-                $push: {
-                  messages: {
-                    id: String(Date.now()),
-                    role: 'agent',
-                    senderName: sock.user?.name || 'Rivafy Support',
-                    content: cleanText,
-                    timestamp: now,
-                  },
-                },
-              }
+              { ticketId: ticket.ticketId },
+              { $set: { status: "closed", closedAt: now, updatedAt: now } }
             );
-
             if (ticket.sessionId) {
               await conversationsCol.updateMany(
                 { sessionId: ticket.sessionId },
                 {
-                  $set: { status: 'agent_active', lastMessageAt: now },
+                  $set: { status: "resolved", lastMessageAt: now },
                   $push: {
                     messages: {
-                      role: 'agent',
-                      senderName: sock.user?.name || 'Rivafy Support',
-                      content: cleanText,
+                      id: String(Date.now()),
+                      role: "system",
+                      content: "Support agent closed this session via WhatsApp. AI assistant resumed.",
                       timestamp: now,
                     },
                   },
                 }
               );
             }
-
-            const senderJid = msg.key.remoteJid;
-            if (senderJid) {
-              await sock.sendMessage(senderJid, {
-                text: `✅ *Sent to Visitor Chat* [Ticket #${ticketId}]\n"${cleanText}"`,
+            if (rawSenderJid) {
+              await sock.sendMessage(rawSenderJid, {
+                text: `✅ *Ticket #${ticket.ticketId} Closed*\nVisitor chat has been restored to AI auto-reply mode.`,
               });
             }
-          } catch (replyErr) {
-            console.error('[Daemon] Error processing ticket reply:', replyErr);
+            continue;
+          }
+
+          const replyContent = cleanText.replace(new RegExp(`^#?${ticket.ticketId}\\s*[-:]*\\s*`, "i"), "").trim() || cleanText;
+          const now = new Date();
+          const agentName = ticket.botName || "Support Agent";
+
+          await ticketsCol.updateOne(
+            { ticketId: ticket.ticketId },
+            {
+              $set: {
+                status: "admin_replied",
+                lastAdminReply: replyContent,
+                updatedAt: now,
+              },
+              $push: {
+                messages: {
+                  id: String(Date.now()),
+                  role: "agent",
+                  senderName: agentName,
+                  content: replyContent,
+                  timestamp: now,
+                },
+              },
+            }
+          );
+
+          if (ticket.sessionId) {
+            await conversationsCol.updateMany(
+              { sessionId: ticket.sessionId },
+              {
+                $set: { status: "agent_active", lastMessageAt: now },
+                $push: {
+                  messages: {
+                    id: String(Date.now()),
+                    role: "agent",
+                    senderName: agentName,
+                    content: replyContent,
+                    timestamp: now,
+                  },
+                },
+              }
+            );
+          }
+
+          if (rawSenderJid) {
+            await sock.sendMessage(rawSenderJid, {
+              text: `✅ *Sent to Visitor Chat* [Ticket: #${ticket.ticketId}]\n"${replyContent}"\n\n_(Visitor is seeing this live in the website chat)_`,
+            });
           }
         }
       });
