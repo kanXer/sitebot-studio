@@ -136,6 +136,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Keep Baileys socket actively warm in background during live handoff sessions
+    try {
+      const { getWhatsAppStatus } = await import('@/lib/whatsapp/baileysManager');
+      getWhatsAppStatus().catch(() => {});
+    } catch {}
+
     // Merge messages from Conversation and ChatTicket to ensure 100% delivery of WhatsApp replies
     const mergedMap = new Map<string, any>();
 

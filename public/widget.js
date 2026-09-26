@@ -2089,7 +2089,7 @@
 
   function startHandoffPolling() {
     if (handoffPollingInterval) return;
-    handoffPollingInterval = setInterval(async () => {
+    const pollHandoff = async () => {
       try {
         const sId = getSessionId();
         const res = await fetch(`${apiHost}/api/chat/${botId}/handoff?sessionId=${encodeURIComponent(sId)}`);
@@ -2118,7 +2118,9 @@
       } catch {
         // non-fatal
       }
-    }, 2500);
+    };
+    pollHandoff();
+    handoffPollingInterval = setInterval(pollHandoff, 1200);
   }
 
   function stopHandoffPolling() {

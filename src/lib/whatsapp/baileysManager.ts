@@ -345,47 +345,39 @@ async function handleIncomingMessage(sock: WASocket, msg: any) {
       content: replyContent,
       timestamp: now,
     });
-    await ticket.save();
 
-    await appendConversationMessage(String(ticket.botId), ticket.sessionId, {
-      role: 'agent',
-      senderName: agentSenderName,
-      content: replyContent,
-    });
-
-    if (!isUsingMemoryDb() && ticket.sessionId) {
-      await Conversation.updateMany(
-        {
-          $or: [
-            { sessionId: ticket.sessionId },
-            { botId: toBotObjectId(String(ticket.botId)), sessionId: ticket.sessionId },
-          ],
-        },
-        {
-          $set: {
-            status: 'agent_active',
-            lastMessageAt: now,
-          },
-          $push: {
-            messages: {
-              role: 'agent',
-              senderName: agentSenderName,
-              content: replyContent,
-              timestamp: now,
+    // Parallelize database writes for instant latency
+    await Promise.all([
+      ticket.save(),
+      appendConversationMessage(String(ticket.botId), ticket.sessionId, {
+        role: 'agent',
+        senderName: agentSenderName,
+        content: replyContent,
+      }),
+      !isUsingMemoryDb() && ticket.sessionId
+        ? Conversation.updateMany(
+            {
+              $or: [
+                { sessionId: ticket.sessionId },
+                { botId: toBotObjectId(String(ticket.botId)), sessionId: ticket.sessionId },
+              ],
             },
-          },
-        }
-      );
-    }
+            {
+              $set: {
+                status: 'agent_active',
+                lastMessageAt: now,
+              },
+            }
+          )
+        : Promise.resolve(),
+    ]);
 
     if (replyJid) {
-      try {
-        await sock.sendMessage(replyJid, {
-          text: `✅ *Sent to Visitor Chat* [Ticket: #${ticket.ticketId}]\n"${replyContent}"\n\n_(Visitor is seeing this live in the website chat)_`,
-        });
-      } catch (ackErr) {
+      sock.sendMessage(replyJid, {
+        text: `✅ *Sent to Visitor Chat* [Ticket: #${ticket.ticketId}]\n"${replyContent}"\n\n_(Visitor is seeing this live in the website chat)_`,
+      }).catch((ackErr) => {
         console.warn('[Baileys Relay] Error sending delivery ack:', ackErr);
-      }
+      });
     }
   } catch (err) {
     console.error('[Baileys Relay] Error handling incoming message:', err);
