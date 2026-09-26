@@ -963,7 +963,22 @@ export function Navbar() {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onLoginSuccess={() => setOnboardingOpen(true)}
+        onLoginSuccess={async () => {
+          try {
+            if (typeof window !== 'undefined') {
+              if (localStorage.getItem('onboarding_completed') || sessionStorage.getItem('onboarding_dismissed')) {
+                return;
+              }
+              const email = user?.email?.toLowerCase().trim();
+              if (email && localStorage.getItem('onboarding_completed_' + email)) {
+                return;
+              }
+            }
+            setOnboardingOpen(true);
+          } catch {
+            // non-fatal
+          }
+        }}
         title="Sign In with Google"
         subtitle="Sign in to create, save, and manage your website AI chatbots."
       />

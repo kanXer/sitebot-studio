@@ -156,8 +156,18 @@ function DashboardContent() {
         const data = await res.json();
         setProfile(data.profile);
         if (data.profile && data.profile.profileCompleted === false) {
-          if (typeof window !== 'undefined' && !sessionStorage.getItem('onboarding_dismissed')) {
+          const userEmailKey = (user?.email || '').toLowerCase().trim();
+          const localDone = typeof window !== 'undefined' && (
+            localStorage.getItem('onboarding_completed_' + userEmailKey) ||
+            localStorage.getItem('onboarding_completed') ||
+            sessionStorage.getItem('onboarding_dismissed')
+          );
+          if (!localDone) {
             setOnboardingOpen(true);
+          }
+        } else if (data.profile && data.profile.profileCompleted === true) {
+          if (typeof window !== 'undefined' && user?.email) {
+            localStorage.setItem('onboarding_completed_' + user.email.toLowerCase().trim(), 'true');
           }
         }
         setDraft({
@@ -391,7 +401,17 @@ function DashboardContent() {
           <AuthModal
             isOpen={authModalOpen}
             onClose={() => setAuthModalOpen(false)}
-            onLoginSuccess={() => setOnboardingOpen(true)}
+            onLoginSuccess={() => {
+              const userEmailKey = (user?.email || '').toLowerCase().trim();
+              const localDone = typeof window !== 'undefined' && (
+                localStorage.getItem('onboarding_completed_' + userEmailKey) ||
+                localStorage.getItem('onboarding_completed') ||
+                sessionStorage.getItem('onboarding_dismissed')
+              );
+              if (!localDone) {
+                setOnboardingOpen(true);
+              }
+            }}
           />
         </div>
         <Footer />

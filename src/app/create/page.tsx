@@ -223,9 +223,15 @@ function CreateBotContent() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.profile) {
-          const isDone = data.profile.profileCompleted !== false;
+          const userEmailKey = (user?.email || '').toLowerCase().trim();
+          const localDone = typeof window !== 'undefined' && (
+            localStorage.getItem('onboarding_completed_' + userEmailKey) ||
+            localStorage.getItem('onboarding_completed') ||
+            sessionStorage.getItem('onboarding_dismissed')
+          );
+          const isDone = data.profile.profileCompleted === true || Boolean(localDone) || (data.profile.profileCompleted !== false && Boolean(data.profile.name || data.profile.companyName));
           setProfileCompleted(isDone);
-          if (!isDone) {
+          if (!isDone && !localDone) {
             setOnboardingOpen(true);
           }
         }
@@ -273,7 +279,14 @@ function CreateBotContent() {
       return;
     }
 
-    if (profileCompleted === false) {
+    const userEmailKey = (user?.email || '').toLowerCase().trim();
+    const localDone = typeof window !== 'undefined' && (
+      localStorage.getItem('onboarding_completed_' + userEmailKey) ||
+      localStorage.getItem('onboarding_completed') ||
+      sessionStorage.getItem('onboarding_dismissed')
+    );
+
+    if (profileCompleted === false && !localDone) {
       setOnboardingOpen(true);
       setError('Please complete your profile & workspace setup before building a chatbot.');
       return;
@@ -1645,7 +1658,17 @@ PRIMARY INSTRUCTIONS:
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onLoginSuccess={() => setOnboardingOpen(true)}
+        onLoginSuccess={() => {
+          const userEmailKey = (user?.email || '').toLowerCase().trim();
+          const localDone = typeof window !== 'undefined' && (
+            localStorage.getItem('onboarding_completed_' + userEmailKey) ||
+            localStorage.getItem('onboarding_completed') ||
+            sessionStorage.getItem('onboarding_dismissed')
+          );
+          if (!localDone) {
+            setOnboardingOpen(true);
+          }
+        }}
         title="Sign In to Create Bot"
         subtitle="Sign in with your Google account to create and manage your website chatbots."
       />

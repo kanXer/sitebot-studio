@@ -159,6 +159,12 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
         throw new Error(d.error || 'Failed to save profile');
       }
 
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('onboarding_completed_' + email.toLowerCase(), 'true');
+        localStorage.setItem('onboarding_completed', 'true');
+        sessionStorage.setItem('onboarding_dismissed', 'true');
+      }
+
       if (onComplete) onComplete();
       onClose();
 
@@ -175,6 +181,18 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDismiss = () => {
+    if (typeof window !== 'undefined') {
+      const email = user?.email?.toLowerCase();
+      if (email) {
+        localStorage.setItem('onboarding_completed_' + email, 'true');
+      }
+      localStorage.setItem('onboarding_completed', 'true');
+      sessionStorage.setItem('onboarding_dismissed', 'true');
+    }
+    onClose();
   };
 
   return (
@@ -209,7 +227,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleDismiss}
             className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
             title="Close Setup"
           >

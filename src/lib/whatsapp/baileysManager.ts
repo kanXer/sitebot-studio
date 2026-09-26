@@ -51,6 +51,7 @@ interface GlobalBaileysContainer {
 declare global {
   var __baileysContainer: GlobalBaileysContainer | undefined;
   var __handoffEventEmitter: EventEmitter | undefined;
+  var __whatsappHeartbeat: NodeJS.Timeout | undefined;
 }
 
 export const handoffEventEmitter: EventEmitter =
@@ -1160,3 +1161,55 @@ export async function sendTicketAlertToAdmin(params: {
     return { ok: false, error: err?.message || 'Failed to alert admin' };
   }
 }
+
+/**
+ * Global Permanent 60-Second Background Heartbeat:
+ * Runs automatically every 60 seconds (1 minute).
+ * Checks if WhatsApp session credentials exist in MongoDB.
+ * If linked and socket is disconnected, automatically reconnects without any admin needing to open the page.
+ * If already connected, pings WhatsApp presence ('available') to keep the connection warm and healthy.
+ */
+export function startGlobalWhatsAppHeartbeat(): void {
+  if (global.__whatsappHeartbeat) return;
+
+  const runHeartbeat = async () => {
+    try {
+      const meta = await getSessionMeta(DEFAULT_SESSION_ID);
+      const isLinked = meta.status === 'connected' || Boolean(meta.phoneNumber);
+      const isSocketReady =
+        container.socket &&
+        container.status === 'connected' &&
+        (container.socket as any)?.ws?.readyState === 1;
+
+      if (isLinked) {
+        if (!isSocketReady) {
+          if (!container.isInitializing && !container.requiresReauth) {
+            console.log('[Baileys Heartbeat] WhatsApp session is disconnected. Auto-reconnecting in background...');
+            await initializeWhatsApp({ sessionId: DEFAULT_SESSION_ID, forceNew: false });
+          }
+        } else {
+          // Socket connected, ping presence to keep socket alive
+          try {
+            await container.socket?.sendPresenceUpdate('available');
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      // Quietly ignore network/heartbeat glitches
+    }
+  };
+
+  global.__whatsappHeartbeat = setInterval(runHeartbeat, 60000);
+  if (typeof (global.__whatsappHeartbeat as any)?.unref === 'function') {
+    (global.__whatsappHeartbeat as any).unref();
+  }
+
+  // Initial immediate check after short 2.5s bootstrap
+  setTimeout(() => {
+    runHeartbeat().catch(() => {});
+  }, 2500);
+}
+
+// Auto-start background heartbeat on module load
+startGlobalWhatsAppHeartbeat();
+
