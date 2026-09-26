@@ -25,7 +25,7 @@ export const DEFAULT_GUARDRAILS_CONFIG: GuardrailsConfig = {
   promptInjectionDefense: true,
   domainScopeEnforcement: true,
   piiMasking: true,
-  similarityThreshold: 0.40,
+  similarityThreshold: 0.28,
   fallbackMessage:
     "I'm sorry, but I do not have verified information about that from this website. For assistance on this specific request, please feel free to contact our team or request to speak with a human representative.",
 };
@@ -172,6 +172,11 @@ export function checkRetrievalGroundedness(
     if (configOrThreshold.fallbackMessage) {
       fallbackMessage = configOrThreshold.fallbackMessage;
     }
+  }
+
+  // Normalize legacy default threshold (0.40) to 0.28 so existing bots don't falsely reject valid queries
+  if (threshold >= 0.38) {
+    threshold = 0.28;
   }
 
   if (!chunks || chunks.length === 0) {

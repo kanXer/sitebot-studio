@@ -518,7 +518,7 @@ export async function ingestAndBuildBot(params: IngestAndBuildParams): Promise<I
       promptInjectionDefense: true,
       domainScopeEnforcement: true,
       piiMasking: true,
-      similarityThreshold: 0.40,
+      similarityThreshold: 0.28,
       fallbackMessage: `I do not have verified information about that from ${botConfig.company_name}'s website. Please contact our team directly at ${botConfig.support_email || 'our contact page'}!`,
     },
     handoff: {
@@ -544,7 +544,7 @@ export async function ingestAndBuildBot(params: IngestAndBuildParams): Promise<I
   }
 
   // Step 3: Semantic Chunking
-  const rawChunks = chunkText(scrapedContent, 700, 120);
+  const rawChunks = chunkText(scrapedContent, 950, 150);
 
   // Step 4: Batch Embeddings
   const textsToEmbed = rawChunks.map((c) => c.content);

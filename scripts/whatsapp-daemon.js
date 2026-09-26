@@ -227,6 +227,114 @@ function startKeepAlive(sock) {
   }, 15000);
 }
 
+let outboundDispatcherTimer = null;
+
+function formatPhoneToJid(phone) {
+  if (!phone) return '';
+  const clean = String(phone).replace(/[^0-9]/g, '');
+  if (!clean) return '';
+  return `${clean}@s.whatsapp.net`;
+}
+
+function startOutboundTicketDispatcher(sock, db) {
+  if (outboundDispatcherTimer) clearInterval(outboundDispatcherTimer);
+
+  const checkPendingTickets = async () => {
+    if (activeSocket !== sock) return;
+    try {
+      const ticketsCol = db.collection('chat_tickets');
+      const chatbotsCol = db.collection('chatbots');
+
+      // Find tickets waiting for admin that have not been dispatched
+      const pendingTickets = await ticketsCol
+        .find({
+          status: 'waiting_admin',
+          $or: [
+            { alertMessageId: { $exists: false } },
+            { alertMessageId: '' },
+            { alertMessageId: null },
+          ],
+        })
+        .limit(5)
+        .toArray();
+
+      for (const ticket of pendingTickets) {
+        let bot = null;
+        try {
+          if (ticket.botId) {
+            let queryId = ticket.botId;
+            if (typeof ticket.botId === 'string' && mongoose.Types.ObjectId.isValid(ticket.botId)) {
+              queryId = new mongoose.Types.ObjectId(ticket.botId);
+            }
+            bot = await chatbotsCol.findOne({
+              $or: [{ _id: queryId }, { slug: String(ticket.botId).toLowerCase() }],
+            });
+          }
+        } catch {}
+
+        const targetNumber =
+          bot?.handoff?.whatsappEnabled && bot?.handoff?.whatsappNumber
+            ? bot.handoff.whatsappNumber
+            : bot?.notifications?.whatsapp?.enabled && bot?.notifications?.whatsapp?.number
+            ? bot.notifications.whatsapp.number
+            : bot?.whatsapp || undefined;
+
+        const targetJids = [];
+        if (targetNumber && String(targetNumber).trim()) {
+          const jid = formatPhoneToJid(String(targetNumber).trim());
+          if (jid && !targetJids.includes(jid)) targetJids.push(jid);
+        }
+
+        const envAdminPhone = process.env.NOTIFY_WHATSAPP;
+        const adminTargetJid = envAdminPhone
+          ? formatPhoneToJid(envAdminPhone)
+          : jidNormalizedUser(sock.user?.id || '');
+
+        if (adminTargetJid && !targetJids.includes(adminTargetJid)) {
+          targetJids.push(adminTargetJid);
+        }
+
+        if (targetJids.length === 0) continue;
+
+        const formattedMessage =
+          `🔴 *New Support Request* [Ticket: #${ticket.ticketId}]\n` +
+          `*Bot:* ${ticket.botName || bot?.name || 'Rivafy Assistant'}\n` +
+          `*Visitor:* ${ticket.visitor?.name || 'Visitor'}` +
+          (ticket.visitor?.email ? ` (${ticket.visitor.email})` : '') +
+          (ticket.visitor?.phone ? ` [${ticket.visitor.phone}]` : '') +
+          `\n\n` +
+          `💬 *Visitor message:*\n"${ticket.lastUserMessage || 'Human assistance requested'}"\n\n` +
+          `━━━━━━━━━━━━━━━━━━━\n` +
+          `👉 *To Reply:* Swipe / Quote-Reply to this message, or type your reply directly!\n` +
+          `👉 *To Close:* Reply /close`;
+
+        let sentMsgId = '';
+        for (const jid of targetJids) {
+          try {
+            const sentMsg = await sock.sendMessage(jid, { text: formattedMessage });
+            if (sentMsg?.key?.id) sentMsgId = sentMsg.key.id;
+          } catch (sendErr) {
+            console.warn(`[Daemon] Error dispatching alert for Ticket #${ticket.ticketId} to ${jid}:`, sendErr?.message || sendErr);
+          }
+        }
+
+        if (sentMsgId) {
+          await ticketsCol.updateOne(
+            { _id: ticket._id },
+            { $set: { alertMessageId: sentMsgId, updatedAt: new Date() } }
+          );
+          console.log(`[Daemon] 🚀 Outbound alert dispatched for Ticket #${ticket.ticketId} to ${targetJids.join(', ')}`);
+        }
+      }
+    } catch {
+      // non-fatal
+    }
+  };
+
+  outboundDispatcherTimer = setInterval(checkPendingTickets, 2500);
+  checkPendingTickets().catch(() => {});
+}
+
 async function startDaemon() {
   try {
     console.log('[Daemon] Connecting to MongoDB Atlas...');
@@ -293,12 +401,14 @@ async function startDaemon() {
           });
 
           startKeepAlive(sock);
+          startOutboundTicketDispatcher(sock, db);
         }
 
         if (connection === 'close') {
           const statusCode = lastDisconnect?.error?.output?.statusCode;
           const loggedOut = statusCode === DisconnectReason.loggedOut;
           if (keepAliveTimer) clearInterval(keepAliveTimer);
+          if (outboundDispatcherTimer) clearInterval(outboundDispatcherTimer);
 
           console.log(`[Daemon] Connection closed. Reason code: ${statusCode}, loggedOut: ${loggedOut}`);
 
@@ -342,7 +452,7 @@ async function startDaemon() {
 
           console.log(`[Daemon] Received live reply for Ticket #${ticketId}: "${cleanText}"`);
           try {
-            const ticketsCol = db.collection('chattickets');
+            const ticketsCol = db.collection('chat_tickets');
             const conversationsCol = db.collection('conversations');
 
             const ticket = await ticketsCol.findOne({ ticketId });

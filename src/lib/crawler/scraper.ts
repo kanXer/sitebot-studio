@@ -85,6 +85,145 @@ export function normalizeUrl(rawUrl: string, baseUrl: string): string | null {
   }
 }
 
+// Helper to recursively extract person, founder, leadership, and organization schemas from JSON-LD
+function extractStructuredData(item: any, snippets: string[], seen = new Set<string>()): void {
+  if (!item || typeof item !== 'object') return;
+
+  if (Array.isArray(item)) {
+    for (const sub of item) extractStructuredData(sub, snippets, seen);
+    return;
+  }
+
+  // Handle @graph commonly used by WordPress / Yoast SEO / RankMath / Shopify
+  if (Array.isArray(item['@graph'])) {
+    for (const sub of item['@graph']) extractStructuredData(sub, snippets, seen);
+    return;
+  }
+
+  const type = Array.isArray(item['@type']) ? item['@type'].join(' ') : String(item['@type'] || '');
+
+  // 1. Person Schema (Founders, Executives, Authors, Team Members)
+  if (type.includes('Person')) {
+    const name = typeof item.name === 'string' ? item.name.trim() : '';
+    const jobTitle = typeof item.jobTitle === 'string' ? item.jobTitle.trim() : '';
+    const worksFor =
+      typeof item.worksFor === 'object' && item.worksFor?.name
+        ? item.worksFor.name
+        : typeof item.worksFor === 'string'
+        ? item.worksFor
+        : '';
+    const desc =
+      typeof item.description === 'string'
+        ? item.description.trim()
+        : typeof item.bio === 'string'
+        ? item.bio.trim()
+        : '';
+
+    if (name) {
+      const bioParts = [`Person / Team Member: ${name}`];
+      if (jobTitle) bioParts.push(`Role / Title: ${jobTitle}`);
+      if (worksFor) bioParts.push(`Organization: ${worksFor}`);
+      if (desc) bioParts.push(`Bio: ${desc}`);
+      const line = bioParts.join(' | ');
+      if (!seen.has(line)) {
+        seen.add(line);
+        snippets.push(line);
+      }
+    }
+  }
+
+  // 2. Organization / Corporation / LocalBusiness / Company
+  if (
+    type.includes('Organization') ||
+    type.includes('Corporation') ||
+    type.includes('LocalBusiness') ||
+    type.includes('MedicalBusiness') ||
+    type.includes('Company')
+  ) {
+    const orgName = typeof item.name === 'string' ? item.name.trim() : '';
+    const desc = typeof item.description === 'string' ? item.description.trim() : '';
+
+    // Extract founders
+    const founders = item.founder || item.founders || item.foundingLocation;
+    if (founders) {
+      const founderList = Array.isArray(founders) ? founders : [founders];
+      for (const f of founderList) {
+        if (typeof f === 'string' && f.trim()) {
+          const line = `Founder of ${orgName || 'company'}: ${f.trim()}`;
+          if (!seen.has(line)) {
+            seen.add(line);
+            snippets.push(line);
+          }
+        } else if (f && typeof f === 'object') {
+          const fName = typeof f.name === 'string' ? f.name.trim() : '';
+          const fRole = typeof f.jobTitle === 'string' ? f.jobTitle.trim() : 'Founder';
+          const fDesc = typeof f.description === 'string' ? f.description.trim() : '';
+          if (fName) {
+            const line = `Founder of ${orgName || 'company'}: ${fName}${fRole ? ` (${fRole})` : ''}${fDesc ? ` - ${fDesc}` : ''}`;
+            if (!seen.has(line)) {
+              seen.add(line);
+              snippets.push(line);
+            }
+          }
+        }
+      }
+    }
+
+    // Extract employees / members / leadership
+    const members = item.employee || item.employees || item.member || item.members || item.alumni;
+    if (members) {
+      const memberList = Array.isArray(members) ? members : [members];
+      for (const m of memberList) {
+        if (typeof m === 'string' && m.trim()) {
+          const line = `Team member at ${orgName || 'company'}: ${m.trim()}`;
+          if (!seen.has(line)) {
+            seen.add(line);
+            snippets.push(line);
+          }
+        } else if (m && typeof m === 'object' && m.name) {
+          const mName = typeof m.name === 'string' ? m.name.trim() : '';
+          const mTitle = typeof m.jobTitle === 'string' ? m.jobTitle.trim() : '';
+          if (mName) {
+            const line = `Team member at ${orgName || 'company'}: ${mName}${mTitle ? ` (${mTitle})` : ''}`;
+            if (!seen.has(line)) {
+              seen.add(line);
+              snippets.push(line);
+            }
+          }
+        }
+      }
+    }
+
+    if (desc && desc.length > 20) {
+      const line = `About ${orgName || 'Company'}: ${desc}`;
+      if (!seen.has(line)) {
+        seen.add(line);
+        snippets.push(line);
+      }
+    }
+  }
+
+  // 3. FAQPage schema
+  if (type.includes('FAQPage') && Array.isArray(item.mainEntity)) {
+    for (const q of item.mainEntity) {
+      if (q?.name && q?.acceptedAnswer?.text) {
+        const line = `Q: ${String(q.name).trim()}\nA: ${String(q.acceptedAnswer.text).trim()}`;
+        if (!seen.has(line)) {
+          seen.add(line);
+          snippets.push(line);
+        }
+      }
+    }
+  }
+
+  // Recurse on nested objects
+  for (const key of ['about', 'author', 'publisher', 'department', 'subOrganization']) {
+    if (item[key] && typeof item[key] === 'object') {
+      extractStructuredData(item[key], snippets, seen);
+    }
+  }
+}
+
 export function cleanHtmlToText(html: string): { title: string; text: string } {
   const $ = cheerio.load(html);
 
@@ -97,27 +236,24 @@ export function cleanHtmlToText(html: string): { title: string; text: string } {
     title = $('h1').first().text().trim() || 'Untitled Page';
   }
 
-  // Extract structured JSON-LD data (crucial for modern SSR, Next.js, and schema FAQs)
+  // Extract meta description or og:description
+  const metaDescription =
+    $('meta[name="description"]').attr('content')?.trim() ||
+    $('meta[property="og:description"]').attr('content')?.trim() ||
+    '';
+
+  // Extract structured JSON-LD data (Person, Founder, Organization, FAQ, etc.)
   const structuredSnippets: string[] = [];
+  const seenSnippets = new Set<string>();
+  if (metaDescription && metaDescription.length > 30) {
+    structuredSnippets.push(`Page Summary: ${metaDescription}`);
+    seenSnippets.add(metaDescription);
+  }
+
   $('script[type="application/ld+json"]').each((_, el) => {
     try {
       const parsed = JSON.parse($(el).text());
-      const items = Array.isArray(parsed) ? parsed : [parsed];
-      for (const item of items) {
-        if (!item) continue;
-        // FAQ Page schemas
-        if (item['@type'] === 'FAQPage' && Array.isArray(item.mainEntity)) {
-          for (const q of item.mainEntity) {
-            if (q?.name && q?.acceptedAnswer?.text) {
-              structuredSnippets.push(`Q: ${q.name}\nA: ${q.acceptedAnswer.text}`);
-            }
-          }
-        }
-        // Organization / LocalBusiness / Service description
-        if (item.description && typeof item.description === 'string' && item.description.length > 30) {
-          structuredSnippets.push(item.description);
-        }
-      }
+      extractStructuredData(parsed, structuredSnippets, seenSnippets);
     } catch {
       // Ignore malformed JSON-LD
     }
@@ -127,25 +263,22 @@ export function cleanHtmlToText(html: string): { title: string; text: string } {
   $(
     'script, style, noscript, svg, iframe, form, button, ' +
     'input, textarea, select, .cookie-banner, .popup, .modal, [role="dialog"], ' +
-    '[aria-hidden="true"], link, meta'
+    'link, meta'
   ).remove();
 
-  // Target main content container if rich, else fallback to full body for streaming SSR / React 18+
-  let contentEl = $('main');
-  if (contentEl.length === 0 || contentEl.text().replace(/\s+/g, ' ').trim().length < 150) {
-    contentEl = $('article');
-  }
-  if (contentEl.length === 0 || contentEl.text().replace(/\s+/g, ' ').trim().length < 150) {
-    contentEl = $('#content, .content, #main, .main');
-  }
-  if (contentEl.length === 0 || contentEl.text().replace(/\s+/g, ' ').trim().length < 150) {
-    contentEl = $('body');
+  // Extract text from the full body container to ensure we never drop
+  // sections, team bios, founder profiles, or about cards located outside <main>
+  let contentEl = $('body');
+  if (contentEl.length === 0) {
+    contentEl = $.root();
   }
 
   // Replace block elements with newline to preserve sentence boundaries
-  contentEl.find('p, h1, h2, h3, h4, h5, h6, li, tr, div, section, article').each((_, el) => {
-    $(el).append('\n');
-  });
+  contentEl
+    .find('p, h1, h2, h3, h4, h5, h6, li, tr, td, th, div, section, article, header, footer, aside, blockquote, dt, dd')
+    .each((_, el) => {
+      $(el).append('\n');
+    });
 
   let rawText = contentEl.text();
 
@@ -166,6 +299,23 @@ export function cleanHtmlToText(html: string): { title: string; text: string } {
   return { title, text };
 }
 
+function getCrawlPriority(url: string): number {
+  const lower = url.toLowerCase();
+  // Critical pages: About, Founder, Team, Leadership, Story, Mission, Company, Bio, Profile
+  if (/(about|team|founder|leader|exec|people|management|our-story|company|who-we-are|board|history|author|bio|profile)/i.test(lower)) {
+    return 100;
+  }
+  // Core pages: Services, Products, Solutions, Pricing, FAQ, Contact
+  if (/(service|product|solution|pricing|plan|faq|contact|feature)/i.test(lower)) {
+    return 80;
+  }
+  // Low priority: Noise, tags, categories, archives, policies, feeds, auth
+  if (/(tag\/|category\/|archive\/|page\/\d+|privacy|terms|cookie|refund|disclaimer|copyright|login|signin|signup|cart|checkout)/i.test(lower)) {
+    return 10;
+  }
+  return 50;
+}
+
 export async function crawlWebsite(
   startUrl: string,
   maxPages = 15,
@@ -182,7 +332,48 @@ export async function crawlWebsite(
   }
 
   const visited = new Set<string>();
-  const queue: Array<{ url: string; depth: number }> = [{ url: normalizedStart, depth: 0 }];
+  const queue: Array<{ url: string; depth: number; priority: number }> = [
+    { url: normalizedStart, depth: 0, priority: 1000 },
+  ];
+
+  // Best-effort sitemap.xml discovery to uncover key pages (e.g. /about, /team) that client-side hydration might hide
+  try {
+    const origin = new URL(normalizedStart).origin;
+    const sitemapUrl = `${origin}/sitemap.xml`;
+    const sitemapCtrl = new AbortController();
+    const sitemapTimeout = setTimeout(() => sitemapCtrl.abort(), 4000);
+    const sitemapRes = await fetch(sitemapUrl, {
+      signal: sitemapCtrl.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        Accept: 'application/xml,text/xml,application/xhtml+xml,*/*',
+      },
+    });
+    clearTimeout(sitemapTimeout);
+
+    if (sitemapRes.ok) {
+      const sitemapXml = await sitemapRes.text();
+      const locMatches = sitemapXml.match(/<loc>\s*(https?:\/\/[^\s<]+)\s*<\/loc>/gi);
+      if (locMatches) {
+        for (const m of locMatches) {
+          const rawLoc = m.replace(/<\/?loc>/gi, '').trim();
+          const norm = normalizeUrl(rawLoc, normalizedStart);
+          if (norm && norm !== normalizedStart && !visited.has(norm)) {
+            const priority = getCrawlPriority(norm);
+            if (!queue.some((q) => q.url === norm)) {
+              queue.push({ url: norm, depth: 1, priority });
+            }
+          }
+        }
+        // Prioritize URLs in queue
+        queue.sort((a, b) => b.priority - a.priority || a.depth - b.depth);
+      }
+    }
+  } catch {
+    // Sitemap discovery is best-effort
+  }
+
   const results: ScrapedPage[] = [];
 
   while (queue.length > 0 && results.length < maxPages) {
@@ -245,10 +436,14 @@ export async function crawlWebsite(
         });
 
         for (const link of links) {
-          if (!visited.has(link) && queue.length + results.length < maxPages * 2) {
-            queue.push({ url: link, depth: depth + 1 });
+          if (!visited.has(link) && !queue.some((q) => q.url === link)) {
+            const priority = getCrawlPriority(link);
+            queue.push({ url: link, depth: depth + 1, priority });
           }
         }
+
+        // Keep queue prioritized
+        queue.sort((a, b) => b.priority - a.priority || a.depth - b.depth);
       }
     } catch {
       // Gracefully continue crawling other pages if one page times out or fails

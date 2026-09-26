@@ -127,7 +127,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const resolvedUrl =
       sourceUrl?.trim() || `${bot.siteUrl}/manual-faq#${Date.now()}`;
 
-    const chunks = chunkText(content.trim(), 700, 100);
+    const chunks = chunkText(content.trim(), 950, 150);
     const createdChunks = [];
     const qdrantChunksToUpsert = [];
     const botIdStr = (bot._id || bot.id).toString();

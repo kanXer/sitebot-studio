@@ -138,7 +138,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           promptInjectionDefense: true,
           domainScopeEnforcement: true,
           piiMasking: true,
-          similarityThreshold: 0.40,
+          similarityThreshold: 0.28,
           fallbackMessage:
             "I'm sorry, but I do not have verified information about that from this website. For assistance on this specific request, please feel free to contact our team or request to speak with a human representative.",
         },
@@ -490,7 +490,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           promptInjectionDefense: true,
           domainScopeEnforcement: true,
           piiMasking: true,
-          similarityThreshold: 0.40,
+          similarityThreshold: 0.28,
           fallbackMessage:
             "I'm sorry, but I do not have verified information about that from this website. For assistance on this specific request, please feel free to contact our team or request to speak with a human representative.",
         },

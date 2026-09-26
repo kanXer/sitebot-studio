@@ -6,13 +6,13 @@ export interface Chunk {
 }
 
 /**
- * Splits text into ~700 character chunks with ~100 character overlap,
+ * Splits text into ~950 character chunks with ~150 character overlap,
  * breaking on sentence or paragraph boundaries.
  */
 export function chunkText(
   text: string,
-  targetChunkSize = 700,
-  overlap = 100
+  targetChunkSize = 950,
+  overlap = 150
 ): Chunk[] {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (!clean) return [];

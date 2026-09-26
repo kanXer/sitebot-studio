@@ -210,7 +210,7 @@ const ChatbotSchema: Schema = new Schema(
       promptInjectionDefense: { type: Boolean, default: true },
       domainScopeEnforcement: { type: Boolean, default: true },
       piiMasking: { type: Boolean, default: true },
-      similarityThreshold: { type: Number, default: 0.40 },
+      similarityThreshold: { type: Number, default: 0.28 },
       fallbackMessage: {
         type: String,
         default:

@@ -354,7 +354,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ? (bot as any).handoff.whatsappNumber
         : (bot as any)?.notifications?.whatsapp?.enabled && (bot as any)?.notifications?.whatsapp?.number
         ? (bot as any).notifications.whatsapp.number
-        : undefined;
+        : (bot as any)?.whatsapp || undefined;
 
     // Trigger the WhatsApp alert to the agent/admin via Baileys.
     //

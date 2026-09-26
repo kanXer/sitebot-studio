@@ -10,6 +10,7 @@ import mongoose from 'mongoose';
 import { createHash } from 'crypto';
 import { connectToDatabase, isUsingMemoryDb } from '@/lib/db';
 import { Chatbot, BotForm, FormSubmission } from '@/lib/models';
+import { ChatTicket } from '@/lib/models/ChatTicket';
 import { MemoryDb } from '@/lib/memoryDb';
 import { generateEmbedding } from '@/lib/ai/embeddings';
 import { searchSimilarChunks } from '@/lib/ai/vectorSearch';
@@ -100,6 +101,82 @@ function streamImmediateText(
   });
 }
 
+async function relayUserMessageToTicket(params: {
+  bot: any;
+  sessionId: string;
+  message: string;
+}) {
+  if (isUsingMemoryDb()) return;
+  try {
+    const { bot, sessionId, message } = params;
+    const resolvedBotId = (bot._id || bot.id).toString();
+
+    let ticket = await ChatTicket.findOne({
+      sessionId,
+      status: { $in: ['open', 'waiting_admin', 'admin_replied'] },
+    });
+
+    let ticketId = '';
+    if (!ticket) {
+      const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      ticketId = `TICK-${randSuffix}`;
+      ticket = await ChatTicket.create({
+        ticketId,
+        botId: resolvedBotId,
+        botName: bot.name || 'Rivafy Assistant',
+        sessionId,
+        visitor: {
+          name: 'Visitor',
+          email: '',
+          phone: '',
+        },
+        status: 'waiting_admin',
+        lastUserMessage: message.trim(),
+        messages: [
+          {
+            id: (await import('crypto')).randomUUID(),
+            role: 'user',
+            senderName: 'Visitor',
+            content: message.trim(),
+            timestamp: new Date(),
+          },
+        ],
+      });
+    } else {
+      ticketId = ticket.ticketId;
+      ticket.lastUserMessage = message.trim();
+      ticket.status = 'waiting_admin';
+      ticket.messages.push({
+        id: (await import('crypto')).randomUUID(),
+        role: 'user',
+        senderName: 'Visitor',
+        content: message.trim(),
+        timestamp: new Date(),
+      });
+      await ticket.save();
+    }
+
+    const targetNumber =
+      bot?.handoff?.whatsappEnabled && bot?.handoff?.whatsappNumber
+        ? bot.handoff.whatsappNumber
+        : bot?.notifications?.whatsapp?.enabled && bot?.notifications?.whatsapp?.number
+        ? bot.notifications.whatsapp.number
+        : bot?.whatsapp || undefined;
+
+    const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
+    sendTicketAlertToAdmin({
+      ticketId,
+      botName: bot.name || 'Rivafy Assistant',
+      visitorName: 'Visitor',
+      userMessage: message.trim(),
+      targetNumber,
+    }).catch((err) => {
+      console.warn('[Handoff Relay] WhatsApp alert dispatch failed:', err);
+    });
+  } catch (err) {
+    console.warn('[Handoff Relay] Error syncing ticket:', err);
+  }
+}
 
 // ============================================================================
 // OPTIONS (CORS preflight)
@@ -326,6 +403,7 @@ export async function POST(req: NextRequest) {
       (conversation.status === 'waiting_agent' || conversation.status === 'agent_active')
     ) {
       await appendConversationMessage(resolvedBotId, sessionId, { role: 'user', content: message });
+      relayUserMessageToTicket({ bot, sessionId, message }).catch(() => {});
 
       // Silent relay: Do not repeat bot disclaimers once connected with a human agent.
       if (stream) {
@@ -350,6 +428,10 @@ export async function POST(req: NextRequest) {
     if (handoffIntent.shouldHandoff && bot.handoff?.enabled !== false) {
       await escalateToLiveAgent(resolvedBotId, sessionId, handoffIntent.reason || 'visitor_request');
       await appendConversationMessage(resolvedBotId, sessionId, { role: 'user', content: message });
+
+      relayUserMessageToTicket({ bot, sessionId, message }).catch((err) => {
+        console.warn('[Handoff Check 2] Ticket relay error:', err);
+      });
 
       const escalationMessage = "I'm connecting you to a live human representative. An agent will be with you shortly to assist you directly!";
       const taggedEscalation = `${escalationMessage} [[HANDOFF: ${handoffIntent.reason || 'visitor_request'}]]`;
@@ -410,13 +492,14 @@ export async function POST(req: NextRequest) {
     const candidateChunks = await searchSimilarChunks(
       resolvedBotId,
       queryEmbedding,
-      5,
-      bot.customVectorDb?.enabled ? bot.customVectorDb : undefined
+      8,
+      bot.customVectorDb?.enabled ? bot.customVectorDb : undefined,
+      message
     );
 
     const groundedness = checkRetrievalGroundedness(
       candidateChunks,
-      bot.guardrails?.similarityThreshold ?? 0.40,
+      bot.guardrails?.similarityThreshold ?? 0.28,
       bot.guardrails?.fallbackMessage
     );
 

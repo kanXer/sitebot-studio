@@ -524,7 +524,10 @@ async function runInitializeWhatsApp(options?: {
   container.isInitializing = true;
   container.initStartedAt = Date.now();
   container.status = 'connecting';
-  await saveSessionMeta(sessionId, { status: 'connecting' });
+  const existingMeta = await getSessionMeta(sessionId);
+  if (options?.forceNew || existingMeta.status !== 'connected') {
+    await saveSessionMeta(sessionId, { status: 'connecting' });
+  }
 
   try {
     const { state, saveCreds } = await getMongoAuthState(sessionId);
@@ -960,7 +963,7 @@ export function startPairingStream(options?: {
  */
 export async function ensureConnectedWhatsApp(
   sessionId = DEFAULT_SESSION_ID,
-  timeoutMs = 15000
+  timeoutMs = 35000
 ): Promise<WASocket> {
   // If socket is already connected and open:
   if (
@@ -1057,7 +1060,7 @@ export async function sendWhatsAppMessage(
       return { ok: false, error: 'Invalid recipient phone number' };
     }
 
-    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 15000);
+    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 35000);
     await sock.sendMessage(jid, { text });
     return { ok: true };
   } catch (err: any) {
@@ -1079,7 +1082,7 @@ export async function sendTicketAlertToAdmin(params: {
   targetNumber?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 15000);
+    const sock = await ensureConnectedWhatsApp(DEFAULT_SESSION_ID, 35000);
 
     const {
       ticketId,

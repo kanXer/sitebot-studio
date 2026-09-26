@@ -228,7 +228,7 @@ async function runCrawl(
           pageDocId = p._id.toString();
         }
 
-        const chunks = chunkText(page.text, 700, 100);
+        const chunks = chunkText(page.text, 950, 150);
 
         if (chunks.length === 0) {
           if (isUsingMemoryDb()) {

@@ -167,7 +167,7 @@ async function relayUserMessageToTicket(params: {
         ? bot.handoff.whatsappNumber
         : bot?.notifications?.whatsapp?.enabled && bot?.notifications?.whatsapp?.number
         ? bot.notifications.whatsapp.number
-        : undefined;
+        : bot?.whatsapp || undefined;
 
     const { sendTicketAlertToAdmin } = await import('@/lib/whatsapp/baileysManager');
     sendTicketAlertToAdmin({
@@ -619,9 +619,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // 2. Query Qdrant (using custom database if configured)
+    // 2. Query Qdrant & Vector DB (with hybrid keyword retrieval)
     const qdrantConfig = bot.customVectorDb?.enabled ? bot.customVectorDb : undefined;
-    const topChunks = await searchSimilarChunks(bot._id, queryEmbedding, 4, qdrantConfig);
+    const topChunks = await searchSimilarChunks(bot._id, queryEmbedding, 8, qdrantConfig, message);
 
     // =========================================================================
     // GUARDRAIL 3: RETRIEVAL GROUNDEDNESS & SIMILARITY THRESHOLD

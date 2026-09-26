@@ -2487,6 +2487,7 @@
             sessionId: getSessionId(),
             reason: 'visitor_request',
             visitorName: 'Visitor',
+            message: messageHistory.filter((m) => m.role === 'user').slice(-1)[0]?.content || 'Visitor requested live agent',
           }),
         });
       } catch (e) {
